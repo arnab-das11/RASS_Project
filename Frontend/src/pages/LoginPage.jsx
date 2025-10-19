@@ -16,52 +16,19 @@ const AuthPage = () => {
 
         <form className="flex flex-col gap-4">
           {!isLogin && (
-            <input
-              type="text"
-              placeholder="Full Name"
-              className="border rounded px-3 py-2 focus:outline-none"
-            />
-          )}
-          <input
-            type="email"
-            placeholder="Email"
-            className="border rounded px-3 py-2 focus:outline-none"
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            className="border rounded px-3 py-2 focus:outline-none"
-          />
-          <button
-            type="submit"
-            className="bg-blue-500 text-white py-2 rounded-full hover:bg-blue-700 transition-colors"
-          >
+            <input type="text" placeholder="Full Name"  className="border rounded px-3 py-2 focus:outline-none"/>)}
+          <input type="email" placeholder="Email" className="border rounded px-3 py-2 focus:outline-none"/>
+          <input type="password" placeholder="Password" className="border rounded px-3 py-2 focus:outline-none"/>
+          <button type="submit" className="bg-blue-500 text-white py-2 rounded-full hover:bg-blue-700 transition-colors">
             {isLogin ? "Login" : "Sign Up"}
           </button>
         </form>
 
         <p className="mt-4 text-sm text-center text-gray-600">
-          {isLogin ? (
-            <>
-              Don’t have an account?{" "}
-              <span
-                className="text-blue-600 hover:underline cursor-pointer"
-                onClick={toggleMode}
-              >
-                Sign Up
-              </span>
-            </>
-          ) : (
-            <>
-              Already have an account?{" "}
-              <span
-                className="text-blue-600 hover:underline cursor-pointer"
-                onClick={toggleMode}
-              >
-                Login
-              </span>
-            </>
-          )}
+          {isLogin ? ( <> Don’t have an account?{" "}
+              <span className="text-blue-600 hover:underline cursor-pointer" onClick={toggleMode}> Sign Up </span> </>
+          ) : ( <> Already have an account?{" "}
+              <span className="text-blue-600 hover:underline cursor-pointer" onClick={toggleMode} > Login </span> </> )}
         </p>
       </div>
     </div>
