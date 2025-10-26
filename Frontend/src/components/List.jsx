@@ -3,20 +3,26 @@ import React from "react";
 const List = () => {
   const cards = [
     {
-      title: "Online Courses",
+      title: "Java Course",
       desc: "Learn new skills at your own pace with expert instructors.",
+      img: "/Home_Card/java.jpg"
+      
     },
     {
-      title: "E-Books & Resources",
+      title: "Web Developement using MERN",
       desc: "Access a wide range of study materials and guides.",
+      img: "/Home_Card/mern.webp",
     },
     {
-      title: "Workshops & Webinars",
+      title: "Complete DSA in C++",
       desc: "Interactive sessions with industry experts and mentors.",
+      img: "/Home_Card/dsa.png"
     },
     {
-      title: "Career Guidance",
+      title: "Machine Learning",
       desc: "Get personalized advice to boost your career journey.",
+      img: "/Home_Card/ml.png"
+
     },
   ];
 
@@ -29,12 +35,12 @@ const List = () => {
         {cards.map((card, index) => (
           <div key={index}
             className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition" >
-            <img alt={card.title} className="w-full h-40 object-cover" />
+            <img src={card.img} alt={card.title} className="w-full h-40 object-cover" />
             <div className="p-4">
               <h2 className="text-lg font-semibold mb-2"> {card.title} </h2>
               <p className="text-sm text-gray-600"> {card.desc} </p>
               <button className="mt-4 w-full bg-blue-600 text-white py-2 rounded-full hover:scale-102 transition">
-                Learn More
+                Continue
               </button>
             </div>
           </div>
