@@ -1,45 +1,49 @@
 import React from "react";
 
 const List = () => {
-  const cards = [
+    const cards = [
     {
       title: "Java Course",
-      desc: "Learn new skills at your own pace with expert instructors.",
-      img: "/Home_Card/java.jpg"
-      
+      desc: "Master Java programming from basics to advanced concepts, including OOPs, collections, and real-world projects.",
+      img: "/Home_Card/java.jpg",
     },
     {
-      title: "Web Developement using MERN",
-      desc: "Access a wide range of study materials and guides.",
+      title: "Web Development using MERN",
+      desc: "Build full-stack web applications using MongoDB, Express, React, and Node.js with hands-on practical projects.",
       img: "/Home_Card/mern.webp",
     },
     {
       title: "Complete DSA in C++",
-      desc: "Interactive sessions with industry experts and mentors.",
-      img: "/Home_Card/dsa.png"
+      desc: "Strengthen your problem-solving skills by learning Data Structures and Algorithms with in-depth C++ implementation.",
+      img: "/Home_Card/dsa.png",
     },
     {
       title: "Machine Learning",
-      desc: "Get personalized advice to boost your career journey.",
-      img: "/Home_Card/ml.png"
-
+      desc: "Explore the world of AI by building predictive models, understanding algorithms, and applying Python-based ML techniques.",
+      img: "/Home_Card/ml.png",
     },
   ];
 
-  return (
-    <div className="min-h-screen bg-gray-200 py-10 px-6">
-      <h1 className="text-3xl font-bold text-center mb-10">
+    return (
+    <div className="bg-gray-100 py-16 px-6 md:px-12 lg:px-20">
+      <h1 className="text-3xl md:text-4xl font-bold text-center mb-12 text-gray-800">
         Explore Education Resources
       </h1>
-      <div className="pl-4 pr-4 grid gap-12 sm:grid-cols-2 lg:grid-cols-4">
+
+      <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {cards.map((card, index) => (
           <div key={index}
-            className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition" >
-            <img src={card.img} alt={card.title} className="w-full h-40 object-cover" />
-            <div className="p-4">
-              <h2 className="text-lg font-semibold mb-2"> {card.title} </h2>
-              <p className="text-sm text-gray-600"> {card.desc} </p>
-              <button className="mt-4 w-full bg-blue-600 text-white py-2 rounded-full hover:scale-102 transition">
+            className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-2 flex flex-col">
+            <img src={card.img} alt={card.title}
+              className="w-full h-48 sm:h-52 md:h-56 object-cover object-center rounded-t-2xl"/>
+            <div className="p-5 flex flex-col flex-grow">
+              <h2 className="text-xl font-semibold mb-2 text-gray-800 text-center">
+                {card.title}
+              </h2>
+              <p className="text-sm text-gray-600 text-center flex-grow">
+                {card.desc}
+              </p>
+              <button className="mt-4 w-full bg-blue-600 text-white py-2 rounded-full hover:bg-blue-700 hover:scale-105 transition-transform duration-200">
                 Continue
               </button>
             </div>
