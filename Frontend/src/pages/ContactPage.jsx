@@ -1,40 +1,50 @@
-
-import { Mail, Phone, MapPin } from "lucide-react";
+import { Mail, Phone, MapPin, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const ContactPage = () => {
+  const navigate = useNavigate();
+
   return (
-    <div className="bg-gray-100 min-h-screen py-16 px-6 md:px-20">
+    <div className="bg-gray-100 min-h-screen py-16 px-6 md:px-20 relative">
+      
+      <button
+        onClick={() => navigate("/")}
+        className="absolute top-6 left-6 p-2 rounded-full bg-white shadow hover:bg-gray-200 transition"
+      >
+        <ArrowLeft size={22} />
+      </button>
+
       
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold text-gray-800 mb-3">Contact Us</h1>
         <p className="text-gray-600 max-w-2xl mx-auto">
-          Have questions, feedback, or need assistance?  
-          We'd love to hear from you. Our team is here to help you make the most out of your learning experience.
+          Have questions, feedback, or need assistance? <br />
+          We'd love to hear from you. Our team is here to help you make the most
+          out of your learning experience.
         </p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-10 max-w-5xl mx-auto">
-  
+        
         <div className="bg-white shadow-md rounded-2xl p-8">
-          <h2 className="text-2xl font-semibold mb-6 text-gray-800">Send a Message</h2>
+          <h2 className="text-2xl font-semibold mb-6 text-gray-800">
+            Send a Message
+          </h2>
           <form className="flex flex-col gap-4">
             <input
               type="text"
               placeholder="Full Name"
               required
               className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"/>
-
             <input
               type="email"
               placeholder="Email Address"
               required
               className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"/>
-
             <input
               type="text"
               placeholder="Subject"
               className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"/>
-
             <textarea
               placeholder="Your Message"
               rows="5"
@@ -51,7 +61,10 @@ const ContactPage = () => {
 
         <div className="flex flex-col justify-between bg-white shadow-md rounded-2xl p-8">
           <div>
-            <h2 className="text-2xl font-semibold mb-6 text-gray-800">Get in Touch</h2>
+            <h2 className="text-2xl font-semibold mb-6 text-gray-800">
+              Get in Touch
+            </h2>
+
             <div className="flex items-start gap-3 mb-4">
               <Mail className="text-blue-600 mt-1" />
               <div>
@@ -59,6 +72,7 @@ const ContactPage = () => {
                 <p className="text-gray-600">support@learnx.com</p>
               </div>
             </div>
+
             <div className="flex items-start gap-3 mb-4">
               <Phone className="text-blue-600 mt-1" />
               <div>
@@ -66,6 +80,7 @@ const ContactPage = () => {
                 <p className="text-gray-600">+91 1234567890</p>
               </div>
             </div>
+
             <div className="flex items-start gap-3">
               <MapPin className="text-blue-600 mt-1" />
               <div>
@@ -77,6 +92,7 @@ const ContactPage = () => {
               </div>
             </div>
           </div>
+
 
           <div className="mt-8">
             <iframe
