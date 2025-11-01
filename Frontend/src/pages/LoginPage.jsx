@@ -10,7 +10,7 @@ const LoginPage = () => {
       
       <button
         onClick={() => navigate("/")}
-        className="absolute top-6 left-6 p-2 rounded-full bg-white shadow hover:bg-gray-200 transition">
+        className="absolute top-6 left-6 p-2 rounded-full bg-white shadow hover:bg-blue-200 transition">
         <ArrowLeft size={22} />
       </button>
 
