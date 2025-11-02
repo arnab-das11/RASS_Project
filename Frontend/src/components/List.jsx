@@ -50,7 +50,7 @@ const List = () => {
               <p className="text-sm text-gray-600 text-center flex-grow">
                 {card.desc}
               </p>
-              <button className="mt-4 w-full bg-blue-600 text-white py-2 rounded-full hover:bg-blue-700 hover:scale-105 transition-transform duration-200">
+              <button className="mt-4 w-full bg-blue-600 text-white py-2 rounded-full hover:bg-green-500 hover:scale-103 transition-transform duration-200">
                 Continue
               </button>
             </div>

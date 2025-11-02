@@ -254,7 +254,7 @@ const CoursePage = () => {
                     </div>
                   </div>
 
-                  <button className="mt-6 w-full bg-blue-500 text-white py-2 rounded-full hover:bg-green-700 hover:scale-[1.03] transition-transform duration-200">
+                  <button className="mt-6 w-full bg-blue-500 text-white py-2 rounded-full hover:bg-green-500 hover:scale-[1.03] transition-transform duration-200">
                     View Details
                   </button>
                 </div>

@@ -6,6 +6,8 @@ import LearnerSignUp from './pages/learners/LearnerSignUp';
 import ContactPage from './pages/ContactPage';
 import CoursePage from './pages/CoursePage';
 import FeaturesPage from './pages/FeaturesPage';
+import AdminDashboard from './components/admin/AdminDashboard';
+import AdminSignUp from './components/admin/AdminSignUp';
 
 const App = () => {
   return (
@@ -13,6 +15,8 @@ const App = () => {
       <Routes>
         <Route path='/' element={<HomePage/>} />
         <Route path='/login' element={<LoginPage/>} />
+        <Route path="/admin-dashboard" element={<AdminDashboard />} />
+        <Route path="/admin-signup" element={<AdminSignUp />} />
         <Route path='/instructor-signup' element={<InstructorSignUp/>} />
         <Route path='/learner-signup' element={<LearnerSignUp/>} />
         <Route path="/contact" element={<ContactPage />} />
