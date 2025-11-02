@@ -60,7 +60,10 @@ const List = () => {
 
       <div className="text-center mt-12">
         <button
-          onClick={() => navigate("/courses")}
+          onClick={() => {
+            navigate("/courses");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
           className="bg-blue-600 text-white px-8 py-3 rounded-full text-md font-medium hover:bg-green-400 hover:text-black hover:scale-103 transition-transform duration-200 shadow-md">
           See All Courses →
         </button>

@@ -175,11 +175,11 @@ const CoursePage = () => {
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
 
-      <div>
+      <div className="flex-grow pt-16 md:pt-24 pb-16 px-6 md:px-20">
         <Navbar/>
       </div>
 
-      <main className="flex-grow py-16 px-6 md:px-20">
+      <main className="flex-grow pt-16 md:pt-24 pb-16 px-6 md:px-20">
   
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-800 mb-3">
@@ -192,7 +192,7 @@ const CoursePage = () => {
         </div>
 
         <div className="flex flex-col md:flex-row items-center justify-center gap-4 mb-10">
-          <div className="flex items-center bg-white rounded-full shadow-md px-4 w-full md:w-1/2">
+          <div className="flex items-center bg-white hover:bg-blue-100 rounded-full shadow-md px-4 w-full md:w-1/2">
             <Search className="text-gray-500 mr-3" />
             <input
               type="text"

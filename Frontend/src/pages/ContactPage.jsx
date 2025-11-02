@@ -8,7 +8,8 @@ const ContactPage = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 relative">
-      <div>
+
+      <div className="flex-grow pt-16 md:pt-24 pb-16 px-6 md:px-20">
         <Navbar/>
       </div>
 
@@ -115,4 +116,3 @@ const ContactPage = () => {
 };
 
 export default ContactPage;
-
