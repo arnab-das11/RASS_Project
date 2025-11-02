@@ -1,7 +1,8 @@
-import React, { useState } from "react";
-import { ArrowLeft, Search, Star } from "lucide-react";
+import  { useState } from "react";
+import { Search, Star } from "lucide-react";
 import Footer from "../components/Footer";
 import { useNavigate } from "react-router-dom";
+import Navbar from "../components/Navbar";
 
 const coursesData = [
   {
@@ -174,11 +175,10 @@ const CoursePage = () => {
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
 
-      <button onClick={() => navigate("/")}
-        className="absolute top-6 left-6 p-2 rounded-full bg-white shadow hover:bg-blue-200 transition">
-        <ArrowLeft size={22} className="text-gray-800" />
-      </button>
-      
+      <div>
+        <Navbar/>
+      </div>
+
       <main className="flex-grow py-16 px-6 md:px-20">
   
         <div className="text-center mb-12">
