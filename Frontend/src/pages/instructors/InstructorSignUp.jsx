@@ -1,16 +1,17 @@
 import { useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, User, UserRound, Mail, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const InstructorSignUp = () => {
   const [isLogin, setIsLogin] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   const toggleMode = () => setIsLogin(!isLogin);
+  const togglePassword = () => setShowPassword(!showPassword);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
     alert(`${isLogin ? "Logging in" : "Signing up"} as Instructor`);
   };
 
@@ -24,38 +25,56 @@ const InstructorSignUp = () => {
       </button>
 
       <div className="bg-white p-8 rounded-2xl shadow-lg w-80 sm:w-96">
-    
         <h2 className="text-2xl font-semibold mb-6 text-center">
-          <span className="text-blue-600 font-bold">Instructor</span>{" "}
+          <span className="text-blue-600 font-bold">Instructor </span>
           {isLogin ? "Login" : "Sign Up"}
         </h2>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-
+    
           {!isLogin && (
-            <input
-              type="text"
-              placeholder="Full Name"
-              required
-              className="border rounded px-3 py-2 focus:outline-none"/>
+            <div className="flex items-center border rounded px-3 py-2">
+              <UserRound className="text-gray-400 mr-2" size={18} />
+              <input
+                type="text"
+                placeholder="Full Name"
+                required
+                className="w-full focus:outline-none"
+              />
+            </div>
           )}
 
-          <input
-            type="text"
-            placeholder="Instructor ID (IID)"
-            required
-            className="border rounded px-3 py-2 focus:outline-none"/>
+          <div className="flex items-center border rounded px-3 py-2">
+            <User className="text-gray-400 mr-2" size={18} />
+            <input
+              type="text"
+              placeholder="Instructor ID (IID)"
+              required
+              className="w-full focus:outline-none"/>
+          </div>
 
-          <input
-            type="email"
-            placeholder="Email"
-            required
-            className="border rounded px-3 py-2 focus:outline-none"/>
-          <input
-            type="password"
-            placeholder="Password"
-            required
-            className="border rounded px-3 py-2 focus:outline-none"/>
+          <div className="flex items-center border rounded px-3 py-2">
+            <Mail className="text-gray-400 mr-2" size={18} />
+            <input type="email"
+              placeholder="instructor@gmail.com"
+              required
+              className="w-full focus:outline-none"/>
+          </div>
+
+          <div className="flex items-center border rounded px-3 py-2">
+            <Lock className="text-gray-400 mr-2" size={18} />
+            <input
+              type={showPassword ? "text" : "password"}
+              placeholder="Password"
+              required
+              className="w-full focus:outline-none"/>
+            <button
+              type="button"
+              onClick={togglePassword}
+              className="text-gray-500 hover:text-blue-600 focus:outline-none">
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+          </div>
 
           <button
             type="submit"
@@ -91,3 +110,5 @@ const InstructorSignUp = () => {
 };
 
 export default InstructorSignUp;
+
+

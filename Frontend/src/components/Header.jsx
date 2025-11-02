@@ -6,7 +6,7 @@ const Header = () => {
       <div className="mx-6 sm:mx-16 md:mx-24 text-center max-w-3xl">
         <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-gray-800 leading-tight">
           Unlock Your Potential With{" "}
-          <span className="text-blue-600">LearnX</span>
+          <span className="text-blue-600"> LearnX </span>
         </h1>
 
         <p className="mt-6 text-gray-600 text-base sm:text-lg max-w-2xl mx-auto">
