@@ -94,7 +94,7 @@ const AdminDashboard = () => {
             <img
               src="b_logo.svg"
               alt="Admin Avatar"
-              className="w-10 h-10 rounded-full border-2 border-white hover:border-green-500"
+              className="w-10 h-10 rounded-full cursor-pointer border-2 border-white hover:border-green-500"
             />
           </div>
         </header>
@@ -104,23 +104,23 @@ const AdminDashboard = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {[
               {
-                title: "Total Students",
-                value: "1,254",
+                title: "Total Learners",
+                value: "108",
                 icon: <GraduationCap size={36} className="text-indigo-500" />,
               },
               {
                 title: "Active Courses",
-                value: "32",
+                value: "14",
                 icon: <BookOpen size={36} className="text-indigo-500" />,
               },
               {
                 title: "Instructors",
-                value: "18",
+                value: "12",
                 icon: <Users size={36} className="text-indigo-500" />,
               },
               {
                 title: "Revenue",
-                value: "$12,480",
+                value: "₹ 12,480",
                 icon: <BarChart3 size={36} className="text-indigo-500" />,
               },
             ].map((card, i) => (
