@@ -52,7 +52,7 @@ const FeaturesPage = () => {
   return (
     <div className="bg-gray-100 min-h-screen flex flex-col relative">
 
-      <div>
+      <div className="flex-grow pt-16 md:pt-24 pb-16 px-6 md:px-20">
         <Navbar/>
       </div>
       
