@@ -10,6 +10,11 @@ const LearnerSignUp = () => {
   const toggleMode = () => setIsLogin(!isLogin);
   const togglePassword = () => setShowPassword(!showPassword);
 
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    navigate("/learner-dashboard");
+  };
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100 relative">
       
@@ -25,7 +30,7 @@ const LearnerSignUp = () => {
           {isLogin ? "Login" : "Sign Up"}
         </h2>
 
-        <form className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {!isLogin && (
             <div className="flex items-center border rounded px-3 py-2">
               <UserRound className="text-gray-400 mr-2" size={18} />
@@ -33,8 +38,7 @@ const LearnerSignUp = () => {
                 type="text"
                 placeholder="Full Name"
                 className="w-full focus:outline-none"
-                required
-              />
+                required/>
             </div>
           )}
 
@@ -49,13 +53,11 @@ const LearnerSignUp = () => {
 
           <div className="flex items-center border rounded px-3 py-2">
             <Lock className="text-gray-400 mr-2" size={18} />
-            <input
-              type={showPassword ? "text" : "password"}
+            <input type={showPassword ? "text" : "password"}
               placeholder="Password"
               className="w-full focus:outline-none"
               required/>
-            <button
-              type="button"
+            <button type="button"
               onClick={togglePassword}
               className="text-gray-500 hover:text-green-600 focus:outline-none">
               {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -72,7 +74,7 @@ const LearnerSignUp = () => {
         <p className="mt-4 text-sm text-center text-gray-600">
           {isLogin ? (
             <>
-              Don’t have an account?{" "}
+              Don't have an account?{" "}
               <span
                 onClick={toggleMode}
                 className="text-green-600 hover:underline cursor-pointer">
