@@ -1,13 +1,5 @@
 import { useState } from "react";
-import {
-  ArrowLeft,
-  Eye,
-  EyeOff,
-  User,
-  UserRound,
-  Mail,
-  Lock,
-} from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, User, UserRound, Mail, Lock} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import instructorImg from "../../assets/instructor-bg.png";
@@ -52,18 +44,15 @@ const InstructorSignUp = () => {
     <div className="flex min-h-screen bg-white relative overflow-hidden">
       <button
         onClick={() => navigate("/")}
-        className="absolute top-6 left-6 p-2 rounded-full bg-gray-50 shadow hover:bg-blue-200 transition"
-      >
+        className="absolute top-6 left-6 p-2 rounded-full bg-gray-50 shadow hover:bg-blue-200 transition">
         <ArrowLeft size={22} />
       </button>
 
-      {/* Left Blue Section */}
       <motion.div
         initial={{ opacity: 0, x: -50 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.6 }}
-        className="hidden md:flex w-1/2 bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 justify-center items-center"
-      >
+        className="hidden md:flex w-1/2 bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 justify-center items-center">
         <img
           src={
             instructorImg ||
@@ -75,17 +64,14 @@ const InstructorSignUp = () => {
             e.target.onerror = null;
             e.target.src =
               "https://images.unsplash.com/photo-1607746882042-944635dfe10e?w=800";
-          }}
-        />
+          }}/>
       </motion.div>
 
-      {/* Right Form Section */}
       <motion.div
         initial={{ opacity: 0, x: 50 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.6 }}
-        className="flex flex-col justify-center items-center w-full md:w-1/2 bg-white relative p-6 sm:p-10"
-      >
+        className="flex flex-col justify-center items-center w-full md:w-1/2 bg-white relative p-6 sm:p-10">
         <div className="w-full max-w-md bg-white rounded-2xl p-8 shadow-lg border border-gray-100">
           <h2 className="text-3xl font-semibold mb-6 text-center text-gray-800">
             <span className="text-blue-600 font-bold">Instructor </span>
@@ -102,8 +88,7 @@ const InstructorSignUp = () => {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
-                  className="w-full bg-transparent focus:outline-none"
-                />
+                  className="w-full bg-transparent focus:outline-none"/>
               </div>
             )}
 
@@ -115,8 +100,7 @@ const InstructorSignUp = () => {
                 value={iid}
                 onChange={(e) => setIid(e.target.value)}
                 required
-                className="w-full bg-transparent focus:outline-none"
-              />
+                className="w-full bg-transparent focus:outline-none"/>
             </div>
 
             <div className="flex items-center border rounded-lg px-3 py-2 bg-gray-50 focus-within:border-blue-400">
@@ -127,8 +111,7 @@ const InstructorSignUp = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full bg-transparent focus:outline-none"
-              />
+                className="w-full bg-transparent focus:outline-none"/>
             </div>
 
             <div className="flex items-center border rounded-lg px-3 py-2 bg-gray-50 focus-within:border-blue-400">
@@ -139,56 +122,47 @@ const InstructorSignUp = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full bg-transparent focus:outline-none"
-              />
+                className="w-full bg-transparent focus:outline-none"/>
               <button
                 type="button"
                 onClick={togglePassword}
-                className="text-gray-500 hover:text-blue-600 focus:outline-none"
-              >
+                className="text-gray-500 hover:text-blue-600 focus:outline-none">
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
 
             <button
               type="submit"
-              className="bg-blue-600 text-white py-2.5 rounded-full hover:bg-blue-700 transition-colors shadow-md"
-            >
+              className="bg-blue-600 text-white py-2.5 rounded-full hover:bg-blue-700 transition-colors shadow-md">
               {isLogin ? "Login" : "Sign Up"}
             </button>
           </form>
 
-          {/* Divider */}
           <div className="flex items-center my-4">
             <div className="flex-grow border-t border-gray-300"></div>
             <span className="mx-2 text-sm text-gray-500">or</span>
             <div className="flex-grow border-t border-gray-300"></div>
           </div>
 
-          {/* Google Login */}
           <button
             onClick={handleGoogleLogin}
-            className="flex items-center justify-center w-full py-2 border border-gray-300 rounded-full hover:bg-gray-100 transition"
-          >
+            className="flex items-center justify-center w-full py-2 border border-gray-300 rounded-full hover:bg-gray-100 transition">
             <img
               src="https://developers.google.com/identity/images/g-logo.png"
               alt="Google"
-              className="w-5 h-5 mr-2"
-            />
+              className="w-5 h-5 mr-2"/>
             <span className="text-gray-700 font-medium">
               Continue with Google
             </span>
           </button>
 
-          {/* Toggle between Login & Signup */}
           <p className="mt-5 text-sm text-center text-gray-600">
             {isLogin ? (
               <>
                 Don't have an account?{" "}
                 <span
                   onClick={toggleMode}
-                  className="text-blue-600 hover:underline cursor-pointer"
-                >
+                  className="text-blue-600 hover:underline cursor-pointer">
                   Sign Up
                 </span>
               </>
@@ -197,8 +171,7 @@ const InstructorSignUp = () => {
                 Already have an account?{" "}
                 <span
                   onClick={toggleMode}
-                  className="text-blue-600 hover:underline cursor-pointer"
-                >
+                  className="text-blue-600 hover:underline cursor-pointer">
                   Login
                 </span>
               </>
