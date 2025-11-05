@@ -3,6 +3,7 @@ import Header from '../components/Header';
 import List from '../components/List';
 import Footer from '../components/Footer';
 import SponsorSection from '../components/SponsorSection';
+import HeroSection from '../components/HeroSection';
 
 
 const HomePage = () => {
@@ -12,6 +13,7 @@ const HomePage = () => {
       <Header/>
       <List/>
       <SponsorSection/>
+      <HeroSection/>
       <Footer/>
     </>
   )
