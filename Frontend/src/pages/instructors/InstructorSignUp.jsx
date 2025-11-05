@@ -1,8 +1,15 @@
 import { useState } from "react";
-import { ArrowLeft, Eye, EyeOff, User, UserRound, Mail, Lock} from "lucide-react";
+import {
+  ArrowLeft,
+  Eye,
+  EyeOff,
+  User,
+  UserRound,
+  Mail,
+  Lock,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import instructorImg from "../../assets/instructor-bg.png";
-
 
 const InstructorSignUp = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -41,19 +48,19 @@ const InstructorSignUp = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-white">
-
-       <button
-          onClick={() => navigate("/")}
-          className="absolute top-6 left-6 p-2 rounded-full bg-gray-50 shadow hover:bg-blue-200 transition">
-          <ArrowLeft size={22} />
+    <div className="flex min-h-screen bg-blue-100 relative">
+    
+      <button
+        onClick={() => navigate("/")}
+        className="absolute top-6 left-6 p-2 rounded-full bg-gray-50 shadow hover:bg-blue-100 transition">
+        <ArrowLeft size={22} />
       </button>
-      
-      <div className="hidden md:flex w-1/2 bg-white justify-center items-center">
+
+      <div className="hidden md:flex w-1/2 bg-blue-600 justify-center items-center">
         <img
           src={instructorImg || "https://images.unsplash.com/photo-1607746882042-944635dfe10e?w=800"}
           alt="Instructor"
-          className="w-3/4 h-auto object-contain rounded-2xl"  // 👈 smaller and centered
+          className="w-3/4 h-auto object-contain rounded-2xl drop-shadow-xl"
           onError={(e) => {
             e.target.onerror = null;
             e.target.src =
@@ -62,7 +69,6 @@ const InstructorSignUp = () => {
       </div>
 
       <div className="flex flex-col justify-center items-center w-full md:w-1/2 bg-white relative p-6 sm:p-10">
-
         <div className="w-full max-w-md bg-white rounded-2xl p-8 shadow-lg border border-gray-100">
           <h2 className="text-3xl font-semibold mb-6 text-center text-gray-800">
             <span className="text-blue-600 font-bold">Instructor </span>
@@ -150,11 +156,10 @@ const InstructorSignUp = () => {
           <p className="mt-5 text-sm text-center text-gray-600">
             {isLogin ? (
               <>
-                Don’t have an account?{" "}
+                Don't have an account?{" "}
                 <span
                   onClick={toggleMode}
-                  className="text-blue-600 hover:underline cursor-pointer"
-                >
+                  className="text-blue-600 hover:underline cursor-pointer">
                   Sign Up
                 </span>
               </>
@@ -163,8 +168,7 @@ const InstructorSignUp = () => {
                 Already have an account?{" "}
                 <span
                   onClick={toggleMode}
-                  className="text-blue-600 hover:underline cursor-pointer"
-                >
+                  className="text-blue-600 hover:underline cursor-pointer">
                   Login
                 </span>
               </>
