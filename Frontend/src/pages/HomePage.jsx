@@ -4,6 +4,7 @@ import List from '../components/List';
 import Footer from '../components/Footer';
 import SponsorSection from '../components/SponsorSection';
 import HeroSection from '../components/HeroSection';
+import FeedbackSection from '../components/FeedbackSection';
 
 
 const HomePage = () => {
@@ -14,6 +15,7 @@ const HomePage = () => {
       <List/>
       <SponsorSection/>
       <HeroSection/>
+      <FeedbackSection/>
       <Footer/>
     </>
   )

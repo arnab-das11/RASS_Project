@@ -30,7 +30,7 @@ const mentors = [
 
 const HeroSection = () => {
   return (
-    <div className="bg-gray-50 py-14 px-6 md:px-16 lg:px-24">
+    <div className="bg-gradient-to-b from-white to-blue-50 py-14 px-6 md:px-16 lg:px-24">
       
       <div className="text-center mb-12">
         <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-3">
