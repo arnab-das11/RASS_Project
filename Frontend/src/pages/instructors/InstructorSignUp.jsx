@@ -1,13 +1,5 @@
 import { useState } from "react";
-import {
-  ArrowLeft,
-  Eye,
-  EyeOff,
-  User,
-  UserRound,
-  Mail,
-  Lock,
-} from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, User, UserRound, Mail, Lock} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import instructorImg from "../../assets/instructor-bg.png";
 
@@ -52,7 +44,7 @@ const InstructorSignUp = () => {
     
       <button
         onClick={() => navigate("/")}
-        className="absolute top-6 left-6 p-2 rounded-full bg-gray-50 shadow hover:bg-blue-100 transition">
+        className="absolute top-6 left-6 p-2 rounded-full bg-gray-50 shadow hover:bg-blue-200 transition">
         <ArrowLeft size={22} />
       </button>
 
