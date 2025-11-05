@@ -36,7 +36,7 @@ const SponsorSection = () => {
   });
 
   return (
-    <div className="bg-gray-100 py-16 px-4 overflow-hidden">
+    <div className="bg-gradient-to-b from-white to-yellow-50 py-16 px-4 overflow-hidden">
       
       <div className="text-center mb-10">
         <h2 className="text-4xl font-bold text-gray-800 mb-4">Our Tech Sponsors</h2>

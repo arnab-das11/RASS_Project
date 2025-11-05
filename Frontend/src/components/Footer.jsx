@@ -3,7 +3,7 @@ import logo from "../assets/logo.png";
 
 const Footer = () => {
   return (
-    <div className="px-6 md:px-16 lg:px-24 xl:px-32 bg-gray-300">
+    <div className="px-6 md:px-16 lg:px-24 xl:px-32 bg-gradient-to-b from-gray-200 to-gray-300">
       <div className="flex flex-col md:flex-row items-start justify-between gap-10 py-10 border-b border-gray-500/30 text-gray-500">
         
 
