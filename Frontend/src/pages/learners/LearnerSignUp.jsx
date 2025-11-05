@@ -18,8 +18,7 @@ const LearnerSignUp = () => {
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100 relative">
       
-      <button
-        onClick={() => navigate("/login")}
+      <button onClick={() => navigate("/")}
         className="absolute top-6 left-6 p-2 rounded-full bg-white shadow hover:bg-green-200 transition">
         <ArrowLeft size={22} />
       </button>

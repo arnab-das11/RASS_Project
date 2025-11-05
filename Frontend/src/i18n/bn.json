@@ -1,9 +1,14 @@
 {
-  "features": "বৈশিষ্ট্যসমূহ",
+  "features": "বৈশিষ্ট্য",
   "courses": "কোর্সসমূহ",
   "contact": "যোগাযোগ",
   "profile": "প্রোফাইল",
   "menu": "মেনু",
-  "selectLanguage": "ভাষা নির্বাচন করুন",
-  "changeLanguage": "ভাষা পরিবর্তন করুন"
+  "instructor": "প্রশিক্ষক",
+  "learner": "শিক্ষার্থী",
+  "change_language": "ভাষা পরিবর্তন করুন",
+  "select_language": "ভাষা নির্বাচন করুন",
+  "cancel": "বাতিল করুন",
+  "search": "অনুসন্ধান...",
+  "voice_search": "ভয়েস সার্চ"
 }

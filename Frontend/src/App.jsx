@@ -1,6 +1,5 @@
 import { Route, Routes } from 'react-router-dom'
 import HomePage from './pages/HomePage';
-import LoginPage from './pages/LoginPage';
 import InstructorSignUp from './pages/instructors/InstructorSignUp';
 import LearnerSignUp from './pages/learners/LearnerSignUp';
 import ContactPage from './pages/ContactPage';
@@ -16,7 +15,6 @@ const App = () => {
     <div>
       <Routes>
         <Route path='/' element={<HomePage/>} />
-        <Route path='/login' element={<LoginPage/>} />
         <Route path="/admin-dashboard" element={<AdminDashboard />} />
         <Route path="/admin-signup" element={<AdminSignUp />} />
         <Route path='/instructor-signup' element={<InstructorSignUp/>} />

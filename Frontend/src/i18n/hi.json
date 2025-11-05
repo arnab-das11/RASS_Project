@@ -4,7 +4,11 @@
   "contact": "संपर्क करें",
   "profile": "प्रोफ़ाइल",
   "menu": "मेनू",
-  "selectLanguage": "भाषा चुनें",
-  "changeLanguage": "भाषा बदलें"
+  "instructor": "प्रशिक्षक",
+  "learner": "सीखने वाला",
+  "change_language": "भाषा बदलें",
+  "select_language": "भाषा चुनें",
+  "cancel": "रद्द करें",
+  "search": "खोजें...",
+  "voice_search": "आवाज़ से खोजें"
 }
-
