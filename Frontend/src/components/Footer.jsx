@@ -10,9 +10,7 @@ const Footer = () => {
         <div>
           <img src={logo} alt="logo" className="w-32 sm:w-44" />
           <p className="max-w-[410px] mt-6">
-            Lorem ipsum dolor sit amet, consectetur adipisicing elit. Eos beatae quis,
-            praesentium officia optio ullam deserunt cupiditate dicta. Quidem dolorum
-            iste repellat quas ullam eveniet natus ad, eum alias obcaecati?
+            Our platform makes learning easier, clearer, and more motivating. Instead of searching all over the internet, learners get a guided path to follow, step by step. Instructors can share resources in an organized way, and learners can track progress and earn certificates. Built with a smooth MERN experience, it will soon offer smart course suggestions and career-focused guidance to support real growth.
           </p>
         </div>
 
