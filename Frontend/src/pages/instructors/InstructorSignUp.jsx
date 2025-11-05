@@ -44,7 +44,7 @@ const InstructorSignUp = () => {
     <div className="flex min-h-screen bg-white relative overflow-hidden">
       <button
         onClick={() => navigate("/")}
-        className="absolute top-6 left-6 p-2 rounded-full bg-gray-50 shadow hover:bg-blue-200 transition">
+        className="fixed z-50 top-6 left-6 p-2 rounded-full bg-gray-50 shadow hover:bg-blue-200 transition">
         <ArrowLeft size={22} />
       </button>
 
