@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LogOut, User, PlusCircle, Edit, Trash2, UploadCloud, Users } from "lucide-react";
+import { LogOut, User, PlusCircle, Edit, Trash2, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const sampleCourses = [
@@ -26,9 +26,7 @@ const sampleCourses = [
 
 const InstructorDashboard = () => {
   const [courses, setCourses] = useState(sampleCourses);
-  const [requests, setRequests] = useState([{ id: "r1", title: "Advanced CSS Grid", status: "Pending" }]);
-  const [showNewReq, setShowNewReq] = useState(false);
-  const [newReqTitle, setNewReqTitle] = useState("");
+  const [requests, setRequests] = useState([]);
   const [editing, setEditing] = useState(null);
   const [aiEditPrompt, setAiEditPrompt] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
@@ -36,19 +34,17 @@ const InstructorDashboard = () => {
 
   const navigate = useNavigate();
 
-  // Upload new course request
-  const handleUploadRequest = (e) => {
-    e.preventDefault();
-    if (!newReqTitle.trim()) return;
-    const newReq = { id: `r${Date.now()}`, title: newReqTitle, status: "Pending" };
-    setRequests((prev) => [newReq, ...prev]);
-    setNewReqTitle("");
-    setShowNewReq(false);
-  };
+  // Load course requests from localStorage
+  useEffect(() => {
+    const storedRequests = JSON.parse(localStorage.getItem("courseRequests")) || [];
+    setRequests(storedRequests);
+  }, []);
 
   const handleDeleteRequest = (id) => {
     if (!window.confirm("Delete this request?")) return;
-    setRequests((prev) => prev.filter((r) => r.id !== id));
+    const updated = requests.filter((r) => r.id !== id);
+    setRequests(updated);
+    localStorage.setItem("courseRequests", JSON.stringify(updated));
   };
 
   const handleLogout = () => {
@@ -110,7 +106,7 @@ const InstructorDashboard = () => {
         </header>
 
         <main className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
+    
           <motion.section
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -119,45 +115,17 @@ const InstructorDashboard = () => {
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold text-sky-300 text-lg">Course Requests</h2>
               <button
-                onClick={() => setShowNewReq(!showNewReq)}
-                className="flex items-center gap-1 text-sky-400 hover:text-sky-200 font-medium"
+                onClick={() => navigate("/instructor-course")}
+                className="flex items-center gap-1 text-green-400 hover:text-green-200 font-medium"
               >
-                <PlusCircle size={18} /> New
+                <PlusCircle size={18} /> Create New Course
               </button>
             </div>
 
-            <AnimatePresence>
-              {showNewReq && (
-                <motion.form
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  onSubmit={handleUploadRequest}
-                  className="mb-4 bg-[#1b3558]/80 p-3 rounded-xl"
-                >
-                  <input
-                    value={newReqTitle}
-                    onChange={(e) => setNewReqTitle(e.target.value)}
-                    placeholder="Enter course title"
-                    className="w-full p-2 border border-blue-700 rounded mb-2 text-sm bg-[#0d1b2a] text-white focus:ring-2 focus:ring-sky-400 outline-none"
-                  />
-                  <div className="flex gap-2">
-                    <button className="flex-1 px-3 py-2 rounded bg-gradient-to-r from-blue-500 to-sky-500 text-white flex items-center justify-center gap-2 hover:from-blue-600 hover:to-sky-600 transition">
-                      <UploadCloud size={16} /> Send
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowNewReq(false)}
-                      className="px-3 py-2 rounded border border-slate-600 text-slate-300 hover:bg-slate-700 transition"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </motion.form>
-              )}
-            </AnimatePresence>
-
             <ul className="space-y-3">
+              {requests.length === 0 && (
+                <li className="text-slate-400 text-sm">No requests yet</li>
+              )}
               {requests.map((r) => (
                 <li
                   key={r.id}
@@ -210,6 +178,24 @@ const InstructorDashboard = () => {
                   </div>
                 </div>
 
+                {editing === course.id && (
+                  <div className="mb-4 space-y-2">
+                    <input
+                      value={aiEditPrompt}
+                      onChange={(e) => setAiEditPrompt(e.target.value)}
+                      placeholder="Edit description with AI"
+                      className="w-full p-2 border border-blue-700 rounded text-sm bg-[#0d1b2a] text-white focus:ring-2 focus:ring-sky-400 outline-none"
+                    />
+                    <button
+                      onClick={() => handleAiEdit(course.id)}
+                      disabled={aiBusy}
+                      className="px-3 py-2 rounded bg-gradient-to-r from-blue-500 to-sky-500 text-white hover:from-blue-600 hover:to-sky-600 transition"
+                    >
+                      {aiBusy ? "Editing..." : "Apply AI Edit"}
+                    </button>
+                  </div>
+                )}
+
                 <div>
                   <h5 className="font-medium mb-2 text-slate-300">Enrolled Learners</h5>
                   {course.learners.map((l) => (
@@ -253,49 +239,10 @@ const InstructorDashboard = () => {
             ))}
           </section>
         </main>
-
-        <AnimatePresence>
-          {profileOpen && (
-            <motion.aside
-              initial={{ x: 300 }}
-              animate={{ x: 0 }}
-              exit={{ x: 300 }}
-              className="fixed right-6 top-6 z-50 w-80 bg-[#0d1b2a] text-white p-5 rounded-2xl shadow-xl border border-blue-800/60"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-full bg-sky-500/20 flex items-center justify-center font-semibold text-sky-300">SS</div>
-                  <div>
-                    <div className="font-semibold">Sahitya Sk</div>
-                    <div className="text-xs text-slate-400">Instructor</div>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setProfileOpen(false)}
-                  className="h-8 w-8 rounded-xl bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center text-red-400 font-semibold"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="text-sm space-y-3">
-                <div>
-                  <div className="text-xs text-slate-400">Email</div>
-                  <div>sahityask@gmail.com</div>
-                </div>
-                <div>
-                  <div className="text-xs text-slate-400">Bio</div>
-                  <div>Passionate about teaching and building interactive web experiences.</div>
-                </div>
-                <button className="w-full mt-4 px-3 py-2 rounded bg-gradient-to-r from-blue-500 to-sky-500 text-white hover:from-blue-600 hover:to-sky-600 transition flex items-center justify-center gap-2">
-                  <Users size={16} /> Manage Account
-                </button>
-              </div>
-            </motion.aside>
-          )}
-        </AnimatePresence>
       </div>
     </div>
   );
 };
 
 export default InstructorDashboard;
+

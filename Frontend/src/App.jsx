@@ -9,6 +9,7 @@ import AdminDashboard from './components/admin/AdminDashboard';
 import AdminSignUp from './components/admin/AdminSignUp';
 import InstructorDashboard from './pages/instructors/InstructorDashboard';
 import LearnerDashboard from './pages/learners/LearnerDashboard';
+import InstructorCoursePage from './pages/instructors/InstructorCoursePage';
 
 const App = () => {
   return (
@@ -19,6 +20,7 @@ const App = () => {
         <Route path="/admin-signup" element={<AdminSignUp />} />
         <Route path='/instructor-signup' element={<InstructorSignUp/>} />
         <Route path='/instructor-dashboard' element={<InstructorDashboard/>} />
+        <Route path="/instructor-course" element={<InstructorCoursePage />} />
         <Route path='/learner-signup' element={<LearnerSignUp/>} />
         <Route path='/learner-dashboard' element={<LearnerDashboard/>} />
         <Route path="/contact" element={<ContactPage />} />
