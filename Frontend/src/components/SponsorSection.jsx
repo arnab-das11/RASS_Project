@@ -29,6 +29,7 @@ const SponsorSection = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [x, setX] = useState(0);
 
+  // Infinite marquee animation
   useAnimationFrame((t, delta) => {
     if (!isPaused) {
       setX((prev) => (prev - delta * 0.03) % -window.innerWidth);
@@ -36,17 +37,35 @@ const SponsorSection = () => {
   });
 
   return (
-    <div className="bg-gradient-to-b from-white to-yellow-50 py-16 px-4 overflow-hidden">
-      
-      <div className="text-center mb-10">
-        <h2 className="text-4xl font-bold text-gray-800 mb-4">Our Tech Sponsors</h2>
+    <motion.section
+      className="bg-gradient-to-b from-white to-yellow-50 py-16 px-4 overflow-hidden will-change-transform"
+      initial={{ opacity: 0, y: 60 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.9, ease: "easeOut" }}
+      viewport={{ amount: 0.25 }}
+    >
+      {/* Heading */}
+      <motion.div
+        className="text-center mb-10"
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.7, ease: "easeOut" }}
+        viewport={{ amount: 0.4 }}
+      >
+        <h2 className="text-4xl font-bold text-gray-800 mb-4">
+          Our Tech Sponsors
+        </h2>
         <p className="text-gray-600">
           Proudly supported by leading platforms and technology innovators
         </p>
-      </div>
+      </motion.div>
 
+      {/* Marquee */}
       <div className="relative w-full overflow-hidden">
-        <motion.div style={{ x }} className="flex gap-10 items-center whitespace-nowrap">
+        <motion.div
+          style={{ x }}
+          className="flex gap-10 items-center whitespace-nowrap"
+        >
           {[...sponsors, ...sponsors].map((sponsor, index) => (
             <motion.a
               key={index}
@@ -55,8 +74,8 @@ const SponsorSection = () => {
               rel="noopener noreferrer"
               onMouseEnter={() => setIsPaused(true)}
               onMouseLeave={() => setIsPaused(false)}
-              className="flex flex-col items-center justify-center w-40 h-40 sm:w-44 sm:h-44 md:w-48 md:h-48 flex-shrink-0">
-
+              className="flex flex-col items-center justify-center w-40 h-40 sm:w-44 sm:h-44 md:w-48 md:h-48 flex-shrink-0"
+            >
               <motion.div
                 whileHover={{
                   scale: 1.12,
@@ -65,14 +84,13 @@ const SponsorSection = () => {
                 transition={{ type: "spring", stiffness: 200, damping: 12 }}
                 className="bg-white rounded-2xl overflow-hidden flex flex-col items-center justify-center 
                            w-full h-full transition-all duration-300"
-                style={{
-                  boxShadow: "none",
-                }}>
+              >
                 <div className="flex items-center justify-center w-full h-3/5">
                   <img
                     src={sponsor.logo}
                     alt={sponsor.name}
-                    className="max-w-[70%] max-h-[70%] object-contain"/>
+                    className="max-w-[70%] max-h-[70%] object-contain"
+                  />
                 </div>
                 <p className="text-sm font-semibold text-gray-700 text-center mt-3">
                   {sponsor.name}
@@ -82,7 +100,7 @@ const SponsorSection = () => {
           ))}
         </motion.div>
       </div>
-    </div>
+    </motion.section>
   );
 };
 
