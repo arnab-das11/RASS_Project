@@ -7,15 +7,13 @@ const Header = () => {
 
   const { scrollY } = useScroll();
 
-  const y = useTransform(scrollY, [0, 300], [0, -120]);
   const opacity = useTransform(scrollY, [0, 250], [1, 0.6]);
   const scale = useTransform(scrollY, [0, 300], [1, 0.95]);
 
   return (
     <motion.div
-      style={{ y, opacity, scale }}
-      className="relative w-full bg-gradient-to-r from-yellow-200 via-white to-yellow-200 py-24 sm:py-32 flex items-center justify-center shadow-md"
-    >
+      style={{ opacity, scale }}
+      className="relative w-full bg-gradient-to-r from-yellow-200 via-white to-yellow-200 py-24 sm:py-32 flex items-center justify-center shadow-md">
       <div className="mx-6 sm:mx-16 md:mx-24 text-center max-w-3xl">
         <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-gray-800 leading-tight">
           Unlock Your Potential With{" "}
