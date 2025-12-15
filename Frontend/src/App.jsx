@@ -10,6 +10,7 @@ import AdminSignUp from './components/admin/AdminSignUp';
 import InstructorDashboard from './pages/instructors/InstructorDashboard';
 import LearnerDashboard from './pages/learners/LearnerDashboard';
 import InstructorCoursePage from './pages/instructors/InstructorCoursePage';
+import CourseDetailsPage from './pages/CourseDetailsPage';
 
 const App = () => {
   return (
@@ -25,6 +26,7 @@ const App = () => {
         <Route path='/learner-dashboard' element={<LearnerDashboard/>} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/courses" element={<CoursePage/>} />
+        <Route path="/courses/:courseId" element={<CourseDetailsPage />} />
         <Route path="/features" element={<FeaturesPage/>} />
       </Routes>
     </div>

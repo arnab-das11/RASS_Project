@@ -7,28 +7,32 @@ const List = () => {
 
   const cards = [
     {
+      id: "java",
       title: "Java Course",
       desc: "Master Java programming from basics to advanced concepts, including OOPs, collections, and real-world projects.",
       img: "/Home_Card/java.jpg",
     },
     {
+      id: "mern",
       title: "Web Development using MERN",
       desc: "Build full-stack web applications using MongoDB, Express, React, and Node.js with hands-on practical projects.",
       img: "/Home_Card/mern.webp",
     },
     {
+      id: "dsa",
       title: "Complete DSA in C++",
       desc: "Strengthen your problem-solving skills by learning Data Structures and Algorithms with in-depth C++ implementation.",
       img: "/Home_Card/dsa.png",
     },
     {
+      id: "machine-learning",
       title: "Machine Learning",
       desc: "Explore the world of AI by building predictive models, understanding algorithms, and applying Python-based ML techniques.",
       img: "/Home_Card/ml.png",
     },
   ];
 
-  /* SAME animation philosophy as SponsorSection */
+  /* Smooth sponsor-like animation */
   const containerVariants = {
     hidden: { opacity: 0, y: 60 },
     visible: {
@@ -47,10 +51,7 @@ const List = () => {
     visible: {
       opacity: 1,
       y: 0,
-      transition: {
-        duration: 0.6,
-        ease: "easeOut",
-      },
+      transition: { duration: 0.6, ease: "easeOut" },
     },
   };
 
@@ -72,9 +73,9 @@ const List = () => {
 
       {/* Cards */}
       <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {cards.map((card, index) => (
+        {cards.map((card) => (
           <motion.div
-            key={index}
+            key={card.id}
             variants={cardVariants}
             className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-2 flex flex-col"
           >
@@ -93,7 +94,12 @@ const List = () => {
                 {card.desc}
               </p>
 
-              <button className="mt-4 w-full bg-blue-600 text-white py-2 rounded-full hover:bg-green-500 hover:scale-103 transition-transform duration-200">
+              {/* ✅ COURSE DETAILS BUTTON */}
+              <button
+                onClick={() => navigate(`/courses/${card.id}`)}
+                className="mt-4 w-full bg-blue-600 text-white py-2 rounded-full
+                           hover:bg-green-500 hover:scale-103 transition-transform duration-200"
+              >
                 Continue
               </button>
             </div>
@@ -102,16 +108,14 @@ const List = () => {
       </div>
 
       {/* CTA */}
-      <motion.div
-        variants={cardVariants}
-        className="text-center mt-12"
-      >
+      <motion.div variants={cardVariants} className="text-center mt-12">
         <button
           onClick={() => {
             navigate("/courses");
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
-          className="bg-blue-600 text-white px-8 py-3 rounded-full text-md font-medium hover:bg-green-400 hover:text-black hover:scale-103 transition-transform duration-200 shadow-md"
+          className="bg-blue-600 text-white px-8 py-3 rounded-full text-md font-medium
+                     hover:bg-green-400 hover:text-black hover:scale-103 transition-transform duration-200 shadow-md"
         >
           See All Courses →
         </button>
@@ -121,4 +125,5 @@ const List = () => {
 };
 
 export default List;
+
 
