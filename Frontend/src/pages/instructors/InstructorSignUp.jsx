@@ -1,38 +1,52 @@
 import { useState } from "react";
-import { ArrowLeft, Eye, EyeOff, User, UserRound, Mail, Lock} from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, User, UserRound, Mail, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import axios from 'axios'; // Import Axios
 import instructorImg from "../../assets/instructor-bg.png";
 
 const InstructorSignUp = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const navigate = useNavigate();
+
+  // --- STATE VARIABLES ---
   const [name, setName] = useState("");
   const [iid, setIid] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const navigate = useNavigate();
+  // -----------------------
 
   const toggleMode = () => setIsLogin(!isLogin);
   const togglePassword = () => setShowPassword(!showPassword);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const instructor = { name, iid, email, password };
+    try {
+      const endpoint = isLogin 
+        ? "http://localhost:5000/api/users/login" 
+        : "http://localhost:5000/api/users/register";
 
-    if (isLogin) {
-      const stored = JSON.parse(localStorage.getItem("instructor"));
-      if (stored && stored.email === email && stored.password === password) {
-        alert("Login Successful..!!");
-        navigate("/instructor-dashboard");
-      } else {
-        alert("Invalid credentials. Please sign up first...");
+      const payload = { email, password };
+
+      // If signing up, add Name, Role, and Instructor ID
+      if (!isLogin) {
+        payload.name = name;
+        payload.role = "instructor"; // Force role to instructor
+        payload.iid = iid;
       }
-    } else {
-      localStorage.setItem("instructor", JSON.stringify(instructor));
-      alert("Signup Successful..!!");
+
+      const { data } = await axios.post(endpoint, payload);
+
+      // Success
+      alert(isLogin ? "Login Successful!" : "Signup Successful!");
+      localStorage.setItem("userInfo", JSON.stringify(data));
       navigate("/instructor-dashboard");
+
+    } catch (error) {
+      const errorMsg = error.response?.data?.message || error.message;
+      alert("Error: " + errorMsg);
     }
   };
 
@@ -48,25 +62,23 @@ const InstructorSignUp = () => {
         <ArrowLeft size={22} />
       </button>
 
+      {/* Left Side Image */}
       <motion.div
         initial={{ opacity: 0, x: -50 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.6 }}
         className="hidden md:flex w-1/2 bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 justify-center items-center">
         <img
-          src={
-            instructorImg ||
-            "https://images.unsplash.com/photo-1607746882042-944635dfe10e?w=800"
-          }
+          src={instructorImg || "https://images.unsplash.com/photo-1607746882042-944635dfe10e?w=800"}
           alt="Instructor"
           className="w-3/4 h-auto object-contain rounded-2xl drop-shadow-xl"
           onError={(e) => {
-            e.target.onerror = null;
-            e.target.src =
-              "https://images.unsplash.com/photo-1607746882042-944635dfe10e?w=800";
+             e.target.onerror = null;
+             e.target.src = "https://images.unsplash.com/photo-1607746882042-944635dfe10e?w=800";
           }}/>
       </motion.div>
 
+      {/* Right Side Form */}
       <motion.div
         initial={{ opacity: 0, x: 50 }}
         animate={{ opacity: 1, x: 0 }}
@@ -92,16 +104,18 @@ const InstructorSignUp = () => {
               </div>
             )}
 
-            <div className="flex items-center border rounded-lg px-3 py-2 bg-gray-50 focus-within:border-blue-400">
-              <User className="text-gray-400 mr-2" size={18} />
-              <input
-                type="text"
-                placeholder="Instructor ID (IID)"
-                value={iid}
-                onChange={(e) => setIid(e.target.value)}
-                required
-                className="w-full bg-transparent focus:outline-none"/>
-            </div>
+            {!isLogin && (
+               <div className="flex items-center border rounded-lg px-3 py-2 bg-gray-50 focus-within:border-blue-400">
+                <User className="text-gray-400 mr-2" size={18} />
+                <input
+                  type="text"
+                  placeholder="Instructor ID (IID)"
+                  value={iid}
+                  onChange={(e) => setIid(e.target.value)}
+                  required
+                  className="w-full bg-transparent focus:outline-none"/>
+              </div>
+            )}
 
             <div className="flex items-center border rounded-lg px-3 py-2 bg-gray-50 focus-within:border-blue-400">
               <Mail className="text-gray-400 mr-2" size={18} />
@@ -138,6 +152,7 @@ const InstructorSignUp = () => {
             </button>
           </form>
 
+          {/* Footer (Google Login etc.) */}
           <div className="flex items-center my-4">
             <div className="flex-grow border-t border-gray-300"></div>
             <span className="mx-2 text-sm text-gray-500">or</span>
