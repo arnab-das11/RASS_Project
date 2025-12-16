@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ArrowLeft, Eye, EyeOff, User, UserRound, Mail, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import axios from 'axios'; // Import Axios
+import axios from 'axios';
 import instructorImg from "../../assets/instructor-bg.png";
 
 const InstructorSignUp = () => {
@@ -38,6 +38,14 @@ const InstructorSignUp = () => {
       }
 
       const { data } = await axios.post(endpoint, payload);
+
+      // --- SECURITY FIX STARTS HERE ---
+      // If logging in, check if the user is actually an Instructor
+      if (isLogin && data.role !== "instructor" && data.role !== "admin") {
+        alert("Access Denied: This account is registered as a Learner, not an Instructor.");
+        return; // Stop here! Do not save token or navigate.
+      }
+      // --- SECURITY FIX ENDS HERE ---
 
       // Success
       alert(isLogin ? "Login Successful!" : "Signup Successful!");
