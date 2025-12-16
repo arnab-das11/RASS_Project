@@ -14,7 +14,8 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // 2. Middleware (The "Rules" of the restaurant)
-app.use(express.json()); // Allows server to accept JSON data
+app.use(express.json({ limit: "100mb" }));
+app.use(express.urlencoded({ extended: true, limit: "100mb" }));
 app.use(cors({
     origin: "http://localhost:5173", // Only allow your specific Frontend to access this
     credentials: true
