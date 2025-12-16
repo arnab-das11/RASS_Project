@@ -1,21 +1,54 @@
 import { useState } from "react";
 import { Lock, Mail, User, Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import axios from 'axios';
 
 const AdminSignUp = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  
+  // State for inputs
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   const navigate = useNavigate();
 
   const toggleMode = () => setIsLogin(!isLogin);
   const togglePassword = () => setShowPassword(!showPassword);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    alert(`${isLogin ? "Login" : "Sign Up"} Successful..!!`);
-    navigate("/admin-dashboard");
+    try {
+      const endpoint = isLogin 
+        ? "http://localhost:5000/api/users/login" 
+        : "http://localhost:5000/api/users/register";
+
+      const payload = { email, password };
+      
+      if (!isLogin) {
+        payload.name = name;
+        payload.role = "admin"; // Force role to Admin
+      }
+
+      const { data } = await axios.post(endpoint, payload);
+      
+      // --- SECURITY CHECK ---
+      // If logging in, ensure the user from DB is actually an ADMIN
+      if (isLogin && data.role !== 'admin') {
+        alert("Access Denied: You are not authorized as an Admin.");
+        return; // Stop execution immediately
+      }
+      // ----------------------
+
+      localStorage.setItem("userInfo", JSON.stringify(data));
+      alert(`${isLogin ? "Login" : "Sign Up"} Successful!`);
+      navigate("/admin-dashboard");
+
+    } catch (error) {
+      const msg = error.response?.data?.message || error.message;
+      alert("Error: " + msg);
+    }
   };
 
   return (
@@ -35,6 +68,8 @@ const AdminSignUp = () => {
                   type="text"
                   placeholder="Enter your name"
                   className="w-full outline-none"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   required
                 />
               </div>
@@ -49,6 +84,8 @@ const AdminSignUp = () => {
                 type="email"
                 placeholder="admin@gmail.com"
                 className="w-full outline-none"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
               />
             </div>
@@ -62,6 +99,8 @@ const AdminSignUp = () => {
                 type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
                 className="w-full outline-none"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 required
               />
               <button
@@ -97,5 +136,3 @@ const AdminSignUp = () => {
 };
 
 export default AdminSignUp;
-
-
