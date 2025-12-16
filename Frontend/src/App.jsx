@@ -1,33 +1,86 @@
-import { Route, Routes } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom';
 import HomePage from './pages/HomePage';
-import InstructorSignUp from './pages/instructors/InstructorSignUp';
-import LearnerSignUp from './pages/learners/LearnerSignUp';
 import ContactPage from './pages/ContactPage';
-import CoursePage from './pages/CoursePage';
 import FeaturesPage from './pages/FeaturesPage';
+
+// --- Instructors ---
+import InstructorSignUp from './pages/instructors/InstructorSignUp';
+import InstructorDashboard from './pages/instructors/InstructorDashboard';
+import InstructorCoursePage from './pages/instructors/InstructorCoursePage';
+
+// --- Learners ---
+import LearnerSignUp from './pages/learners/LearnerSignUp';
+import LearnerDashboard from './pages/learners/LearnerDashboard';
+import CoursePage from './pages/CoursePage'; 
+import CourseDetailsPage from './pages/learners/CourseDetailsPage'; 
+
+// --- Admin ---
 import AdminDashboard from './components/admin/AdminDashboard';
 import AdminSignUp from './components/admin/AdminSignUp';
-import InstructorDashboard from './pages/instructors/InstructorDashboard';
-import LearnerDashboard from './pages/learners/LearnerDashboard';
-import InstructorCoursePage from './pages/instructors/InstructorCoursePage';
-import CourseDetailsPage from './pages/CourseDetailsPage';
+
+// --- Security ---
+import ProtectedRoute from './components/ProtectedRoute'; // Ensure this file exists
 
 const App = () => {
   return (
     <div>
       <Routes>
         <Route path='/' element={<HomePage/>} />
-        <Route path="/admin-dashboard" element={<AdminDashboard />} />
-        <Route path="/admin-signup" element={<AdminSignUp />} />
-        <Route path='/instructor-signup' element={<InstructorSignUp/>} />
-        <Route path='/instructor-dashboard' element={<InstructorDashboard/>} />
-        <Route path="/instructor-course" element={<InstructorCoursePage />} />
-        <Route path='/learner-signup' element={<LearnerSignUp/>} />
-        <Route path='/learner-dashboard' element={<LearnerDashboard/>} />
         <Route path="/contact" element={<ContactPage />} />
-        <Route path="/courses" element={<CoursePage/>} />
-        <Route path="/courses/:courseId" element={<CourseDetailsPage />} />
         <Route path="/features" element={<FeaturesPage/>} />
+        
+        {/* Course Routes */}
+        <Route path="/courses" element={<CoursePage/>} />
+        <Route path="/courses/:id" element={<CourseDetailsPage />} />
+
+        {/* Learner Routes */}
+        <Route path='/learner-signup' element={<LearnerSignUp/>} />
+        
+        {/* Protected Learner Dashboard */}
+        <Route 
+          path='/learner-dashboard' 
+          element={
+            <ProtectedRoute allowedRoles={['learner']}>
+              <LearnerDashboard/>
+            </ProtectedRoute>
+          } 
+        />
+
+        {/* Instructor Routes */}
+        <Route path='/instructor-signup' element={<InstructorSignUp/>} />
+        
+        {/* Protected Instructor Dashboard */}
+        <Route 
+          path='/instructor-dashboard' 
+          element={
+            <ProtectedRoute allowedRoles={['instructor']}>
+              <InstructorDashboard/>
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Protected Instructor Course Page */}
+        <Route 
+          path="/instructor-course" 
+          element={
+            <ProtectedRoute allowedRoles={['instructor']}>
+              <InstructorCoursePage />
+            </ProtectedRoute>
+          } 
+        />
+
+        {/* Admin Routes */}
+        <Route path="/admin-signup" element={<AdminSignUp />} />
+        
+        {/* Protected Admin Dashboard */}
+        <Route 
+          path="/admin-dashboard" 
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminDashboard />
+            </ProtectedRoute>
+          } 
+        />
       </Routes>
     </div>
   )
