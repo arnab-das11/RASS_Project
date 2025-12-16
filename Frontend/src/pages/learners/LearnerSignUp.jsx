@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ArrowLeft, Eye, EyeOff, UserRound, Mail, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import axios from 'axios'; // Import the messenger
+import axios from 'axios'; 
 import learnerImg from "../../assets/learner-bg.png";
 
 const LearnerSignUp = () => {
@@ -10,11 +10,11 @@ const LearnerSignUp = () => {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
-  // --- NEW: These are the variables to store user input ---
+  // --- STATE VARIABLES ---
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  // --------------------------------------------------------
+  // -----------------------
 
   const toggleMode = () => setIsLogin(!isLogin);
   const togglePassword = () => setShowPassword(!showPassword);
@@ -23,33 +23,35 @@ const LearnerSignUp = () => {
     e.preventDefault();
     
     try {
-      // 1. Decide which URL to call (Login or Register)
       const endpoint = isLogin 
         ? "http://localhost:5000/api/users/login" 
         : "http://localhost:5000/api/users/register";
 
-      // 2. Prepare the data to send
       const payload = { email, password };
 
       // If signing up, we also need the Name and Role
       if (!isLogin) {
         payload.name = name;
-        payload.role = "learner";
+        payload.role = "learner"; // Force role to learner
       }
 
-      // 3. Send the message to the Backend
       const { data } = await axios.post(endpoint, payload);
 
-      // 4. Success! Save the user info and go to dashboard
+      // --- SECURITY CHECK START ---
+      // If logging in, check if the user is actually a Learner
+      if (isLogin && data.role !== "learner") {
+        alert("Access Denied: This account is not a Learner account.");
+        return; // Stop execution! Do not save to localStorage.
+      }
+      // --- SECURITY CHECK END ---
+
+      // Success
       alert(isLogin ? "Login Successful!" : "Signup Successful!");
       localStorage.setItem("userInfo", JSON.stringify(data));
       navigate("/learner-dashboard");
 
     } catch (error) {
-       // Handle errors (like "User already exists" or "Wrong password")
-       const errorMsg = error.response && error.response.data.message 
-         ? error.response.data.message 
-         : error.message;
+       const errorMsg = error.response?.data?.message || error.message;
        alert("Error: " + errorMsg);
     }
   };
@@ -67,6 +69,7 @@ const LearnerSignUp = () => {
         <ArrowLeft size={22} />
       </button>
 
+      {/* Left Side Image */}
       <motion.div
         initial={{ opacity: 0, x: -50 }}
         animate={{ opacity: 1, x: 0 }}
@@ -75,9 +78,15 @@ const LearnerSignUp = () => {
         <img
           src={learnerImg}
           alt="Learner"
-          className="w-4/5 max-w-md rounded-3xl shadow-2xl"/>
+          className="w-4/5 max-w-md rounded-3xl shadow-2xl"
+          onError={(e) => {
+            e.target.onerror = null; 
+            e.target.style.display = 'none'; // Hide if image fails
+          }}
+        />
       </motion.div>
 
+      {/* Right Side Form */}
       <motion.div
         initial={{ opacity: 0, x: 50 }}
         animate={{ opacity: 1, x: 0 }}
@@ -98,10 +107,8 @@ const LearnerSignUp = () => {
                   type="text"
                   placeholder="Full Name"
                   className="w-full bg-transparent focus:outline-none"
-                  // --- CONNECTING INPUT TO VARIABLE ---
                   value={name} 
                   onChange={(e) => setName(e.target.value)}
-                  // ------------------------------------
                   required/>
               </div>
             )}
@@ -112,10 +119,8 @@ const LearnerSignUp = () => {
                 type="email"
                 placeholder="learner@gmail.com"
                 className="w-full bg-transparent focus:outline-none"
-                // --- CONNECTING INPUT TO VARIABLE ---
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                // ------------------------------------
                 required/>
             </div>
 
@@ -125,10 +130,8 @@ const LearnerSignUp = () => {
                 type={showPassword ? "text" : "password"}
                 placeholder="Password"
                 className="w-full bg-transparent focus:outline-none"
-                // --- CONNECTING INPUT TO VARIABLE ---
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                // ------------------------------------
                 required/>
               <button
                 type="button"
@@ -144,8 +147,6 @@ const LearnerSignUp = () => {
               {isLogin ? "Login" : "Sign Up"}
             </button>
           </form>
-          
-          {/* ... Rest of the UI (Google Button, Toggle Text) remains the same ... */}
           
           <div className="flex items-center my-3">
              <hr className="flex-grow border-gray-300" />

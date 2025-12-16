@@ -33,11 +33,13 @@ const AdminSignUp = () => {
 
       const { data } = await axios.post(endpoint, payload);
       
-      // Security Check: If logging in, ensure they are actually an admin
+      // --- SECURITY CHECK ---
+      // If logging in, ensure the user from DB is actually an ADMIN
       if (isLogin && data.role !== 'admin') {
-        alert("Access Denied: You are not an Admin.");
-        return;
+        alert("Access Denied: You are not authorized as an Admin.");
+        return; // Stop execution immediately
       }
+      // ----------------------
 
       localStorage.setItem("userInfo", JSON.stringify(data));
       alert(`${isLogin ? "Login" : "Sign Up"} Successful!`);

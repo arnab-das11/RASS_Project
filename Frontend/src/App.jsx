@@ -11,15 +11,15 @@ import InstructorCoursePage from './pages/instructors/InstructorCoursePage';
 // --- Learners ---
 import LearnerSignUp from './pages/learners/LearnerSignUp';
 import LearnerDashboard from './pages/learners/LearnerDashboard';
-// CoursePage is usually shared, keeping your original path:
 import CoursePage from './pages/CoursePage'; 
-
-// ⚠️ FIX 1: Import this from the 'learners' folder where you likely created it
 import CourseDetailsPage from './pages/learners/CourseDetailsPage'; 
 
 // --- Admin ---
 import AdminDashboard from './components/admin/AdminDashboard';
 import AdminSignUp from './components/admin/AdminSignUp';
+
+// --- Security ---
+import ProtectedRoute from './components/ProtectedRoute'; // Ensure this file exists
 
 const App = () => {
   return (
@@ -31,22 +31,56 @@ const App = () => {
         
         {/* Course Routes */}
         <Route path="/courses" element={<CoursePage/>} />
-        
-        {/* ⚠️ FIX 2: Changed :courseId to :id to match the code in CourseDetailsPage */}
         <Route path="/courses/:id" element={<CourseDetailsPage />} />
 
         {/* Learner Routes */}
         <Route path='/learner-signup' element={<LearnerSignUp/>} />
-        <Route path='/learner-dashboard' element={<LearnerDashboard/>} />
+        
+        {/* Protected Learner Dashboard */}
+        <Route 
+          path='/learner-dashboard' 
+          element={
+            <ProtectedRoute allowedRoles={['learner']}>
+              <LearnerDashboard/>
+            </ProtectedRoute>
+          } 
+        />
 
         {/* Instructor Routes */}
         <Route path='/instructor-signup' element={<InstructorSignUp/>} />
-        <Route path='/instructor-dashboard' element={<InstructorDashboard/>} />
-        <Route path="/instructor-course" element={<InstructorCoursePage />} />
+        
+        {/* Protected Instructor Dashboard */}
+        <Route 
+          path='/instructor-dashboard' 
+          element={
+            <ProtectedRoute allowedRoles={['instructor']}>
+              <InstructorDashboard/>
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Protected Instructor Course Page */}
+        <Route 
+          path="/instructor-course" 
+          element={
+            <ProtectedRoute allowedRoles={['instructor']}>
+              <InstructorCoursePage />
+            </ProtectedRoute>
+          } 
+        />
 
         {/* Admin Routes */}
-        <Route path="/admin-dashboard" element={<AdminDashboard />} />
         <Route path="/admin-signup" element={<AdminSignUp />} />
+        
+        {/* Protected Admin Dashboard */}
+        <Route 
+          path="/admin-dashboard" 
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminDashboard />
+            </ProtectedRoute>
+          } 
+        />
       </Routes>
     </div>
   )
