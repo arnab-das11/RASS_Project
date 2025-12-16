@@ -18,11 +18,11 @@ const CoursePage = () => {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [searchTerm, setSearchTerm] = useState("");
   
-  // Real Data State
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch Approved Courses on Load
+  const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800";
+
   useEffect(() => {
     const fetchCourses = async () => {
       try {
@@ -38,10 +38,7 @@ const CoursePage = () => {
   }, []);
 
   const filteredCourses = courses.filter((course) => {
-    // Note: If you haven't added 'category' to your backend model yet, 
-    // the category filter might not work perfectly. 
-    // For now, we search in title.
-    const matchesCategory = selectedCategory === "All" || course.level === selectedCategory; // Temporary fallback
+    const matchesCategory = selectedCategory === "All" || course.level === selectedCategory;
     const matchesSearch = course.title.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesSearch; 
   });
@@ -70,7 +67,7 @@ const CoursePage = () => {
           </div>
         </div>
 
-        {/* Categories (Optional: You can keep or remove if database doesn't have categories yet) */}
+        {/* Categories */}
         <div className="flex flex-wrap justify-center gap-3 mb-10">
           {categories.map((cat) => (
             <button
@@ -101,18 +98,21 @@ const CoursePage = () => {
                 key={course._id}
                 className="bg-white rounded-2xl shadow-md hover:scale-[1.02] transition flex flex-col"
               >
-                {/* Fallback Image since we haven't implemented Image Uploads yet */}
+                {/* Image Logic Fix */}
                 <img
-                  src={course.thumbnail || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800"} 
+                  src={course.thumbnail ? course.thumbnail : DEFAULT_IMAGE}
                   alt={course.title}
                   className="h-48 w-full object-cover rounded-t-2xl"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = DEFAULT_IMAGE;
+                  }}
                 />
 
                 <div className="p-6 flex flex-col flex-grow">
                   <h3 className="text-xl font-semibold mb-2">{course.title}</h3>
                   <p className="text-sm text-gray-500 mb-2">{course.level || "Beginner"}</p>
                   
-                  {/* Instructor Name (Populated from Backend) */}
                   <p className="text-xs text-gray-400 mb-4">
                     By {course.instructor?.name || "Instructor"}
                   </p>
@@ -120,13 +120,13 @@ const CoursePage = () => {
                   <div className="flex justify-between items-center mb-4">
                     <div className="flex items-center gap-1 text-yellow-500">
                       <Star size={18} fill="currentColor" />
-                      <span className="text-gray-700 font-medium">4.8</span> {/* Hardcoded Rating for now */}
+                      <span className="text-gray-700 font-medium">4.8</span>
                     </div>
                     <span className="text-sm text-gray-500">{course.duration}</span>
                   </div>
 
                   <button
-                    onClick={() => navigate(`/courses/${course._id}`)} // Use _id for MongoDB
+                    onClick={() => navigate(`/courses/${course._id}`)}
                     className="mt-auto w-full bg-blue-500 text-white py-2 rounded-full hover:bg-green-500 transition">
                     View Details
                   </button>

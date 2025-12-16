@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Clock,
-  BarChart,
   CheckCircle,
   PlayCircle,
   Star,
@@ -13,18 +12,21 @@ import Footer from "../../components/Footer";
 import axios from "axios";
 
 const CourseDetailsPage = () => {
-  const { id } = useParams(); // Get the ID from the URL (e.g. /courses/65a...)
+  const { id } = useParams();
   const navigate = useNavigate();
 
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Default image to show if the user's link is broken or empty
+  const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800";
 
   useEffect(() => {
     const fetchCourseDetails = async () => {
       try {
         const { data } = await axios.get(
           `http://localhost:5000/api/courses/${id}`
-        ); // We need to create this route!
+        );
         setCourse(data);
         setLoading(false);
       } catch (error) {
@@ -89,12 +91,15 @@ const CourseDetailsPage = () => {
           <div className="w-full md:w-1/3">
             <div className="bg-white p-2 rounded-2xl shadow-2xl rotate-2 hover:rotate-0 transition duration-500">
               <img
-                src={
-                  course.thumbnail ||
-                  "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800"
-                }
-                alt="Course"
-                className="rounded-xl w-full h-64 object-cover"
+                // Use the database thumbnail, fallback to default ONLY if empty
+                src={course.thumbnail ? course.thumbnail : DEFAULT_IMAGE}
+                alt={course.title}
+                className="h-48 w-full object-cover rounded-t-2xl"
+                onError={(e) => {
+                  // If the link provided by user is broken, switch to default
+                  e.target.onerror = null; 
+                  e.target.src = DEFAULT_IMAGE;
+                }}
               />
             </div>
           </div>
@@ -111,7 +116,6 @@ const CourseDetailsPage = () => {
               What You Will Learn
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* If you had learningOutcomes in DB, map them here. For now, static or description split */}
               <div className="flex items-start gap-3">
                 <CheckCircle
                   className="text-green-500 shrink-0 mt-1"
@@ -158,10 +162,10 @@ const CourseDetailsPage = () => {
                         </span>
                       </div>
                     </div>
-                    {/* Only show link if enrolled (we will add logic later) */}
                     <a
                       href={res.url}
                       target="_blank"
+                      rel="noopener noreferrer"
                       className="text-blue-600 text-sm font-medium hover:underline"
                     >
                       View
