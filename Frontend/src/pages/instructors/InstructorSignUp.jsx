@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react"; // Added useEffect
 import { ArrowLeft, Eye, EyeOff, User, UserRound, Mail, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -13,9 +13,18 @@ const InstructorSignUp = () => {
   // --- STATE VARIABLES ---
   const [name, setName] = useState("");
   const [iid, setIid] = useState("");
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  
+  // FIX: Initialize email from localStorage if available
+  const [email, setEmail] = useState(() => {
+    return localStorage.getItem("savedInstructorEmail") || "";
+  });
   // -----------------------
+
+  // FIX: Save email to localStorage automatically whenever it changes
+  useEffect(() => {
+    localStorage.setItem("savedInstructorEmail", email);
+  }, [email]);
 
   const toggleMode = () => setIsLogin(!isLogin);
   const togglePassword = () => setShowPassword(!showPassword);
@@ -39,17 +48,20 @@ const InstructorSignUp = () => {
 
       const { data } = await axios.post(endpoint, payload);
 
-      // --- SECURITY FIX STARTS HERE ---
+      // --- SECURITY FIX ---
       // If logging in, check if the user is actually an Instructor
       if (isLogin && data.role !== "instructor" && data.role !== "admin") {
         alert("Access Denied: This account is registered as a Learner, not an Instructor.");
         return; // Stop here! Do not save token or navigate.
       }
-      // --- SECURITY FIX ENDS HERE ---
 
       // Success
       alert(isLogin ? "Login Successful!" : "Signup Successful!");
+      
+      // Dispatch event to update Navbar immediately
       localStorage.setItem("userInfo", JSON.stringify(data));
+      window.dispatchEvent(new Event("auth-change"));
+      
       navigate("/instructor-dashboard");
 
     } catch (error) {
