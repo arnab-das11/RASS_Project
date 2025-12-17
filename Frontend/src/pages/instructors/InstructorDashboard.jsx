@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { LogOut, PlusCircle, Trash2, Clock, BookOpen, AlertCircle } from "lucide-react";
+import { LogOut, PlusCircle, Trash2, Clock, BookOpen, AlertCircle, Home } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from 'axios';
 
@@ -7,9 +7,6 @@ const InstructorDashboard = () => {
   const navigate = useNavigate();
 
   // --- FIX: Lazy Load User ---
-  // We read from localStorage inside the useState function.
-  // This ensures 'userInfo' has a value on the very first render,
-  // preventing the "redirect to login" glitch when refreshing.
   const [userInfo, setUserInfo] = useState(() => {
     try {
       const savedUser = localStorage.getItem("userInfo");
@@ -21,13 +18,9 @@ const InstructorDashboard = () => {
   });
 
   const [courses, setCourses] = useState([]);
-  
-  // Default image fallback
   const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800";
 
-  // 1. Check Auth & Load Courses
   useEffect(() => {
-    // Only redirect if there is genuinely no user data
     if (!userInfo) {
       navigate("/");
       return;
@@ -44,18 +37,13 @@ const InstructorDashboard = () => {
     }
   };
 
-  // 2. Delete Course
   const handleDelete = async (courseId) => {
     if (!window.confirm("Are you sure you want to delete this course?")) return;
-    
-    // Optimistic Update: Remove from UI immediately
     setCourses(prevCourses => prevCourses.filter(c => c._id !== courseId));
-
     try {
       await axios.delete(`http://localhost:5000/api/courses/${courseId}`);
     } catch (error) {
       alert("Error deleting course");
-      // If server failed, fetch data again to revert the UI change
       fetchCourses(userInfo._id);
     }
   };
@@ -66,15 +54,24 @@ const InstructorDashboard = () => {
     navigate("/");
   };
 
-  // Prevent rendering content if checking auth
   if (!userInfo) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a192f] via-[#0f2744] to-[#132e53] text-white p-6 md:p-10">
+    <div className="min-h-screen bg-gradient-to-br from-[#0a192f] via-[#0f2744] to-[#132e53] text-white p-6 md:p-10 relative">
+      
+      {/* --- ADDED: Home Button --- */}
+      <button 
+        onClick={() => navigate('/')} 
+        className="absolute top-6 left-6 p-2 bg-[#112240] rounded-full shadow-lg text-slate-400 hover:text-sky-400 border border-blue-800/30 transition z-10 hidden md:flex"
+        title="Go Home"
+      >
+        <Home size={24} />
+      </button>
+
       <div className="max-w-7xl mx-auto">
 
         {/* Header */}
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10 pl-0 md:pl-16">
           <div>
             <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-blue-400">
               Instructor Dashboard
@@ -130,7 +127,6 @@ const InstructorDashboard = () => {
               <div className="grid grid-cols-1 gap-6">
                 {courses.map((course) => (
                   <div key={course._id} className="flex flex-col md:flex-row gap-6 p-6 bg-[#112240] rounded-2xl border border-blue-800/30 shadow-xl hover:shadow-2xl transition group">
-                    {/* Thumbnail */}
                     <div className="w-full md:w-48 h-32 rounded-xl overflow-hidden bg-[#0a192f] relative shrink-0">
                        <img 
                          src={course.thumbnail || DEFAULT_IMAGE} 
