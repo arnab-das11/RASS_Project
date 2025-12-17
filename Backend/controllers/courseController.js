@@ -30,10 +30,12 @@ export const getCourseById = async (req, res) => {
 // @route   POST /api/courses
 export const createCourse = async (req, res) => {
   try {
-    const { title, description, category, level, duration, thumbnail, instructorId } = req.body;
+    // 1. Destructure new fields from the request body
+    const { title, description, category, level, duration, price, instructorId } = req.body;
 
-    if (!title || !description || !instructorId) {
-      return res.status(400).json({ message: "Please fill in all required fields" });
+    // Check if file was uploaded
+    if (!req.file) {
+      return res.status(400).json({ message: "Thumbnail image is required" });
     }
 
     const course = new Course({
@@ -41,10 +43,11 @@ export const createCourse = async (req, res) => {
       description,
       category,
       level,
-      duration,
-      thumbnail, 
+      duration: parseFloat(duration), // Use parseFloat to allow decimals like 2.5 hours
+      price: Number(price) || 0,
       instructorId,
-      status: "pending", // Default to pending approval
+      thumbnail: req.file.path,
+      status: "pending",
     });
 
     const createdCourse = await course.save();
@@ -53,7 +56,6 @@ export const createCourse = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
 // @desc    Get courses for specific instructor
 // @route   GET /api/courses/instructor/:instructorId
 export const getInstructorCourses = async (req, res) => {
@@ -86,7 +88,6 @@ export const deleteCourse = async (req, res) => {
 // @route   GET /api/courses/pending
 export const getPendingCourses = async (req, res) => {
   try {
-    // This specifically looks for "pending" status
     const courses = await Course.find({ status: "pending" }).populate("instructorId", "name email");
     res.json(courses);
   } catch (error) {
@@ -103,9 +104,6 @@ export const updateCourseStatus = async (req, res) => {
 
     if (course) {
       course.status = status;
-      // Optional: Update boolean flag if you use one
-      // course.isApproved = (status === 'approved');
-      
       const updatedCourse = await course.save();
       res.json(updatedCourse);
     } else {
@@ -113,5 +111,70 @@ export const updateCourseStatus = async (req, res) => {
     }
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+/// ... imports
+
+export const addLecture = async (req, res) => {
+  try {
+    // We expect 'links' to be a JSON string array if sending multiple links from frontend
+    // e.g., links = '[{"title":"Wiki","url":"..."}]'
+    const { title, links } = req.body;
+    const course = await Course.findById(req.params.id);
+
+    if (!course) return res.status(404).json({ message: "Course not found" });
+
+    // 1. Process Videos (Multiple)
+    const videoList = [];
+    if (req.files && req.files['videos']) {
+      req.files['videos'].forEach((file) => {
+        videoList.push({
+          title: file.originalname, // Or pass specific titles from frontend
+          videoUrl: file.path,
+          videoPublicId: file.filename,
+          freePreview: false // You can make this dynamic if needed
+        });
+      });
+    }
+
+    // 2. Process Resources (Multiple PDFs/Docs/BibTex)
+    const resourceList = [];
+    if (req.files && req.files['resources']) {
+      req.files['resources'].forEach((file) => {
+        resourceList.push({
+          title: file.originalname,
+          url: file.path,
+          publicId: file.filename,
+          type: file.mimetype.split('/')[1] // e.g., 'pdf'
+        });
+      });
+    }
+
+    // 3. Process Links (Parse JSON string)
+    let linkList = [];
+    if (links) {
+        try {
+            linkList = JSON.parse(links);
+        } catch (e) {
+            console.log("Error parsing links JSON", e);
+        }
+    }
+
+    // 4. Create the "Section" (formerly Lecture)
+    const newLectureSection = {
+      title,
+      videos: videoList,
+      resources: resourceList,
+      links: linkList
+    };
+
+    course.lectures.push(newLectureSection);
+    await course.save();
+
+    res.status(201).json(course);
+  } catch (error) {
+    console.error("Add Lecture Error:", error);
+    res.status(500).json({ message: "Upload failed: " + error.message });
   }
 };

@@ -1,61 +1,56 @@
 import mongoose from "mongoose";
 
-const courseSchema = new mongoose.Schema(
+const courseSchema = mongoose.Schema(
   {
-    title: {
-      type: String,
-      required: true,
-    },
-    thumbnail: {
-      type: String, 
-      required: false, // Now the database knows this field exists
-    },
-    description: {
-      type: String,
-      required: true,
-    },
-    category: {
-      type: String,
-      required: false,
-    },
-    level: {
-      type: String,
-      enum: ["Beginner", "Intermediate", "Advanced"],
-      default: "Beginner",
-    },
-    duration: {
-      type: String,
-      default: "Self-paced",
-    },
-    instructorId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
-    resources: [
+    title: { type: String, required: true },
+    description: { type: String, required: true },
+    category: { type: String, required: true },
+    level: { type: String, required: true },
+    
+    // --- UPDATED FIELD ---
+    duration: { type: Number, required: true }, // In Hours (e.g. 1.5, 10)
+    price: { type: Number, default: 0 },        // 0 = Free
+    // ---------------------
+
+    instructorId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    thumbnail: { type: String, required: true },
+
+    lectures: [
       {
-        title: String,
-        url: String,
-        type: { type: String, default: "video" },
-      },
+        title: { type: String, required: true },
+        videos: [
+          {
+            title: { type: String },
+            videoUrl: { type: String },
+            videoPublicId: { type: String },
+            freePreview: { type: Boolean, default: false }
+          }
+        ],
+        resources: [
+          {
+            title: { type: String },
+            url: { type: String },
+            publicId: { type: String },
+            type: { type: String }
+          }
+        ],
+        links: [
+          {
+            title: { type: String },
+            url: { type: String }
+          }
+        ]
+      }
     ],
-    enrolledStudents: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-      },
-    ],
+
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],
       default: "pending",
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
 const Course = mongoose.model("Course", courseSchema);
-
 export default Course;
