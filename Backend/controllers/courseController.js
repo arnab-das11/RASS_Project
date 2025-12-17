@@ -30,7 +30,8 @@ export const getCourseById = async (req, res) => {
 // @route   POST /api/courses
 export const createCourse = async (req, res) => {
   try {
-    const { title, description, category, level, instructorId } = req.body;
+    // 1. Destructure new fields from the request body
+    const { title, description, category, level, duration, price, instructorId } = req.body;
 
     // Check if file was uploaded
     if (!req.file) {
@@ -42,8 +43,10 @@ export const createCourse = async (req, res) => {
       description,
       category,
       level,
+      duration: parseFloat(duration), // Use parseFloat to allow decimals like 2.5 hours
+      price: Number(price) || 0,
       instructorId,
-      thumbnail: req.file.path, // Save the Cloudinary URL
+      thumbnail: req.file.path,
       status: "pending",
     });
 
@@ -53,7 +56,6 @@ export const createCourse = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
 // @desc    Get courses for specific instructor
 // @route   GET /api/courses/instructor/:instructorId
 export const getInstructorCourses = async (req, res) => {
