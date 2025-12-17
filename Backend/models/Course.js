@@ -6,38 +6,37 @@ const courseSchema = mongoose.Schema(
     description: { type: String, required: true },
     category: { type: String, required: true },
     level: { type: String, required: true },
+    
+    // --- UPDATED FIELD ---
+    duration: { type: Number, required: true }, // In Hours (e.g. 1.5, 10)
+    price: { type: Number, default: 0 },        // 0 = Free
+    // ---------------------
+
     instructorId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     thumbnail: { type: String, required: true },
 
-    // The Curriculum (Revised for Multiple Items)
     lectures: [
       {
-        title: { type: String, required: true }, // e.g., "Chapter 1: Basics"
-        
-        // Array of Videos
+        title: { type: String, required: true },
         videos: [
           {
-            title: { type: String }, // e.g., "Part 1: Setup"
+            title: { type: String },
             videoUrl: { type: String },
             videoPublicId: { type: String },
             freePreview: { type: Boolean, default: false }
           }
         ],
-
-        // Array of Resources (PDF, Doc, BibTex files)
         resources: [
           {
-            title: { type: String }, // e.g., "Lecture Notes" or "Citation.bib"
+            title: { type: String },
             url: { type: String },
             publicId: { type: String },
-            type: { type: String } // 'pdf', 'docx', 'bib', etc.
+            type: { type: String }
           }
         ],
-
-        // Array of Links
         links: [
           {
-            title: { type: String }, // e.g., "Google Scholar Reference"
+            title: { type: String },
             url: { type: String }
           }
         ]

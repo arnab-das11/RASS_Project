@@ -11,7 +11,11 @@ import {
   X, 
   Check, 
   Trash2, 
-  Image as ImageIcon 
+  Image as ImageIcon,
+  Clock,
+  DollarSign,
+  Tag,
+  BookOpen
 } from "lucide-react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -25,8 +29,10 @@ const InstructorCoursePage = () => {
   const [courseData, setCourseData] = useState({
     title: "",
     description: "",
-    category: "Development",
+    category: "Web Development",
     level: "Beginner",
+    duration: "", 
+    price: "",    
   });
   const [thumbnail, setThumbnail] = useState(null);
   const [previewThumbnail, setPreviewThumbnail] = useState(null);
@@ -42,7 +48,10 @@ const InstructorCoursePage = () => {
   // Temp Link Input State
   const [tempLinkTitle, setTempLinkTitle] = useState("");
   const [tempLinkUrl, setTempLinkUrl] = useState("");
-  const [loadingLecture, setLoadingLecture] = useState(false);
+
+  // --- NEW: UPLOAD PROGRESS STATE ---
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
 
   // ==================== HANDLERS: STEP 1 (COURSE) ====================
 
@@ -58,7 +67,6 @@ const InstructorCoursePage = () => {
     e.preventDefault();
     if (!thumbnail) return alert("Please upload a course thumbnail.");
     
-    // Check User Auth
     const userInfo = JSON.parse(localStorage.getItem("userInfo"));
     if (!userInfo) return alert("Please log in first.");
 
@@ -69,6 +77,8 @@ const InstructorCoursePage = () => {
     formData.append("description", courseData.description);
     formData.append("category", courseData.category);
     formData.append("level", courseData.level);
+    formData.append("duration", courseData.duration);
+    formData.append("price", courseData.price);
     formData.append("thumbnail", thumbnail);
     formData.append("instructorId", userInfo._id);
 
@@ -77,10 +87,12 @@ const InstructorCoursePage = () => {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setCreatedCourseId(data._id);
-      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      setTimeout(() => {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      }, 500);
     } catch (error) {
       console.error(error);
-      alert("Error creating course.");
+      alert("Error creating course. Check console.");
     } finally {
       setLoadingCourse(false);
     }
@@ -88,49 +100,29 @@ const InstructorCoursePage = () => {
 
   // ==================== HANDLERS: STEP 2 (SECTIONS) ====================
 
-  // Video Handlers
-  const handleVideoSelect = (e) => {
-    const files = Array.from(e.target.files);
-    setVideoFiles((prev) => [...prev, ...files]);
-  };
-  const removeVideo = (index) => {
-    setVideoFiles((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  // Resource Handlers
-  const handleResourceSelect = (e) => {
-    const files = Array.from(e.target.files);
-    setResourceFiles((prev) => [...prev, ...files]);
-  };
-  const removeResource = (index) => {
-    setResourceFiles((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  // Link Handlers
+  const handleVideoSelect = (e) => setVideoFiles((prev) => [...prev, ...Array.from(e.target.files)]);
+  const removeVideo = (index) => setVideoFiles((prev) => prev.filter((_, i) => i !== index));
+  const handleResourceSelect = (e) => setResourceFiles((prev) => [...prev, ...Array.from(e.target.files)]);
+  const removeResource = (index) => setResourceFiles((prev) => prev.filter((_, i) => i !== index));
   const addLink = () => {
     if (tempLinkTitle && tempLinkUrl) {
       setLinks([...links, { title: tempLinkTitle, url: tempLinkUrl }]);
-      setTempLinkTitle("");
-      setTempLinkUrl("");
+      setTempLinkTitle(""); setTempLinkUrl("");
     }
   };
-  const removeLink = (index) => {
-    setLinks(links.filter((_, i) => i !== index));
-  };
+  const removeLink = (index) => setLinks(links.filter((_, i) => i !== index));
 
-  // Submit Section
+  // --- UPDATED SUBMIT HANDLER WITH PROGRESS ---
   const handleAddSection = async (e) => {
     e.preventDefault();
-    if (!createdCourseId) return alert("Course ID missing. Please create course first.");
-    
-    if (videoFiles.length === 0 && resourceFiles.length === 0 && links.length === 0) {
-        return alert("Please add at least one video, resource, or link.");
-    }
+    if (!createdCourseId) return alert("Course ID missing.");
+    if (videoFiles.length === 0 && resourceFiles.length === 0 && links.length === 0) return alert("Add content first.");
 
-    setLoadingLecture(true);
+    setIsUploading(true);
+    setUploadProgress(0); // Reset progress
+
     const formData = new FormData();
     formData.append("title", sectionTitle);
-    
     videoFiles.forEach((file) => formData.append("videos", file));
     resourceFiles.forEach((file) => formData.append("resources", file));
     formData.append("links", JSON.stringify(links));
@@ -138,26 +130,28 @@ const InstructorCoursePage = () => {
     try {
       await axios.post(`http://localhost:5000/api/courses/${createdCourseId}/lectures`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
+        // AXIOS PROGRESS EVENT
+        onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setUploadProgress(percentCompleted);
+        }
       });
-      alert("Section Added Successfully!");
       
-      // Reset Section Fields
-      setSectionTitle("");
-      setVideoFiles([]);
-      setResourceFiles([]);
-      setLinks([]);
+      alert("Section Added Successfully!");
+      // Reset form
+      setSectionTitle(""); setVideoFiles([]); setResourceFiles([]); setLinks([]);
     } catch (error) {
       console.error(error);
-      alert("Failed to upload. Check file sizes.");
+      alert("Failed to upload. Check file sizes or connection.");
     } finally {
-      setLoadingLecture(false);
+      setIsUploading(false);
+      setUploadProgress(0);
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a192f] via-[#0f2744] to-[#132e53] p-6 md:p-10 relative text-slate-300">
       
-      {/* Home Button */}
       <button 
         onClick={() => navigate('/')} 
         className="absolute top-6 left-6 p-2 bg-[#112240] rounded-full shadow-lg text-slate-400 hover:text-sky-400 border border-blue-800/30 transition z-10"
@@ -190,22 +184,31 @@ const InstructorCoursePage = () => {
           </div>
 
           <form onSubmit={handleCreateCourse} className="space-y-6">
+             
              {/* Title & Category */}
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Course Title</label>
-                    <input type="text" placeholder="e.g. Advanced React Patterns" 
-                        className="w-full p-3 rounded-xl bg-[#1a2a44] border border-blue-800 text-white focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none transition" 
+                    <label className="block text-sm font-medium text-slate-300 mb-1 flex items-center gap-2">
+                        <BookOpen size={16} className="text-sky-400"/> Course Title
+                    </label>
+                    <input type="text" placeholder="e.g. Master MERN Stack" 
+                        className="w-full p-3 rounded-xl bg-[#1a2a44] border border-blue-800 text-white focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none transition placeholder-slate-500" 
                         value={courseData.title} onChange={(e) => setCourseData({...courseData, title: e.target.value})} required />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Category</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-1 flex items-center gap-2">
+                        <Tag size={16} className="text-sky-400"/> Category
+                    </label>
                     <select className="w-full p-3 rounded-xl bg-[#1a2a44] border border-blue-800 text-white focus:border-sky-500 outline-none"
                         value={courseData.category} onChange={(e) => setCourseData({...courseData, category: e.target.value})}>
-                        <option>Development</option>
-                        <option>Business</option>
-                        <option>Design</option>
-                        <option>Marketing</option>
+                        <option value="Web Development">Web Development</option>
+                        <option value="Data Structures & Algorithms">Data Structures & Algorithms (DSA)</option>
+                        <option value="Artificial Intelligence">Artificial Intelligence (AI/ML)</option>
+                        <option value="Cybersecurity">Cybersecurity</option>
+                        <option value="Cloud Computing">Cloud Computing</option>
+                        <option value="Mobile Development">Mobile Development</option>
+                        <option value="Data Science">Data Science</option>
+                        <option value="DevOps">DevOps</option>
                     </select>
                 </div>
              </div>
@@ -213,29 +216,15 @@ const InstructorCoursePage = () => {
              {/* Description */}
              <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1">Description</label>
-                <textarea placeholder="What will students learn in this course?" rows="3" 
-                    className="w-full p-3 rounded-xl bg-[#1a2a44] border border-blue-800 text-white focus:border-sky-500 outline-none"
+                <textarea placeholder="Write a catchy description. What will students learn?" rows="4" 
+                    className="w-full p-3 rounded-xl bg-[#1a2a44] border border-blue-800 text-white focus:border-sky-500 outline-none placeholder-slate-500"
                     value={courseData.description} onChange={(e) => setCourseData({...courseData, description: e.target.value})} required />
              </div>
 
-             {/* Thumbnail & Level */}
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+             {/* GRID: Level, Duration, Price */}
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Thumbnail Image</label>
-                    <div className="border-2 border-dashed border-blue-700/50 rounded-xl p-4 text-center hover:bg-[#1a2a44] transition cursor-pointer relative h-32 flex flex-col items-center justify-center group">
-                        {previewThumbnail ? (
-                            <img src={previewThumbnail} alt="Preview" className="h-full object-contain rounded-lg" />
-                        ) : (
-                            <>
-                                <ImageIcon className="text-slate-500 mb-2 group-hover:text-sky-400" />
-                                <span className="text-xs text-slate-400">Click to upload image</span>
-                            </>
-                        )}
-                        <input type="file" accept="image/*" onChange={handleThumbnailChange} className="absolute inset-0 opacity-0 cursor-pointer" />
-                    </div>
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Difficulty Level</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Difficulty</label>
                     <select className="w-full p-3 rounded-xl bg-[#1a2a44] border border-blue-800 text-white focus:border-sky-500 outline-none"
                        value={courseData.level} onChange={(e) => setCourseData({...courseData, level: e.target.value})}>
                        <option>Beginner</option>
@@ -243,13 +232,52 @@ const InstructorCoursePage = () => {
                        <option>Advanced</option>
                     </select>
                 </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center gap-2">
+                         <Clock size={16} className="text-sky-400"/> Duration (Hours)
+                    </label>
+                    <input type="number" placeholder="e.g. 2.5" min="0" step="0.1"
+                        className="w-full p-3 rounded-xl bg-[#1a2a44] border border-blue-800 text-white focus:border-sky-500 outline-none placeholder-slate-500" 
+                        value={courseData.duration} onChange={(e) => setCourseData({...courseData, duration: e.target.value})} required />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center gap-2">
+                         <DollarSign size={16} className="text-sky-400"/> Price
+                    </label>
+                    <input type="number" placeholder="0 for Free" min="0"
+                        className="w-full p-3 rounded-xl bg-[#1a2a44] border border-blue-800 text-white focus:border-sky-500 outline-none placeholder-slate-500" 
+                        value={courseData.price} onChange={(e) => setCourseData({...courseData, price: e.target.value})} />
+                </div>
              </div>
 
-             {/* Submit Step 1 */}
+             {/* Thumbnail Upload */}
+             <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Thumbnail Image</label>
+                <div className="border-2 border-dashed border-blue-700/50 rounded-xl p-6 text-center hover:bg-[#1a2a44] transition cursor-pointer relative flex flex-col items-center justify-center group h-40">
+                    {previewThumbnail ? (
+                        <div className="relative h-full w-full flex justify-center">
+                            <img src={previewThumbnail} alt="Preview" className="h-full object-contain rounded-lg shadow-lg" />
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-lg transition">
+                                <span className="text-white text-sm font-bold">Change Image</span>
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="bg-blue-500/10 p-3 rounded-full mb-3 group-hover:scale-110 transition">
+                                <ImageIcon className="text-blue-400" size={32} />
+                            </div>
+                            <span className="text-sm text-slate-300 font-medium">Click to upload course thumbnail</span>
+                            <span className="text-xs text-slate-500 mt-1">Recommended size: 1280x720</span>
+                        </>
+                    )}
+                    <input type="file" accept="image/*" onChange={handleThumbnailChange} className="absolute inset-0 opacity-0 cursor-pointer" />
+                </div>
+             </div>
+
              {!createdCourseId && (
-                <button type="submit" disabled={loadingCourse} className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold flex justify-center items-center gap-2 transition-all shadow-lg shadow-blue-900/50">
+                <button type="submit" disabled={loadingCourse} className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-bold flex justify-center items-center gap-2 transition-all shadow-lg shadow-blue-900/50 transform hover:-translate-y-0.5">
                    {loadingCourse ? <Loader className="animate-spin" /> : <Save size={20} />}
-                   {loadingCourse ? "Creating Draft..." : "Save & Continue to Curriculum"}
+                   {loadingCourse ? "Creating Draft & Setting up Cloud..." : "Save Details & Continue to Curriculum"}
                 </button>
              )}
           </form>
@@ -257,7 +285,7 @@ const InstructorCoursePage = () => {
 
         {/* ==================== STEP 2: MULTI-CONTENT UPLOAD ==================== */}
         {createdCourseId && (
-          <div className="bg-[#112240] rounded-2xl shadow-xl p-8 border border-blue-800/50 animate-fade-in relative">
+          <div className="bg-[#112240] rounded-2xl shadow-xl p-8 border border-blue-800/50 animate-fade-in relative mb-20">
              <div className="absolute -top-8 left-8 w-0.5 h-8 bg-blue-800/50"></div>
 
              <div className="flex justify-between items-center mb-6">
@@ -265,13 +293,14 @@ const InstructorCoursePage = () => {
                   <div className="bg-green-500/20 w-8 h-8 flex items-center justify-center rounded-full text-green-400 font-bold border border-green-500/30">2</div>
                   <h2 className="text-xl font-semibold text-sky-100">Add Course Section</h2>
                 </div>
+                <span className="text-xs text-slate-400 uppercase tracking-wide font-semibold">Multiple Files Supported</span>
              </div>
 
              <form onSubmit={handleAddSection} className="space-y-6">
                 <div>
                     <label className="block text-sm font-medium text-slate-300 mb-1">Section Title</label>
                     <input type="text" placeholder="e.g. Chapter 1: Introduction & Resources" 
-                        className="w-full p-3 rounded-xl bg-[#1a2a44] border border-blue-800 text-white focus:border-green-500 outline-none" 
+                        className="w-full p-3 rounded-xl bg-[#1a2a44] border border-blue-800 text-white focus:border-green-500 outline-none placeholder-slate-500" 
                     value={sectionTitle} onChange={(e) => setSectionTitle(e.target.value)} required />
                 </div>
 
@@ -279,14 +308,10 @@ const InstructorCoursePage = () => {
                     {/* --- VIDEOS --- */}
                     <div className="border border-blue-800/50 rounded-xl p-4 bg-[#0a192f]/50">
                         <h3 className="text-sm font-bold text-sky-200 mb-3 flex items-center gap-2"><Video size={16}/> Videos</h3>
-                        
-                        {/* Upload Zone */}
                         <div className="relative border-2 border-dashed border-gray-600 rounded-lg p-4 text-center hover:bg-[#1a2a44] hover:border-green-500 transition cursor-pointer">
-                            <p className="text-xs text-slate-400">+ Add Video Files</p>
+                            <p className="text-xs text-slate-400 font-medium">+ Drop Video Files</p>
                             <input type="file" accept="video/*" multiple onChange={handleVideoSelect} className="absolute inset-0 opacity-0 cursor-pointer"/>
                         </div>
-
-                        {/* File List */}
                         <div className="mt-3 space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
                             {videoFiles.map((file, i) => (
                                 <div key={i} className="flex justify-between items-center bg-[#1a2a44] p-2 rounded border border-blue-900/50">
@@ -301,14 +326,10 @@ const InstructorCoursePage = () => {
                     {/* --- RESOURCES --- */}
                     <div className="border border-blue-800/50 rounded-xl p-4 bg-[#0a192f]/50">
                         <h3 className="text-sm font-bold text-sky-200 mb-3 flex items-center gap-2"><FileText size={16}/> Resources</h3>
-                        
-                        {/* Upload Zone */}
                         <div className="relative border-2 border-dashed border-gray-600 rounded-lg p-4 text-center hover:bg-[#1a2a44] hover:border-blue-500 transition cursor-pointer">
-                            <p className="text-xs text-slate-400">+ Add PDF/Docs/BibTex</p>
+                            <p className="text-xs text-slate-400 font-medium">+ Drop PDF/Docs</p>
                             <input type="file" accept=".pdf,.doc,.docx,.bib,.txt" multiple onChange={handleResourceSelect} className="absolute inset-0 opacity-0 cursor-pointer"/>
                         </div>
-
-                        {/* File List */}
                         <div className="mt-3 space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
                             {resourceFiles.map((file, i) => (
                                 <div key={i} className="flex justify-between items-center bg-[#1a2a44] p-2 rounded border border-blue-900/50">
@@ -324,7 +345,6 @@ const InstructorCoursePage = () => {
                 {/* --- LINKS --- */}
                 <div className="border border-blue-800/50 rounded-xl p-4 bg-[#0a192f]/50">
                     <h3 className="text-sm font-bold text-sky-200 mb-3 flex items-center gap-2"><LinkIcon size={16}/> External Links</h3>
-                    
                     <div className="flex flex-col sm:flex-row gap-2 mb-3">
                         <input type="text" placeholder="Title (e.g. Wiki)" value={tempLinkTitle} onChange={(e)=>setTempLinkTitle(e.target.value)} 
                             className="w-full sm:w-1/3 p-2 rounded-lg bg-[#1a2a44] border border-blue-800 text-sm text-white focus:border-sky-500 outline-none"/>
@@ -332,7 +352,6 @@ const InstructorCoursePage = () => {
                             className="flex-1 p-2 rounded-lg bg-[#1a2a44] border border-blue-800 text-sm text-white focus:border-sky-500 outline-none"/>
                         <button type="button" onClick={addLink} className="bg-blue-600 px-4 py-2 rounded-lg text-white text-sm hover:bg-blue-500 font-medium">Add</button>
                     </div>
-
                     <div className="space-y-2">
                         {links.map((link, i) => (
                             <div key={i} className="text-sm text-slate-300 flex justify-between items-center bg-[#1a2a44] p-2 rounded border border-blue-900/50">
@@ -344,10 +363,21 @@ const InstructorCoursePage = () => {
                     </div>
                 </div>
 
-                {/* Submit Section */}
-                <button type="submit" disabled={loadingLecture} className="w-full py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-bold hover:shadow-lg hover:shadow-green-900/40 flex justify-center items-center gap-2 transition-all transform hover:-translate-y-0.5">
-                   {loadingLecture ? <Loader className="animate-spin" /> : <Plus size={20} />}
-                   {loadingLecture ? "Uploading Content (This may take time)..." : "Add This Section to Course"}
+                {/* --- PROGRESS BAR UI --- */}
+                {isUploading && (
+                    <div className="w-full bg-gray-700 rounded-full h-4 overflow-hidden border border-gray-600 relative mb-4">
+                        <div 
+                           className="bg-gradient-to-r from-green-500 to-emerald-400 h-full transition-all duration-300 ease-out flex items-center justify-center text-[10px] font-bold text-white shadow-[0_0_10px_rgba(16,185,129,0.5)]" 
+                           style={{ width: `${uploadProgress}%` }}
+                        >
+                           {uploadProgress}%
+                        </div>
+                    </div>
+                )}
+
+                <button type="submit" disabled={isUploading} className={`w-full py-4 rounded-xl font-bold flex justify-center items-center gap-2 transition-all ${isUploading ? 'bg-gray-600 cursor-not-allowed' : 'bg-green-600 hover:bg-green-500 text-white hover:shadow-lg'}`}>
+                   {isUploading ? <Loader className="animate-spin" /> : <Plus size={20} />}
+                   {isUploading ? "Uploading to Cloud..." : "Add This Section to Course"}
                 </button>
              </form>
           </div>
