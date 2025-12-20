@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { 
   Menu, X, Users, GraduationCap, LayoutDashboard, 
-  CheckCircle, XCircle, LogOut, BookOpen, Trash2 
+  CheckCircle, XCircle, LogOut, BookOpen, Trash2, PlusCircle 
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from 'axios';
@@ -11,9 +11,6 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("dashboard"); 
   const navigate = useNavigate();
 
-  // --- FIX: Robust Lazy Load User ---
-  // 1. Reads from localStorage immediately (prevents null state on refresh).
-  // 2. Uses try-catch to prevent crashes if localStorage data is corrupted.
   const [userInfo, setUserInfo] = useState(() => {
     try {
       const saved = localStorage.getItem("userInfo");
@@ -24,28 +21,25 @@ const AdminDashboard = () => {
     }
   });
 
-  // Data State
   const [users, setUsers] = useState([]);
   const [pendingList, setPendingList] = useState([]);
   const [allCourses, setAllCourses] = useState([]); 
   const [loading, setLoading] = useState(true);
 
-  // FETCH DATA
+  // --- FETCH DATA ---
   useEffect(() => {
-    // 1. Auth Check
     if (!userInfo || userInfo.role !== 'admin') {
       navigate("/");
       return;
     }
 
-    // 2. Fetch Data
     const fetchData = async () => {
       try {
         console.log("Fetching Admin Data...");
         
-        // Parallel fetching for speed
         const [usersRes, pendingRes, coursesRes] = await Promise.all([
             axios.get('http://localhost:5000/api/users'),
+            // Fetches 'pending' AND 'deletion_pending'
             axios.get('http://localhost:5000/api/courses/pending'),
             axios.get('http://localhost:5000/api/courses')
         ]);
@@ -53,7 +47,6 @@ const AdminDashboard = () => {
         setUsers(usersRes.data);
         setPendingList(pendingRes.data);
         setAllCourses(coursesRes.data);
-        
         setLoading(false);
       } catch (error) {
         console.error("Admin Fetch Error:", error);
@@ -63,48 +56,69 @@ const AdminDashboard = () => {
     fetchData();
   }, [userInfo, navigate]);
 
-  // Filter lists
   const learnersList = users.filter(u => u.role === 'learner');
   const instructorsList = users.filter(u => u.role === 'instructor');
 
-  // --- HANDLER: Approve / Reject ---
-  const handleAction = async (id, status) => {
-    const actionText = status === 'approved' ? 'Approve' : 'Reject';
-    if(!window.confirm(`Are you sure you want to ${actionText} this course?`)) return;
+  // --- HANDLER: Course Actions (Approve/Reject Requests) ---
+  const handleAction = async (course, actionType) => {
+    // actionType: 'approve' | 'reject'
+    
+    // SCENARIO 1: DELETION REQUEST
+    if (course.status === 'deletion_pending') {
+        const isApprove = actionType === 'approve'; // Admin says "Yes, delete it"
+        
+        const confirmMsg = isApprove 
+            ? "PERMANENTLY DELETE this course? This cannot be undone." 
+            : "Cancel deletion and keep the course active?";
+        
+        if (!window.confirm(confirmMsg)) return;
 
-    // Optimistic UI Update
-    setPendingList(prev => prev.filter(c => c._id !== id));
+        // Optimistic UI
+        setPendingList(prev => prev.filter(c => c._id !== course._id));
 
-    try {
-      await axios.put(`http://localhost:5000/api/courses/${id}/status`, { status });
-      
-      // If approved, add it to the 'All Courses' list locally so we see it immediately
-      if(status === 'approved') {
-        // We need to fetch the course details or move it from pending list locally
-        // Since we filtered it out above, we might miss the object reference if we don't grab it first.
-        // For simplicity in optimistic UI, we can just re-fetch or let the user refresh to see it in 'All Courses'
-        // But re-fetching is safer here:
-        const { data } = await axios.get(`http://localhost:5000/api/courses/${id}`);
-        setAllCourses(prev => [...prev, data]);
-      }
+        try {
+            if (isApprove) {
+                // DELETE DATA
+                await axios.delete(`http://localhost:5000/api/courses/${course._id}`);
+                setAllCourses(prev => prev.filter(c => c._id !== course._id));
+            } else {
+                // RESTORE TO APPROVED
+                await axios.put(`http://localhost:5000/api/courses/${course._id}/status`, { status: 'approved' });
+            }
+        } catch (error) {
+            alert("Error processing request.");
+        }
+    } 
+    // SCENARIO 2: NEW COURSE REQUEST
+    else {
+        const confirmMsg = actionType === 'approve' ? "Approve this new course?" : "Reject this new course?";
+        if (!window.confirm(confirmMsg)) return;
 
-    } catch (error) {
-      console.error(error);
-      alert("Error updating status. Please refresh.");
+        setPendingList(prev => prev.filter(c => c._id !== course._id));
+
+        try {
+            const newStatus = actionType === 'approve' ? 'approved' : 'rejected';
+            await axios.put(`http://localhost:5000/api/courses/${course._id}/status`, { status: newStatus });
+            
+            if (actionType === 'approve') {
+                const { data } = await axios.get(`http://localhost:5000/api/courses/${course._id}`);
+                setAllCourses(prev => [...prev, data]);
+            }
+        } catch (error) {
+            alert("Error updating status.");
+        }
     }
   };
 
-  // --- HANDLER: Delete Course (Admin Power) ---
-  const handleDeleteCourse = async (id) => {
-    if(!window.confirm("WARNING: This will permanently delete the course. Continue?")) return;
-
-    // Optimistic UI Update
+  // --- FORCE DELETE (Directly from All Courses Tab) ---
+  const handleDeleteDirectly = async (id) => {
+    // This answers your question: YES, it asks for confirmation.
+    if(!window.confirm("WARNING: Are you sure you want to FORCE DELETE this approved course?")) return;
+    
     setAllCourses(prev => prev.filter(c => c._id !== id));
-
     try {
       await axios.delete(`http://localhost:5000/api/courses/${id}`);
     } catch (error) {
-      console.error(error);
       alert("Failed to delete course.");
     }
   };
@@ -115,7 +129,6 @@ const AdminDashboard = () => {
     navigate("/");
   };
 
-  // Prevent rendering content if not logged in (Stop flicker)
   if (!userInfo) return null;
 
   return (
@@ -125,7 +138,7 @@ const AdminDashboard = () => {
       <aside className={`fixed z-20 top-0 left-0 h-screen bg-gray-900 text-white w-64 p-6 flex flex-col transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-64"} md:translate-x-0 md:relative shadow-xl`}>
         <div className="mb-10 flex justify-between items-center">
           <Link to="/" className="font-bold text-xl flex items-center gap-2 text-green-400">
-             <span>Admin Panel</span>
+              <span>Admin Panel</span>
           </Link>
           <button className="md:hidden text-gray-400" onClick={() => setSidebarOpen(false)}><X/></button>
         </div>
@@ -134,11 +147,9 @@ const AdminDashboard = () => {
           <button onClick={() => setActiveTab("dashboard")} className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg transition font-medium ${activeTab === "dashboard" ? "bg-green-600 text-white" : "text-gray-400 hover:bg-gray-800 hover:text-white"}`}>
             <LayoutDashboard size={20} /> Dashboard
           </button>
-          
           <button onClick={() => setActiveTab("all-courses")} className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg transition font-medium ${activeTab === "all-courses" ? "bg-green-600 text-white" : "text-gray-400 hover:bg-gray-800 hover:text-white"}`}>
             <BookOpen size={20} /> All Courses
           </button>
-
           <button onClick={() => setActiveTab("learners")} className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg transition font-medium ${activeTab === "learners" ? "bg-green-600 text-white" : "text-gray-400 hover:bg-gray-800 hover:text-white"}`}>
             <GraduationCap size={20} /> Learners
           </button>
@@ -170,12 +181,12 @@ const AdminDashboard = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-orange-100 relative overflow-hidden">
                       <div className="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-full -mr-10 -mt-10"></div>
-                      <h3 className="text-gray-500 font-medium relative z-10">Pending Requests</h3>
+                      <h3 className="text-gray-500 font-medium relative z-10">Pending Actions</h3>
                       <p className="text-4xl font-bold text-orange-500 mt-2 relative z-10">{pendingList.length}</p>
                     </div>
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-blue-100 relative overflow-hidden">
                       <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-full -mr-10 -mt-10"></div>
-                      <h3 className="text-gray-500 font-medium relative z-10">Total Approved Courses</h3>
+                      <h3 className="text-gray-500 font-medium relative z-10">Approved Courses</h3>
                       <p className="text-4xl font-bold text-blue-600 mt-2 relative z-10">{allCourses.length}</p>
                     </div>
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-indigo-100 relative overflow-hidden">
@@ -188,7 +199,7 @@ const AdminDashboard = () => {
                   <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
                     <h2 className="text-lg font-bold mb-6 text-gray-800 flex items-center gap-2">
                         <span className="w-2 h-6 bg-orange-500 rounded-full"></span> 
-                        Pending Course Approvals
+                        Action Required
                     </h2>
                     
                     {pendingList.length === 0 ? (
@@ -204,14 +215,38 @@ const AdminDashboard = () => {
                                 <img src={course.thumbnail} className="w-24 h-16 object-cover rounded-lg bg-gray-200" alt=""/>
                                 <div>
                                     <h3 className="font-bold text-gray-800 text-lg">{course.title}</h3>
-                                    <p className="text-sm text-gray-500 flex items-center gap-2">
-                                        <Users size={14}/> {course.instructorId?.name || "Unknown Instructor"}
-                                    </p>
+                                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                                       <Users size={14}/> {course.instructorId?.name || "Unknown"}
+                                       
+                                       {course.status === 'deletion_pending' ? (
+                                           <span className="bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded font-bold border border-red-200">Requesting Deletion</span>
+                                       ) : (
+                                           <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded font-bold border border-blue-200">New Course</span>
+                                       )}
+                                    </div>
                                 </div>
                             </div>
+                            
                             <div className="flex gap-3 mt-4 md:mt-0 w-full md:w-auto">
-                              <button onClick={() => handleAction(course._id, 'rejected')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-lg hover:bg-red-100 font-medium transition"><XCircle size={18}/> Reject</button>
-                              <button onClick={() => handleAction(course._id, 'approved')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-medium transition shadow-lg shadow-green-200"><CheckCircle size={18}/> Approve</button>
+                              {course.status === 'deletion_pending' ? (
+                                  <>
+                                    <button onClick={() => handleAction(course, 'reject')} className="flex-1 md:flex-none px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition">
+                                        Cancel Deletion
+                                    </button>
+                                    <button onClick={() => handleAction(course, 'approve')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 font-medium transition shadow-lg shadow-red-200">
+                                        <Trash2 size={18}/> Confirm Delete
+                                    </button>
+                                  </>
+                              ) : (
+                                  <>
+                                    <button onClick={() => handleAction(course, 'reject')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-lg hover:bg-red-100 font-medium transition">
+                                        <XCircle size={18}/> Reject
+                                    </button>
+                                    <button onClick={() => handleAction(course, 'approve')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-medium transition shadow-lg shadow-green-200">
+                                        <CheckCircle size={18}/> Approve
+                                    </button>
+                                  </>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -221,12 +256,11 @@ const AdminDashboard = () => {
                 </div>
               )}
 
-              {/* --- ALL COURSES TAB (NEW) --- */}
+              {/* --- ALL COURSES TAB --- */}
               {activeTab === "all-courses" && (
                 <div className="max-w-6xl mx-auto animate-fade-in">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-6">Manage All Courses</h2>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                   <h2 className="text-2xl font-bold text-gray-800 mb-6">Manage All Courses</h2>
+                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {allCourses.map(course => (
                             <div key={course._id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition group">
                                 <div className="h-40 bg-gray-200 relative">
@@ -240,15 +274,14 @@ const AdminDashboard = () => {
                                     <p className="text-sm text-gray-500 mb-4 flex items-center gap-1">
                                         <Users size={14}/> {course.instructorId?.name || "Unknown"}
                                     </p>
-                                    
                                     <div className="flex justify-between items-center border-t pt-4">
                                         <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full border border-green-100">
                                             Active
                                         </span>
                                         <button 
-                                            onClick={() => handleDeleteCourse(course._id)}
+                                            onClick={() => handleDeleteDirectly(course._id)}
                                             className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-full transition"
-                                            title="Delete Course"
+                                            title="Admin Force Delete"
                                         >
                                             <Trash2 size={18}/>
                                         </button>
@@ -256,8 +289,8 @@ const AdminDashboard = () => {
                                 </div>
                             </div>
                         ))}
-                    </div>
-                    {allCourses.length === 0 && <p className="text-center text-gray-500 mt-10">No approved courses found.</p>}
+                   </div>
+                   {allCourses.length === 0 && <p className="text-center text-gray-500 mt-10">No approved courses found.</p>}
                 </div>
               )}
 
