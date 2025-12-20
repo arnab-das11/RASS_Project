@@ -1,5 +1,5 @@
 import express from "express";
-import upload from "../config/cloudinary.js"; // <--- 1. IMPORT THIS
+import upload from "../config/cloudinary.js"; 
 import {
   getAllCourses,
   getCourseById,
@@ -8,36 +8,27 @@ import {
   deleteCourse,
   getPendingCourses,
   updateCourseStatus,
-  addLecture // <--- 2. IMPORT THIS
+  requestDeleteCourse, // <--- NEW IMPORT
+  addLecture
 } from "../controllers/courseController.js";
 
 const router = express.Router();
 
-// 1. Get All Approved Courses (Public)
 router.get("/", getAllCourses);
-
-// 2. Get Pending Courses (Admin) 
-// !!! MUST BE BEFORE /:id !!!
-router.get("/pending", getPendingCourses); 
-
-// 3. Instructor Routes
-// CHANGED: Added upload.single('thumbnail') so you can upload the cover image
+router.get("/pending", getPendingCourses); // Admin
 router.post("/", upload.single('thumbnail'), createCourse);
 router.get("/instructor/:instructorId", getInstructorCourses);
 
-// 4. Update Course Status (Approve/Reject)
-router.put("/:id/status", updateCourseStatus);
+// --- NEW ROUTE ---
+router.put("/:id/request-delete", requestDeleteCourse);
 
-// 5. Add Lecture Route (Video + Resource)
-// CHANGED: Fixed typo 'resourses' -> 'fields'
+router.put("/:id/status", updateCourseStatus);
 router.post("/:id/lectures", upload.fields([
   { name: 'videos', maxCount: 5 }, 
   { name: 'resources', maxCount: 5 } 
 ]), addLecture);
 
-// 6. Get Single Course by ID & Delete (Public)
-// These catch generic IDs, so they go last
 router.get("/:id", getCourseById);
-router.delete("/:id", deleteCourse);
+router.delete("/:id", deleteCourse); // Admin Force Delete
 
 export default router;

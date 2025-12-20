@@ -8,7 +8,7 @@ const courseSchema = mongoose.Schema(
     level: { type: String, required: true },
     
     // --- UPDATED FIELD ---
-    duration: { type: Number, required: true }, // In Hours (e.g. 1.5, 10)
+    duration: { type: Number, required: true }, // In Hours
     price: { type: Number, default: 0 },        // 0 = Free
     // ---------------------
 
@@ -45,7 +45,8 @@ const courseSchema = mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected"],
+      // --- IMPORTANT: ADDED 'deletion_pending' HERE ---
+      enum: ["pending", "approved", "rejected", "deletion_pending"],
       default: "pending",
     },
   },
