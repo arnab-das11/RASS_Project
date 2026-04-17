@@ -1,22 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  Clock,
-  Star,
-  User,
-  MonitorPlay,
-  CheckCircle,
-  ChevronDown,
-  PlayCircle,
-  FileText,
-  Link as LinkIcon,
-  Globe,
-  Award,
-  BarChart,
-  IndianRupee,
-  ShoppingCart,
-  Download,
-  Loader
+  Clock, Star, User, MonitorPlay, CheckCircle2, ChevronDown, 
+  FileText, Link as LinkIcon, Globe, Award, BarChart, 
+  IndianRupee, ShoppingCart, Lock, ArrowRight, ShieldAlert
 } from "lucide-react";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
@@ -28,33 +15,45 @@ const CourseDetailsPage = () => {
 
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeVideo, setActiveVideo] = useState(null); 
   const [expandedSections, setExpandedSections] = useState({}); 
   
-  // --- Enroll State ---
+  // Enrollment State
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [enrollLoading, setEnrollLoading] = useState(false);
-  
-  // --- File Download State ---
-  const [downloadingFileId, setDownloadingFileId] = useState(null);
+  const [userRole, setUserRole] = useState(null);
 
   const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800";
 
   useEffect(() => {
+    // 1. Check User Status
+    const userInfoString = localStorage.getItem("userInfo");
+    let currentUserId = null;
+    
+    if (userInfoString) {
+        const userInfo = JSON.parse(userInfoString);
+        setUserRole(userInfo.role);
+        currentUserId = userInfo._id;
+    }
+
+    // 2. Fetch Course Details
     const fetchCourseDetails = async () => {
       try {
         const { data } = await axios.get(`http://localhost:5000/api/courses/${id}`);
         setCourse(data);
         
+        // Open the first section of the syllabus by default
         if (data.lectures && data.lectures.length > 0) {
            setExpandedSections({ 0: true });
-           for (const section of data.lectures) {
-             if (section.videos && section.videos.length > 0) {
-               setActiveVideo(section.videos[0]);
-               break; 
-             }
-           }
         }
+
+        // 3. Check if this specific user is already enrolled
+        if (currentUserId) {
+            const userRes = await axios.get(`http://localhost:5000/api/users/${currentUserId}/enrolled`);
+            // userRes.data is an array of populated courses
+            const alreadyEnrolled = userRes.data.some(c => c._id === id);
+            setIsEnrolled(alreadyEnrolled);
+        }
+
         setLoading(false);
       } catch (error) {
         console.error("Error fetching course:", error);
@@ -64,57 +63,25 @@ const CourseDetailsPage = () => {
     fetchCourseDetails();
   }, [id]);
 
-  // --- FIX: Rewrites Cloudinary image URLs to raw for correct MIME type ---
-  const getCloudinaryRawUrl = (url) => {
-    if (!url || !url.includes("cloudinary.com")) return url;
-    return url.replace("/image/upload/", "/raw/upload/");
-  };
-
-  const handleResourceDownload = async (e, resourceUrl, filename, resourceId) => {
-    e.preventDefault();
-    setDownloadingFileId(resourceId);
-
-    const fixedUrl = getCloudinaryRawUrl(resourceUrl);
-
-    try {
-      const response = await fetch(fixedUrl);
-      if (!response.ok) throw new Error("Network error");
-
-      const blob = await response.blob();
-      const typedBlob = new Blob([blob], { type: blob.type || "application/pdf" });
-      const blobUrl = window.URL.createObjectURL(typedBlob);
-
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.download = filename || "resource.pdf";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
-    } catch (error) {
-      console.error("Download failed:", error);
-      window.open(fixedUrl, "_blank");
-    } finally {
-      setDownloadingFileId(null);
-    }
-  };
-
-  // --- NEW ACTUAL ENROLLMENT BACKEND CALL ---
-  const handleEnroll = async () => {
+  // --- SMART ENROLLMENT LOGIC ---
+  const handleEnrollClick = async () => {
     const userInfoString = localStorage.getItem("userInfo");
     
+    // Scenario 1: Not logged in -> Redirect to Signup
     if (!userInfoString) {
-        alert("Please login to enroll.");
-        return navigate("/learner-signup");
+        navigate("/learner-signup");
+        return;
     }
 
     const userInfo = JSON.parse(userInfoString);
 
+    // Scenario 2: Wrong Role -> Block action
     if (userInfo.role !== 'learner') {
-        alert("Only learners can enroll in courses. Please login with a Learner account.");
+        alert(`Access Denied: You are logged in as an ${userInfo.role.toUpperCase()}. Only Student accounts can enroll in courses.`);
         return;
     }
 
+    // Scenario 3: Logged in Learner -> Process Enrollment
     setEnrollLoading(true);
     try {
         await axios.post('http://localhost:5000/api/users/enroll', {
@@ -123,8 +90,7 @@ const CourseDetailsPage = () => {
         });
 
         setIsEnrolled(true);
-        alert("Successfully Enrolled! Welcome to the arena.");
-        navigate('/learner-dashboard'); // Immediately take them to their dashboard
+        navigate('/learner-dashboard'); 
         
     } catch (error) {
         const errorMsg = error.response?.data?.message || error.message;
@@ -134,173 +100,189 @@ const CourseDetailsPage = () => {
     }
   };
 
-  const toggleSection = (index) => {
-    setExpandedSections(prev => ({ ...prev, [index]: !prev[index] }));
-  };
+  const toggleSection = (index) => setExpandedSections(prev => ({ ...prev, [index]: !prev[index] }));
+  
+  const getTotalVideos = () => course?.lectures?.reduce((acc, sec) => acc + (sec.videos?.length || 0), 0) || 0;
+  const getTotalResources = () => course?.lectures?.reduce((acc, sec) => acc + (sec.resources?.length || 0), 0) || 0;
 
-  const getTotalVideos = () => {
-    return course?.lectures?.reduce((acc, sec) => acc + (sec.videos?.length || 0), 0) || 0;
-  };
-
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>;
   if (!course) return <div className="min-h-screen flex items-center justify-center">Course not found</div>;
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
 
-      {/* --- HERO SECTION --- */}
-      <div className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white pt-32 pb-12 px-6">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-10 items-center">
+      {/* --- PREMIUM HERO SECTION --- */}
+      <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white pt-32 pb-16 px-6 relative overflow-hidden">
+        {/* Abstract Background Design */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-20 pointer-events-none">
+            <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-500 rounded-full blur-3xl"></div>
+            <div className="absolute top-40 -left-20 w-72 h-72 bg-purple-500 rounded-full blur-3xl"></div>
+        </div>
+
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-12 items-center relative z-10">
           <div className="flex-1 space-y-6">
             <div className="flex items-center gap-3">
-              <span className="bg-blue-500/20 text-blue-200 px-3 py-1 rounded-full text-sm font-medium border border-blue-400/30">
-                {course.level}
+              <span className="bg-blue-500/20 text-blue-300 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border border-blue-400/30">
+                {course.category || "General"}
               </span>
-              <span className="text-yellow-400 font-bold flex items-center gap-1 text-sm">
-                 4.8 <Star size={14} fill="currentColor" /> (120 ratings)
+              <span className="text-yellow-400 font-bold flex items-center gap-1 text-sm bg-yellow-400/10 px-3 py-1 rounded-full">
+                 4.8 <Star size={14} fill="currentColor" /> (Highly Rated)
               </span>
             </div>
             
-            <h1 className="text-3xl md:text-5xl font-bold leading-tight">{course.title}</h1>
-            <p className="text-gray-300 text-lg line-clamp-2">{course.description}</p>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight">{course.title}</h1>
+            <p className="text-blue-100 text-lg md:text-xl line-clamp-2 max-w-2xl font-light">{course.description}</p>
 
-            <div className="flex flex-wrap items-center gap-6 text-sm text-gray-300">
-              <div className="flex items-center gap-2">
-                <Clock size={18} className="text-yellow-400" />
-                {course.duration ? `${course.duration} Hours` : "Self-paced"}
-              </div>
-              <div className="flex items-center gap-2">
-                <User size={18} className="text-yellow-400" />
-                {course.instructorId?.name || "Instructor"}
-              </div>
+            <div className="flex flex-wrap items-center gap-6 text-sm text-gray-300 font-medium">
+              <div className="flex items-center gap-2"><Clock size={18} className="text-blue-400" /> {course.duration ? `${course.duration} Hours` : "Self-paced"}</div>
+              <div className="flex items-center gap-2"><BarChart size={18} className="text-blue-400" /> {course.level || "All Levels"}</div>
+              <div className="flex items-center gap-2"><User size={18} className="text-blue-400" /> Taught by {course.instructorId?.name || "Expert Instructor"}</div>
             </div>
 
-            <div className="flex items-center gap-6 pt-4">
-                 <div className="text-3xl font-bold text-white">
-                    {course.price === 0 ? <span className="text-green-400">Free</span> : <span className="flex items-center"><IndianRupee size={28}/> {course.price}</span>}
+            <div className="flex items-center gap-6 pt-6">
+                 <div className="text-4xl font-black text-white">
+                    {course.price === 0 ? <span className="text-green-400 drop-shadow-md">Free</span> : <span className="flex items-center"><IndianRupee size={32}/> {course.price}</span>}
                  </div>
-                 {!isEnrolled ? (
-                     <button onClick={handleEnroll} disabled={enrollLoading} className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-xl font-bold text-lg shadow-lg shadow-green-900/30 transition-transform transform hover:-translate-y-1 flex items-center gap-2">
-                        {enrollLoading ? "Processing..." : <><ShoppingCart size={20}/> Enroll Now</>}
+                 
+                 {/* DYNAMIC BUTTON BASED ON ROLE AND ENROLLMENT */}
+                 {userRole === 'admin' || userRole === 'instructor' ? (
+                     <div className="flex items-center gap-2 bg-gray-800/80 text-gray-300 px-6 py-3 rounded-xl border border-gray-700 font-medium">
+                         <ShieldAlert size={20}/> Admin/Instructor View
+                     </div>
+                 ) : isEnrolled ? (
+                     <button onClick={() => navigate('/learner-dashboard')} className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-xl font-bold text-lg shadow-lg shadow-blue-900/50 transition-all transform hover:-translate-y-1 flex items-center gap-2">
+                        Enter The Arena <ArrowRight size={20}/>
                      </button>
                  ) : (
-                     <button className="bg-blue-500/20 text-blue-200 px-8 py-3 rounded-xl font-bold text-lg border border-blue-400/30 cursor-default">Already Enrolled</button>
+                     <button onClick={handleEnrollClick} disabled={enrollLoading} className="bg-green-500 hover:bg-green-400 text-gray-900 px-10 py-4 rounded-xl font-black text-lg shadow-xl shadow-green-900/30 transition-all transform hover:-translate-y-1 flex items-center gap-3">
+                        {enrollLoading ? "Forging Access..." : <><ShoppingCart size={22}/> Enroll Now</>}
+                     </button>
                  )}
             </div>
           </div>
 
-          <div className="hidden md:block w-1/3 max-w-sm">
-            <div className="bg-white p-2 rounded-2xl shadow-2xl rotate-2 hover:rotate-0 transition duration-500">
-              <img src={course.thumbnail || DEFAULT_IMAGE} alt={course.title} className="h-48 w-full object-cover rounded-xl" onError={(e) => { e.target.onerror = null; e.target.src = DEFAULT_IMAGE; }} />
+          <div className="w-full lg:w-5/12 max-w-md">
+            <div className="bg-white p-3 rounded-3xl shadow-2xl transform lg:rotate-2 hover:rotate-0 transition duration-500">
+              <img src={course.thumbnail || DEFAULT_IMAGE} alt={course.title} className="w-full aspect-video object-cover rounded-2xl" />
             </div>
           </div>
         </div>
       </div>
 
       {/* --- MAIN CONTENT GRID --- */}
-      <div className="flex-1 max-w-7xl mx-auto px-6 py-10 grid grid-cols-1 lg:grid-cols-3 gap-10 w-full">
+      <div className="flex-1 max-w-7xl mx-auto px-6 py-16 grid grid-cols-1 lg:grid-cols-3 gap-12 w-full">
         
-        {/* LEFT COLUMN */}
-        <div className="lg:col-span-2 space-y-8">
-          <div className="bg-black rounded-2xl overflow-hidden shadow-lg border border-gray-800 relative group">
-            {activeVideo ? (
-              <div className="aspect-video relative">
-                <video key={activeVideo._id || activeVideo.videoUrl} src={activeVideo.videoUrl} controls className="w-full h-full object-contain" poster={course.thumbnail}>Your browser does not support the video tag.</video>
-              </div>
-            ) : (
-              <div className="aspect-video flex items-center justify-center text-gray-500 bg-gray-900"><p>Select a video to start watching.</p></div>
-            )}
-            {activeVideo && (
-              <div className="p-6 bg-white border-t border-gray-100">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">{activeVideo.title}</h2>
-                <p className="text-gray-500 text-sm">Now Playing</p>
-              </div>
-            )}
+        {/* LEFT COLUMN: Details & What You'll Learn */}
+        <div className="lg:col-span-2 space-y-10">
+          
+          {/* What You'll Learn Section (Amaze the Mentor Feature) */}
+          <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+            <h3 className="text-2xl font-black text-gray-900 mb-6">What you'll learn</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[
+                    "Master the fundamental concepts and principles of this topic.",
+                    "Apply theoretical knowledge to practical, real-world scenarios.",
+                    "Build a strong foundation for advanced career opportunities.",
+                    "Develop critical thinking and problem-solving skills in this domain."
+                ].map((point, idx) => (
+                    <div key={idx} className="flex items-start gap-3">
+                        <CheckCircle2 className="text-green-500 shrink-0 mt-0.5" size={20}/>
+                        <span className="text-gray-600 leading-relaxed">{point}</span>
+                    </div>
+                ))}
+            </div>
           </div>
 
-          <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-            <h3 className="text-2xl font-bold text-gray-800 mb-6">About This Course</h3>
-            <p className="text-gray-600 leading-relaxed whitespace-pre-line">{course.description}</p>
+          {/* Full Description */}
+          <div>
+            <h3 className="text-2xl font-black text-gray-900 mb-6">Course Overview</h3>
+            <div className="text-gray-600 leading-relaxed whitespace-pre-line text-lg font-light">
+                {course.description}
+            </div>
           </div>
+
         </div>
 
-        {/* RIGHT COLUMN */}
-        <div className="space-y-6 h-fit">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="p-4 bg-gray-50 border-b border-gray-200"><h3 className="font-bold text-lg text-gray-800">Course Content</h3></div>
+        {/* RIGHT COLUMN: Locked Syllabus & Features */}
+        <div className="space-y-8 h-fit lg:sticky top-10">
+          
+          {/* THE LOCKED SYLLABUS */}
+          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="p-6 bg-slate-50 border-b border-gray-100">
+                <h3 className="font-black text-xl text-gray-900">Course Curriculum</h3>
+                <p className="text-sm text-gray-500 mt-1">Enroll to unlock all materials</p>
+            </div>
             
-            <div className="max-h-[500px] overflow-y-auto custom-scrollbar">
+            <div className="max-h-[500px] overflow-y-auto custom-scrollbar p-2">
               {course.lectures && course.lectures.length > 0 ? (
                 course.lectures.map((section, index) => (
-                  <div key={index} className="border-b border-gray-100 last:border-0">
-                    <button onClick={() => toggleSection(index)} className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 transition text-left">
-                      <span className="font-bold text-gray-700 text-sm line-clamp-1">{section.title}</span>
-                      <ChevronDown size={16} className={`text-gray-500 transition-transform duration-300 ${expandedSections[index] ? "rotate-180" : ""}`} />
+                  <div key={index} className="mb-2 last:mb-0">
+                    <button onClick={() => toggleSection(index)} className="w-full flex items-center justify-between p-4 bg-white hover:bg-slate-50 rounded-xl transition text-left border border-transparent hover:border-gray-200">
+                      <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">{index + 1}</div>
+                          <span className="font-bold text-gray-800 line-clamp-1">{section.title}</span>
+                      </div>
+                      <ChevronDown size={18} className={`text-gray-400 transition-transform duration-300 ${expandedSections[index] ? "rotate-180" : ""}`} />
                     </button>
 
                     {expandedSections[index] && (
-                      <div className="bg-white animate-fade-in">
-                        {/* VIDEOS */}
+                      <div className="pl-14 pr-4 pb-4 pt-1 space-y-3 animate-fade-in">
+                        
+                        {/* Tease Videos */}
                         {section.videos && section.videos.map((vid, vIdx) => (
-                          <div key={vIdx} onClick={() => setActiveVideo(vid)} className={`p-3 pl-6 flex items-center gap-3 cursor-pointer hover:bg-blue-50 transition border-l-4 ${activeVideo?._id === vid._id ? "border-l-blue-600 bg-blue-50" : "border-l-transparent"}`}>
-                             <div className="shrink-0">{activeVideo?._id === vid._id ? <MonitorPlay size={16} className="text-blue-600"/> : <PlayCircle size={16} className="text-gray-400"/>}</div>
-                             <span className={`text-sm ${activeVideo?._id === vid._id ? "text-blue-700 font-medium" : "text-gray-600"}`}>{vid.title || `Video ${vIdx+1}`}</span>
+                          <div key={`v-${vIdx}`} className="flex items-center justify-between text-gray-500">
+                             <div className="flex items-center gap-3">
+                                 <MonitorPlay size={16}/>
+                                 <span className="text-sm font-medium">{vid.title || `Video Lesson ${vIdx+1}`}</span>
+                             </div>
+                             {/* THE LOCK ICON */}
+                             <Lock size={14} className="text-slate-300"/>
                           </div>
                         ))}
 
-                        {/* --- RESOURCES --- */}
+                        {/* Tease Resources */}
                         {section.resources && section.resources.map((res, rIdx) => (
-                          <a 
-                             key={rIdx} 
-                             href={res.url}
-                             onClick={(e) => handleResourceDownload(e, res.url, res.title, res._id)} 
-                             className="p-3 pl-6 flex items-center gap-3 hover:bg-green-50 transition border-l-4 border-l-transparent cursor-pointer block group"
-                          >
-                             {downloadingFileId === res._id ? (
-                                <Loader size={16} className="text-green-600 animate-spin shrink-0"/>
-                             ) : (
-                                <FileText size={16} className="text-green-600 shrink-0 group-hover:scale-110 transition"/>
-                             )}
-                             
-                             <div className="flex flex-col">
-                               <span className="text-sm text-gray-700 font-medium group-hover:text-green-700 transition">
-                                  {res.title || "Download Resource"}
-                               </span>
-                               <span className="text-[10px] text-gray-400 uppercase">
-                                  {downloadingFileId === res._id ? "Downloading..." : "Click to Download"}
-                               </span>
+                          <div key={`r-${rIdx}`} className="flex items-center justify-between text-gray-500">
+                             <div className="flex items-center gap-3">
+                                 <FileText size={16}/>
+                                 <span className="text-sm font-medium">{res.title || "Downloadable Resource"}</span>
                              </div>
-                          </a>
+                             <Lock size={14} className="text-slate-300"/>
+                          </div>
                         ))}
 
-                        {/* LINKS */}
+                        {/* Tease Links */}
                         {section.links && section.links.map((link, lIdx) => (
-                          <a key={lIdx} href={link.url} target="_blank" rel="noopener noreferrer" className="p-3 pl-6 flex items-center gap-3 hover:bg-purple-50 transition border-l-4 border-l-transparent cursor-pointer block">
-                             <LinkIcon size={16} className="text-purple-600 shrink-0"/>
-                             <span className="text-sm text-gray-600 font-medium hover:text-purple-700 truncate">{link.title || "External Link"}</span>
-                          </a>
+                          <div key={`l-${lIdx}`} className="flex items-center justify-between text-gray-500">
+                             <div className="flex items-center gap-3">
+                                 <LinkIcon size={16}/>
+                                 <span className="text-sm font-medium">{link.title || "External Reading"}</span>
+                             </div>
+                             <Lock size={14} className="text-slate-300"/>
+                          </div>
                         ))}
                       </div>
                     )}
                   </div>
                 ))
               ) : (
-                <div className="p-6 text-center text-gray-500 text-sm">No content uploaded yet.</div>
+                <div className="p-6 text-center text-gray-500 text-sm">Syllabus is being prepared.</div>
               )}
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <h4 className="font-bold text-gray-800 mb-4 text-lg">Course Features</h4>
-            <ul className="space-y-4 text-gray-600 text-sm">
-              <li className="flex justify-between items-center border-b border-gray-50 pb-3"><div className="flex items-center gap-2 text-gray-500"><Clock size={18} /> <span>Duration</span></div><span className="font-semibold text-gray-800">{course.duration} Hours</span></li>
-              <li className="flex justify-between items-center border-b border-gray-50 pb-3"><div className="flex items-center gap-2 text-gray-500"><MonitorPlay size={18} /> <span>Lectures</span></div><span className="font-semibold text-gray-800">{getTotalVideos()} Videos</span></li>
-              <li className="flex justify-between items-center border-b border-gray-50 pb-3"><div className="flex items-center gap-2 text-gray-500"><BarChart size={18} /> <span>Skill Level</span></div><span className="font-semibold text-gray-800 capitalize">{course.level}</span></li>
-              <li className="flex justify-between items-center border-b border-gray-50 pb-3"><div className="flex items-center gap-2 text-gray-500"><Globe size={18} /> <span>Language</span></div><span className="font-semibold text-gray-800">English</span></li>
-              <li className="flex justify-between items-center pt-1"><div className="flex items-center gap-2 text-gray-500"><Award size={18} /> <span>Certificate</span></div><span className="font-semibold text-green-600">Yes</span></li>
+          {/* Quick Stats */}
+          <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+            <h4 className="font-black text-gray-900 mb-6 text-xl">This course includes:</h4>
+            <ul className="space-y-5 text-gray-600 font-medium">
+              <li className="flex items-center gap-4"><div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600"><MonitorPlay size={20} /></div> <span>{getTotalVideos()} On-demand Videos</span></li>
+              <li className="flex items-center gap-4"><div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center text-green-600"><FileText size={20} /></div> <span>{getTotalResources()} Downloadable Resources</span></li>
+              <li className="flex items-center gap-4"><div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center text-purple-600"><Globe size={20} /></div> <span>Full Lifetime Access</span></li>
+              <li className="flex items-center gap-4"><div className="w-10 h-10 rounded-full bg-yellow-50 flex items-center justify-center text-yellow-600"><Award size={20} /></div> <span>Certificate of Completion</span></li>
             </ul>
           </div>
+
         </div>
       </div>
       <Footer />

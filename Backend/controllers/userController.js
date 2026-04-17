@@ -116,7 +116,8 @@ export const googleLogin = async (req, res) => {
 
 export const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({}).select('-password');
+    // We added .populate() so the Admin can see the actual course details!
+    const users = await User.find({}).select('-password').populate('enrolledCourses');
     res.json(users);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -184,6 +185,25 @@ export const markAsComplete = async (req, res) => {
       message: 'Progress updated', 
       completedContent: user.completedContent 
     });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Admin: Remove a course from a learner
+// @route   POST /api/users/unenroll
+export const unenrollCourse = async (req, res) => {
+  try {
+    const { userId, courseId } = req.body;
+    const user = await User.findById(userId);
+    
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Filter out the course
+    user.enrolledCourses = user.enrolledCourses.filter(id => id.toString() !== courseId);
+    await user.save();
+
+    res.status(200).json({ message: 'User unenrolled successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

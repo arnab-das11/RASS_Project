@@ -1,5 +1,4 @@
 import express from 'express';
-// Note: getEnrolledCourses added to the import list!
 import { 
   registerUser, 
   loginUser, 
@@ -7,7 +6,8 @@ import {
   googleLogin, 
   enrollCourse, 
   getEnrolledCourses,
-  markAsComplete
+  markAsComplete,
+  unenrollCourse // <--- I ADDED THIS HERE!
 } from '../controllers/userController.js';
 
 const router = express.Router();
@@ -20,8 +20,8 @@ router.get('/', getAllUsers);
 
 // --- LEARNER DASHBOARD ROUTES ---
 router.post('/enroll', enrollCourse); // To join a course
-router.get('/:id/enrolled', getEnrolledCourses); // <--- NEW ROUTE: To fetch courses for the dashboard
-// Note: Add markAsComplete to your imports at the top!
-router.put('/progress', markAsComplete); // <--- NEW ROUTE
+router.get('/:id/enrolled', getEnrolledCourses); // To fetch courses for the dashboard
+router.put('/progress', markAsComplete); // To save video progress
+router.post('/unenroll', unenrollCourse); // To remove a student from a course
 
 export default router;
