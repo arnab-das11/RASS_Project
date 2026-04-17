@@ -1,7 +1,7 @@
 import User from '../models/User.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { OAuth2Client } from 'google-auth-library'; // NEW IMPORT
+import { OAuth2Client } from 'google-auth-library';
 
 // Initialize Google Client
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -16,7 +16,6 @@ export const registerUser = async (req, res) => {
   try {
     const { name, email, password, role, iid } = req.body;
 
-    // Manual registration requires a password
     if (!password) {
       return res.status(400).json({ message: 'Password is required for manual registration' });
     }
@@ -56,7 +55,6 @@ export const loginUser = async (req, res) => {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
 
-    // Ensure user exists and has a password (Google users might not have one)
     if (user && user.password && (await bcrypt.compare(password, user.password))) {
       res.json({
         _id: user._id,
@@ -73,12 +71,9 @@ export const loginUser = async (req, res) => {
   }
 };
 
-// --- NEW GOOGLE LOGIN CONTROLLER ---
 export const googleLogin = async (req, res) => {
   try {
     const { googleToken } = req.body;
-
-    // 1. Verify the token with Google
     const ticket = await client.verifyIdToken({
       idToken: googleToken,
       audience: process.env.GOOGLE_CLIENT_ID, 
@@ -86,31 +81,25 @@ export const googleLogin = async (req, res) => {
     
     const { email, name, sub: googleId } = ticket.getPayload();
 
-    // 2. Check if user exists
     let user = await User.findOne({ email });
 
     if (user) {
-      // SECURITY CHECK: Do not allow Admin/Instructors to use Google Login
       if (user.role !== 'learner') {
         return res.status(403).json({ message: 'Access Denied: Please use standard login for Instructor/Admin accounts.' });
       }
-      
-      // Update googleId if it was missing
       if (!user.googleId) {
         user.googleId = googleId;
         await user.save();
       }
     } else {
-      // 3. Create new Learner if they don't exist
       user = await User.create({
         name,
         email,
         googleId,
-        role: 'learner', // FORCE role to learner
+        role: 'learner', 
       });
     }
 
-    // 4. Send back standard JWT token
     res.status(200).json({
       _id: user._id,
       name: user.name,
@@ -124,12 +113,77 @@ export const googleLogin = async (req, res) => {
     res.status(401).json({ message: 'Invalid Google Token' });
   }
 };
-// -----------------------------------
 
 export const getAllUsers = async (req, res) => {
   try {
     const users = await User.find({}).select('-password');
     res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// --- NEW ACTUAL ENROLLMENT LOGIC ---
+export const enrollCourse = async (req, res) => {
+  try {
+    const { userId, courseId } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Prevent double enrollment
+    if (user.enrolledCourses.includes(courseId)) {
+      return res.status(400).json({ message: 'You are already enrolled in this course.' });
+    }
+
+    // Save to database
+    user.enrolledCourses.push(courseId);
+    await user.save();
+
+    res.status(200).json({ 
+      message: 'Successfully enrolled!', 
+      enrolledCourses: user.enrolledCourses 
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+// @desc    Get user's enrolled courses
+// @route   GET /api/users/:id/enrolled
+export const getEnrolledCourses = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).populate('enrolledCourses');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.status(200).json(user.enrolledCourses);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Mark a specific lecture/resource as complete
+// @route   PUT /api/users/progress
+export const markAsComplete = async (req, res) => {
+  try {
+    const { userId, contentId } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // If they haven't completed it yet, add it to the array
+    if (!user.completedContent.includes(contentId)) {
+      user.completedContent.push(contentId);
+      await user.save();
+    }
+
+    res.status(200).json({ 
+      message: 'Progress updated', 
+      completedContent: user.completedContent 
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

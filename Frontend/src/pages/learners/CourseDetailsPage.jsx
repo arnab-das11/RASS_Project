@@ -64,54 +64,74 @@ const CourseDetailsPage = () => {
     fetchCourseDetails();
   }, [id]);
 
-  // --- THE NUCLEAR FIX: FORCE DOWNLOAD VIA BLOB ---
-// --- FIX: Rewrites Cloudinary image URLs to raw for correct MIME type ---
-const getCloudinaryRawUrl = (url) => {
-  if (!url || !url.includes("cloudinary.com")) return url;
-  return url.replace("/image/upload/", "/raw/upload/");
-};
+  // --- FIX: Rewrites Cloudinary image URLs to raw for correct MIME type ---
+  const getCloudinaryRawUrl = (url) => {
+    if (!url || !url.includes("cloudinary.com")) return url;
+    return url.replace("/image/upload/", "/raw/upload/");
+  };
 
-const handleResourceDownload = async (e, resourceUrl, filename, resourceId) => {
-  e.preventDefault();
-  setDownloadingFileId(resourceId);
+  const handleResourceDownload = async (e, resourceUrl, filename, resourceId) => {
+    e.preventDefault();
+    setDownloadingFileId(resourceId);
 
-  const fixedUrl = getCloudinaryRawUrl(resourceUrl);
+    const fixedUrl = getCloudinaryRawUrl(resourceUrl);
 
-  try {
-    const response = await fetch(fixedUrl);
-    if (!response.ok) throw new Error("Network error");
+    try {
+      const response = await fetch(fixedUrl);
+      if (!response.ok) throw new Error("Network error");
 
-    const blob = await response.blob();
-    const typedBlob = new Blob([blob], { type: blob.type || "application/pdf" });
-    const blobUrl = window.URL.createObjectURL(typedBlob);
+      const blob = await response.blob();
+      const typedBlob = new Blob([blob], { type: blob.type || "application/pdf" });
+      const blobUrl = window.URL.createObjectURL(typedBlob);
 
-    const link = document.createElement("a");
-    link.href = blobUrl;
-    link.download = filename || "resource.pdf";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(blobUrl);
-  } catch (error) {
-    console.error("Download failed:", error);
-    window.open(fixedUrl, "_blank");
-  } finally {
-    setDownloadingFileId(null);
-  }
-};
-
-  const handleEnroll = async () => {
-    const user = JSON.parse(localStorage.getItem("userInfo"));
-    if (!user) {
-        alert("Please login to enroll.");
-        return navigate("/login");
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = filename || "resource.pdf";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error("Download failed:", error);
+      window.open(fixedUrl, "_blank");
+    } finally {
+      setDownloadingFileId(null);
     }
+  };
+
+  // --- NEW ACTUAL ENROLLMENT BACKEND CALL ---
+  const handleEnroll = async () => {
+    const userInfoString = localStorage.getItem("userInfo");
+    
+    if (!userInfoString) {
+        alert("Please login to enroll.");
+        return navigate("/learner-signup");
+    }
+
+    const userInfo = JSON.parse(userInfoString);
+
+    if (userInfo.role !== 'learner') {
+        alert("Only learners can enroll in courses. Please login with a Learner account.");
+        return;
+    }
+
     setEnrollLoading(true);
-    setTimeout(() => {
+    try {
+        await axios.post('http://localhost:5000/api/users/enroll', {
+            userId: userInfo._id,
+            courseId: course._id
+        });
+
         setIsEnrolled(true);
+        alert("Successfully Enrolled! Welcome to the arena.");
+        navigate('/learner-dashboard'); // Immediately take them to their dashboard
+        
+    } catch (error) {
+        const errorMsg = error.response?.data?.message || error.message;
+        alert("Enrollment Error: " + errorMsg);
+    } finally {
         setEnrollLoading(false);
-        alert("Successfully Enrolled! (Simulation)");
-    }, 1500);
+    }
   };
 
   const toggleSection = (index) => {
@@ -229,7 +249,7 @@ const handleResourceDownload = async (e, resourceUrl, filename, resourceId) => {
                           </div>
                         ))}
 
-                        {/* --- RESOURCES (UPDATED FORCE DOWNLOAD) --- */}
+                        {/* --- RESOURCES --- */}
                         {section.resources && section.resources.map((res, rIdx) => (
                           <a 
                              key={rIdx} 
