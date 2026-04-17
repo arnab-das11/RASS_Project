@@ -65,39 +65,40 @@ const CourseDetailsPage = () => {
   }, [id]);
 
   // --- THE NUCLEAR FIX: FORCE DOWNLOAD VIA BLOB ---
-  const handleResourceDownload = async (e, resourceUrl, filename, resourceId) => {
-    e.preventDefault(); // Stop default browser "open" behavior
-    setDownloadingFileId(resourceId);
+// --- FIX: Rewrites Cloudinary image URLs to raw for correct MIME type ---
+const getCloudinaryRawUrl = (url) => {
+  if (!url || !url.includes("cloudinary.com")) return url;
+  return url.replace("/image/upload/", "/raw/upload/");
+};
 
-    try {
-      // 1. Fetch the file as raw data (Blob)
-      const response = await fetch(resourceUrl);
-      if (!response.ok) throw new Error("Network error");
-      
-      const blob = await response.blob();
-      
-      // 2. Create a temporary local URL for this blob
-      const blobUrl = window.URL.createObjectURL(blob);
-      
-      // 3. Create a hidden link and click it
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = filename || "download"; // Forces the filename
-      document.body.appendChild(link);
-      link.click();
-      
-      // 4. Cleanup
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
-      
-    } catch (error) {
-      console.error("Download failed:", error);
-      // Fallback: If fetch fails (CORS issue), open in new tab
-      window.open(resourceUrl, '_blank');
-    } finally {
-      setDownloadingFileId(null);
-    }
-  };
+const handleResourceDownload = async (e, resourceUrl, filename, resourceId) => {
+  e.preventDefault();
+  setDownloadingFileId(resourceId);
+
+  const fixedUrl = getCloudinaryRawUrl(resourceUrl);
+
+  try {
+    const response = await fetch(fixedUrl);
+    if (!response.ok) throw new Error("Network error");
+
+    const blob = await response.blob();
+    const typedBlob = new Blob([blob], { type: blob.type || "application/pdf" });
+    const blobUrl = window.URL.createObjectURL(typedBlob);
+
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = filename || "resource.pdf";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(blobUrl);
+  } catch (error) {
+    console.error("Download failed:", error);
+    window.open(fixedUrl, "_blank");
+  } finally {
+    setDownloadingFileId(null);
+  }
+};
 
   const handleEnroll = async () => {
     const user = JSON.parse(localStorage.getItem("userInfo"));
