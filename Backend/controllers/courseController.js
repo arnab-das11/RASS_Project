@@ -24,14 +24,28 @@ export const getCourseById = async (req, res) => {
 // @desc    Create a new course
 export const createCourse = async (req, res) => {
   try {
-    const { title, description, category, level, duration, price, instructorId } = req.body;
+    const { title, description, category, level, duration, price, instructorId, learningObjectives } = req.body;
     if (!req.file) return res.status(400).json({ message: "Thumbnail image is required" });
 
+    // --- NEW: Parse learning objectives from the FormData ---
+    let parsedObjectives = [];
+    if (learningObjectives) {
+        try {
+            parsedObjectives = JSON.parse(learningObjectives);
+        } catch (e) {
+            console.error("Error parsing learning objectives", e);
+        }
+    }
+
     const course = new Course({
-      title, description, category, level,
+      title, 
+      description, 
+      category, 
+      level,
       duration: parseFloat(duration),
       price: Number(price) || 0,
       instructorId,
+      learningObjectives: parsedObjectives, // Saved to database here
       thumbnail: req.file.path,
       status: "pending",
     });
@@ -71,7 +85,6 @@ export const deleteCourse = async (req, res) => {
 // @desc    Get all pending courses (New Requests AND Deletion Requests)
 export const getPendingCourses = async (req, res) => {
   try {
-    // --- UPDATED QUERY ---
     const courses = await Course.find({ 
       status: { $in: ["pending", "deletion_pending"] } 
     }).populate("instructorId", "name email");
@@ -99,12 +112,11 @@ export const updateCourseStatus = async (req, res) => {
 };
 
 // @desc    Request Course Deletion (Instructor)
-// --- NEW FUNCTION ---
 export const requestDeleteCourse = async (req, res) => {
   try {
     const course = await Course.findById(req.params.id);
     if (course) {
-      course.status = "deletion_pending"; // Set special status
+      course.status = "deletion_pending"; 
       const updatedCourse = await course.save();
       res.json(updatedCourse);
     } else {
@@ -121,7 +133,6 @@ export const addLecture = async (req, res) => {
     const course = await Course.findById(req.params.id);
     if (!course) return res.status(404).json({ message: "Course not found" });
 
-    // Processing files logic (omitted for brevity, assume standard logic)
     const videoList = [];
     if (req.files && req.files['videos']) {
       req.files['videos'].forEach((file) => {
@@ -144,3 +155,22 @@ export const addLecture = async (req, res) => {
     res.status(500).json({ message: "Upload failed: " + error.message });
   }
 };
+
+// --- NEW FUNCTION: Edit Course Details (For Admin Dashboard) ---
+// @desc    Update entire course details
+export const updateCourse = async (req, res) => {
+    try {
+      const updatedCourse = await Course.findByIdAndUpdate(
+          req.params.id, 
+          req.body, 
+          { new: true } // Returns the newly updated document
+      );
+      if (updatedCourse) {
+          res.json(updatedCourse);
+      } else {
+          res.status(404).json({ message: "Course not found" });
+      }
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  };

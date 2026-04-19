@@ -166,7 +166,7 @@ export const getEnrolledCourses = async (req, res) => {
   }
 };
 
-// @desc    Mark a specific lecture/resource as complete
+// @desc    Toggle a specific lecture/resource as complete or incomplete
 // @route   PUT /api/users/progress
 export const markAsComplete = async (req, res) => {
   try {
@@ -175,11 +175,14 @@ export const markAsComplete = async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // If they haven't completed it yet, add it to the array
-    if (!user.completedContent.includes(contentId)) {
+    // Toggle Logic: If it's there, remove it. If it's not, add it.
+    if (user.completedContent.includes(contentId)) {
+      user.completedContent = user.completedContent.filter(id => id !== contentId);
+    } else {
       user.completedContent.push(contentId);
-      await user.save();
     }
+
+    await user.save();
 
     res.status(200).json({ 
       message: 'Progress updated', 

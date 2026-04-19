@@ -1,21 +1,37 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, PlayCircle, MonitorPlay, ChevronDown, CheckCircle, ArrowLeft, Loader, FileText, Link as LinkIcon, ExternalLink, Award, Home } from 'lucide-react';
+import { 
+  BookOpen, PlayCircle, MonitorPlay, ChevronDown, CheckCircle, 
+  ArrowLeft, Loader, FileText, Link as LinkIcon, ExternalLink, 
+  Award, Home, Download, Trash2, Trophy, Undo
+} from 'lucide-react';
 import axios from 'axios';
+import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
 
 const LearnerDashboard = () => {
   const navigate = useNavigate();
 
   // --- STATE MANAGEMENT ---
   const [enrolledCourses, setEnrolledCourses] = useState([]);
-  const [completedItems, setCompletedItems] = useState([]); // Tracks progress
+  const [completedItems, setCompletedItems] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [progressLoading, setProgressLoading] = useState(false);
+  const [userInfo, setUserInfo] = useState(null);
   
   // View Controllers
   const [selectedCourse, setSelectedCourse] = useState(null); 
-  const [activeContent, setActiveContent] = useState(null); // Replaced activeVideo
+  const [activeContent, setActiveContent] = useState(null); 
   const [expandedSections, setExpandedSections] = useState({});
+  const [downloadingFileId, setDownloadingFileId] = useState(null);
+
+  // Celebration & Certificate State
+  const [showTrophy, setShowTrophy] = useState(false);
+  const [completedCourseName, setCompletedCourseName] = useState("");
+  const [isGeneratingCert, setIsGeneratingCert] = useState(false);
+  
+  // Ref for the hidden certificate
+  const certificateRef = useRef(null);
 
   // --- DATA FETCHING ---
   useEffect(() => {
@@ -24,21 +40,17 @@ const LearnerDashboard = () => {
         const userInfoString = localStorage.getItem("userInfo");
         if (!userInfoString) return navigate("/learner-signup");
         
-        const userInfo = JSON.parse(userInfoString);
+        const user = JSON.parse(userInfoString);
+        setUserInfo(user);
         
-        // Fetch user's courses AND their completed progress
-        const { data } = await axios.get(`http://localhost:5000/api/users/${userInfo._id}/enrolled`);
-        
-        // For this to work perfectly, you'd fetch the user profile again to get completedContent.
-        // Assuming we store it in localStorage for now, or fetch it:
-        const userRes = await axios.get('http://localhost:5000/api/users'); // Adjust if you have a getProfile route
-        const currentUser = userRes.data.find(u => u._id === userInfo._id);
+        const { data } = await axios.get(`http://localhost:5000/api/users/${user._id}/enrolled`);
+        const userRes = await axios.get('http://localhost:5000/api/users'); 
+        const currentUser = userRes.data.find(u => u._id === user._id);
         
         setEnrolledCourses(data);
         if (currentUser && currentUser.completedContent) {
             setCompletedItems(currentUser.completedContent);
         }
-        
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -53,7 +65,6 @@ const LearnerDashboard = () => {
     setSelectedCourse(course);
     if (course.lectures && course.lectures.length > 0) {
         setExpandedSections({ 0: true });
-        // Auto-select the first available content (video or resource)
         const firstSec = course.lectures[0];
         if (firstSec.videos?.length > 0) setActiveContent({ type: 'video', data: firstSec.videos[0] });
         else if (firstSec.resources?.length > 0) setActiveContent({ type: 'resource', data: firstSec.resources[0] });
@@ -63,29 +74,46 @@ const LearnerDashboard = () => {
 
   const toggleSection = (index) => setExpandedSections(prev => ({ ...prev, [index]: !prev[index] }));
 
-  // PROGRESS LOGIC
-  const handleMarkComplete = async () => {
-    if (!activeContent || !activeContent.data._id) return;
-    
-    const contentId = activeContent.data._id;
-    if (completedItems.includes(contentId)) return; // Already done
+  // --- FILE DOWNLOADER ---
+  const getCloudinaryRawUrl = (url) => {
+    if (!url || !url.includes("cloudinary.com")) return url;
+    return url.replace("/image/upload/", "/raw/upload/");
+  };
 
-    setProgressLoading(true);
+  const handleResourceDownload = async (resourceUrl, filename, resourceId) => {
+    setDownloadingFileId(resourceId);
+    const fixedUrl = getCloudinaryRawUrl(resourceUrl);
     try {
-        const userInfo = JSON.parse(localStorage.getItem("userInfo"));
-        const { data } = await axios.put('http://localhost:5000/api/users/progress', {
-            userId: userInfo._id,
-            contentId: contentId
-        });
-        setCompletedItems(data.completedContent); // Update UI
+      const response = await fetch(fixedUrl);
+      if (!response.ok) throw new Error("Network error");
+      const blob = await response.blob();
+      const typedBlob = new Blob([blob], { type: blob.type || "application/pdf" });
+      const blobUrl = window.URL.createObjectURL(typedBlob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = filename || "resource";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
-        console.error("Failed to update progress", error);
+      window.open(fixedUrl, "_blank");
     } finally {
-        setProgressLoading(false);
+      setDownloadingFileId(null);
     }
   };
 
-  const calculateProgress = (course) => {
+  const handleUnenroll = async (courseId, e) => {
+      e.stopPropagation();
+      if(!window.confirm("Are you sure you want to drop this course? Your progress will be saved but the course will be removed from your dashboard.")) return;
+      try {
+          await axios.post('http://localhost:5000/api/users/unenroll', { userId: userInfo._id, courseId });
+          setEnrolledCourses(prev => prev.filter(c => c._id !== courseId));
+      } catch (error) { alert("Failed to unenroll."); }
+  };
+
+  // --- PROGRESS LOGIC ---
+  const calculateProgress = (course, currentCompleted = completedItems) => {
     if (!course.lectures) return 0;
     let totalItems = 0;
     let finishedItems = 0;
@@ -94,13 +122,85 @@ const LearnerDashboard = () => {
         const items = [...(sec.videos||[]), ...(sec.resources||[]), ...(sec.links||[])];
         totalItems += items.length;
         items.forEach(item => {
-            if (completedItems.includes(item._id)) finishedItems++;
+            if (currentCompleted.includes(item._id)) finishedItems++;
         });
     });
     return totalItems === 0 ? 0 : Math.round((finishedItems / totalItems) * 100);
   };
 
-  // --- RENDER DYNAMIC CONTENT WINDOW ---
+  const handleToggleComplete = async () => {
+    if (!activeContent || !activeContent.data._id) return;
+    
+    const contentId = activeContent.data._id;
+    const isCurrentlyDone = completedItems.includes(contentId);
+    
+    setProgressLoading(true);
+
+    const newCompletedList = isCurrentlyDone 
+        ? completedItems.filter(id => id !== contentId) 
+        : [...completedItems, contentId];
+    
+    setCompletedItems(newCompletedList);
+
+    if (!isCurrentlyDone) {
+        const newProgress = calculateProgress(selectedCourse, newCompletedList);
+        if (newProgress === 100) {
+            setCompletedCourseName(selectedCourse.title);
+            setShowTrophy(true);
+        }
+    }
+
+    try {
+        const { data } = await axios.put('http://localhost:5000/api/users/progress', {
+            userId: userInfo._id,
+            contentId: contentId
+        });
+        setCompletedItems(data.completedContent);
+    } catch (error) {
+        console.error("Failed to update progress", error);
+        setCompletedItems(completedItems);
+    } finally {
+        setProgressLoading(false);
+    }
+  };
+
+  // --- CERTIFICATE GENERATOR ---
+  const generateCertificatePDF = async () => {
+    const certElement = certificateRef.current;
+    if (!certElement) return;
+
+    setIsGeneratingCert(true);
+    
+    try {
+        // Create canvas from the hidden HTML element
+        const canvas = await html2canvas(certElement, { 
+            scale: 2, // High quality
+            useCORS: true // Allows external images/fonts if you add them later
+        });
+        
+        const imgData = canvas.toDataURL('image/png');
+        
+        // Create PDF (Landscape, A4 format)
+        const pdf = new jsPDF('landscape', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        
+        // Download the PDF
+        pdf.save(`${completedCourseName.replace(/\s+/g, '_')}_Certificate.pdf`);
+        
+        // Close modal after success
+        setShowTrophy(false);
+    } catch (error) {
+        console.error("Certificate Generation Error:", error);
+        alert("Failed to generate certificate. Please try again.");
+    } finally {
+        setIsGeneratingCert(false);
+    }
+  };
+
+  // --- DYNAMIC CONTENT WINDOW ---
   const renderActiveContent = () => {
     if (!activeContent) {
         return (
@@ -116,29 +216,56 @@ const LearnerDashboard = () => {
     }
 
     if (activeContent.type === 'resource') {
-        // The Google Docs Viewer Hack for PDFs and DOCX
-        const docUrl = encodeURIComponent(activeContent.data.url.replace("/image/upload/", "/raw/upload/"));
+        const url = activeContent.data.url;
+        
+        // EXTENSION CHECKER (Fixed for rar and xls)
+        const extMatch = url.match(/\.([a-z0-9]+)(?:[\?#]|$)/i);
+        const ext = extMatch ? extMatch[1].toLowerCase() : '';
+        const unsupportedTypes = ['zip', 'rar', '7z', 'tar', 'exe', 'xls', 'xlsx', 'csv'];
+        const isUnsupported = unsupportedTypes.includes(ext);
+        
+        if (isUnsupported) {
+            return (
+                <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-slate-900">
+                    <FileText className="w-20 h-20 text-emerald-500 mb-6" />
+                    <h3 className="text-2xl font-bold text-white mb-4">{activeContent.data.title}</h3>
+                    <p className="text-gray-400 mb-8 max-w-md">This file format (<strong>.{ext.toUpperCase()}</strong>) cannot be viewed directly in the browser.</p>
+                    <button 
+                       onClick={() => handleResourceDownload(url, activeContent.data.title, activeContent.data._id)}
+                       className="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl flex items-center gap-2 transition shadow-lg shadow-emerald-900/30"
+                    >
+                       {downloadingFileId === activeContent.data._id ? <Loader className="animate-spin"/> : <Download size={18} />}
+                       Download File
+                    </button>
+                </div>
+            );
+        }
+
+        const docUrl = encodeURIComponent(url.replace("/image/upload/", "/raw/upload/"));
         return (
-            <iframe 
-                src={`https://docs.google.com/viewer?url=${docUrl}&embedded=true`} 
-                className="w-full h-full bg-white"
-                title="Document Viewer"
-            ></iframe>
+            <div className="w-full h-full flex flex-col bg-slate-900">
+                <div className="p-3 flex justify-end bg-slate-950 border-b border-slate-800">
+                    <button 
+                        onClick={() => handleResourceDownload(url, activeContent.data.title, activeContent.data._id)}
+                        className="flex items-center gap-2 text-sm font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-400/10 px-4 py-2 rounded-lg transition"
+                    >
+                        {downloadingFileId === activeContent.data._id ? <Loader className="animate-spin" size={16}/> : <Download size={16}/>}
+                        Download Document
+                    </button>
+                </div>
+                <iframe src={`https://docs.google.com/viewer?url=${docUrl}&embedded=true`} className="w-full flex-1 bg-white" title="Viewer"></iframe>
+            </div>
         );
     }
 
     if (activeContent.type === 'link') {
         return (
-            <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-gray-900">
+            <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-slate-900">
                 <LinkIcon className="w-20 h-20 text-purple-500 mb-6" />
-                <h3 className="text-2xl font-bold text-white mb-4">{activeContent.data.title || "External Resource"}</h3>
-                <p className="text-gray-400 mb-8 max-w-md">This is an external link or BibTeX reference. Click the button below to open it in a new secure tab.</p>
-                <a 
-                   href={activeContent.data.url} 
-                   target="_blank" 
-                   rel="noopener noreferrer"
-                   className="px-8 py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl flex items-center gap-2 transition"
-                >
+                <h3 className="text-2xl font-bold text-white mb-4">{activeContent.data.title}</h3>
+                <p className="text-gray-400 mb-8 max-w-md">External resource securely linked.</p>
+                <a href={activeContent.data.url} target="_blank" rel="noopener noreferrer"
+                   className="px-8 py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl flex items-center gap-2 transition shadow-lg shadow-purple-900/30">
                    Open Resource <ExternalLink size={18} />
                 </a>
             </div>
@@ -146,49 +273,76 @@ const LearnerDashboard = () => {
     }
   };
 
-  // --- UI RENDERING ---
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white"><Loader className="w-8 h-8 animate-spin text-blue-500 mr-3" /></div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white"><Loader className="w-8 h-8 animate-spin text-blue-500 mr-3" /></div>;
 
-  // VIEW B: THE PLAYER MODE
+  // =====================================================================
+  // VIEW B: THE PLAYER MODE (Active Learning)
+  // =====================================================================
   if (selectedCourse) {
     const currentProgress = calculateProgress(selectedCourse);
     const isCurrentItemDone = activeContent && completedItems.includes(activeContent.data._id);
 
     return (
-      <div className="flex flex-col lg:flex-row min-h-screen bg-gray-900 text-white">
+      <div className="flex flex-col lg:flex-row min-h-screen bg-slate-950 text-slate-200 relative">
         
+        {/* CELEBRATION & CERTIFICATE MODAL */}
+        {showTrophy && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+                <div className="bg-gradient-to-b from-slate-900 to-slate-950 p-10 rounded-3xl border border-yellow-500/30 shadow-2xl shadow-yellow-500/20 max-w-md w-full text-center transform scale-105 transition-all">
+                    <div className="w-24 h-24 bg-yellow-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <Trophy className="text-yellow-400 w-12 h-12" />
+                    </div>
+                    <h2 className="text-3xl font-black text-white mb-2">Congratulations, {userInfo?.name}!</h2>
+                    <p className="text-slate-300 font-medium mb-6">You have successfully mastered <span className="text-yellow-400">"{completedCourseName}"</span>.</p>
+                    
+                    <button 
+                        onClick={generateCertificatePDF} 
+                        disabled={isGeneratingCert}
+                        className="w-full flex items-center justify-center gap-3 py-4 bg-gradient-to-r from-yellow-600 to-amber-500 hover:from-yellow-500 hover:to-amber-400 text-slate-900 font-black rounded-xl shadow-lg shadow-yellow-600/30 transition-all disabled:opacity-70 disabled:cursor-not-allowed mb-3"
+                    >
+                        {isGeneratingCert ? <Loader className="animate-spin"/> : <Award size={20} />}
+                        {isGeneratingCert ? "Forging Certificate..." : "Claim Victory & Download Certificate"}
+                    </button>
+
+                    <button onClick={() => setShowTrophy(false)} className="text-sm font-bold text-slate-500 hover:text-slate-300 transition">
+                        Close and return to course
+                    </button>
+                </div>
+            </div>
+        )}
+
         {/* LEFT COLUMN: Dynamic Player & Controls */}
-        <div className="w-full lg:w-2/3 flex flex-col border-r border-gray-800">
-          <div className="p-4 bg-gray-950 flex items-center justify-between border-b border-gray-800">
-              <button onClick={() => setSelectedCourse(null)} className="text-sm text-gray-400 hover:text-white flex items-center gap-2 transition">
-                <ArrowLeft size={16} /> Back to Dashboard
+        <div className="w-full lg:w-2/3 flex flex-col border-r border-slate-800">
+          <div className="p-4 bg-slate-900 flex items-center justify-between border-b border-slate-800 shadow-sm">
+              <button onClick={() => setSelectedCourse(null)} className="text-sm font-bold text-slate-400 hover:text-white flex items-center gap-2 transition px-3 py-1.5 rounded-lg hover:bg-slate-800">
+                <ArrowLeft size={16} /> Dashboard
               </button>
-              <h2 className="font-bold text-gray-200 truncate max-w-md">{selectedCourse.title}</h2>
+              <h2 className="font-bold text-slate-200 truncate max-w-md">{selectedCourse.title}</h2>
           </div>
           
           <div className="aspect-video bg-black flex items-center justify-center relative shadow-2xl">
              {renderActiveContent()}
           </div>
           
-          <div className="p-6 md:p-8 flex-1 bg-gray-900">
+          <div className="p-6 md:p-8 flex-1 bg-slate-900">
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
+                    <h1 className="text-2xl md:text-3xl font-black text-white mb-3">
                         {activeContent ? activeContent.data.title : "Course Overview"}
                     </h1>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${activeContent?.type === 'video' ? 'bg-blue-900 text-blue-300' : activeContent?.type === 'resource' ? 'bg-green-900 text-green-300' : 'bg-purple-900 text-purple-300'}`}>
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${activeContent?.type === 'video' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : activeContent?.type === 'resource' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'}`}>
                         {activeContent?.type || "Information"}
                     </span>
                 </div>
                 
                 {activeContent && (
                     <button 
-                        onClick={handleMarkComplete}
-                        disabled={isCurrentItemDone || progressLoading}
-                        className={`px-6 py-3 font-bold rounded-lg transition-colors flex items-center justify-center gap-2 shadow-lg ${isCurrentItemDone ? 'bg-gray-800 text-green-500 cursor-default' : 'bg-green-600 hover:bg-green-500 text-white shadow-green-900/20'}`}
+                        onClick={handleToggleComplete}
+                        disabled={progressLoading}
+                        className={`px-6 py-3 font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg ${isCurrentItemDone ? 'bg-slate-800 text-slate-300 hover:bg-red-500/10 hover:text-red-400 border border-slate-700 hover:border-red-500/30' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/30'}`}
                     >
-                        {progressLoading ? <Loader className="animate-spin" size={20}/> : <CheckCircle size={20} />}
-                        {isCurrentItemDone ? "Completed" : "Mark as Complete"}
+                        {progressLoading ? <Loader className="animate-spin" size={20}/> : isCurrentItemDone ? <Undo size={20} /> : <CheckCircle size={20} />}
+                        {isCurrentItemDone ? "Unmark as Complete" : "Mark as Complete"}
                     </button>
                 )}
             </div>
@@ -196,61 +350,55 @@ const LearnerDashboard = () => {
         </div>
 
         {/* RIGHT COLUMN: Curriculum Sidebar */}
-        <div className="w-full lg:w-1/3 bg-gray-950 h-screen lg:sticky top-0 overflow-hidden flex flex-col border-l border-gray-800">
-          <div className="p-6 bg-gray-900 border-b border-gray-800 z-10 shadow-md">
-             <h3 className="text-xl font-bold text-white">Curriculum</h3>
-             <div className="mt-4">
-                 <div className="flex justify-between text-xs font-bold text-gray-400 mb-1">
-                     <span>Course Progress</span>
-                     <span className={currentProgress === 100 ? "text-green-400" : "text-blue-400"}>{currentProgress}%</span>
+        <div className="w-full lg:w-1/3 bg-slate-950 h-screen lg:sticky top-0 overflow-hidden flex flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.2)] z-10">
+          <div className="p-6 bg-slate-900 border-b border-slate-800 z-10">
+             <h3 className="text-xl font-black text-white flex items-center gap-2"><Award className="text-yellow-500"/> Curriculum</h3>
+             <div className="mt-5">
+                 <div className="flex justify-between text-xs font-bold text-slate-400 mb-2">
+                     <span className="uppercase tracking-wider">Progress</span>
+                     <span className={currentProgress === 100 ? "text-yellow-400" : "text-blue-400"}>{currentProgress}%</span>
                  </div>
-                 <div className="w-full bg-gray-800 rounded-full h-2">
-                     <div className={`h-2 rounded-full transition-all duration-500 ${currentProgress === 100 ? "bg-green-500" : "bg-blue-500"}`} style={{ width: `${currentProgress}%` }}></div>
+                 <div className="w-full bg-slate-800 rounded-full h-2.5 shadow-inner">
+                     <div className={`h-2.5 rounded-full transition-all duration-700 ease-out shadow-lg ${currentProgress === 100 ? "bg-gradient-to-r from-yellow-500 to-amber-400" : "bg-gradient-to-r from-blue-600 to-sky-400"}`} style={{ width: `${currentProgress}%` }}></div>
                  </div>
              </div>
           </div>
           
           <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
              {selectedCourse.lectures?.map((section, index) => (
-                  <div key={index} className="bg-gray-900 rounded-xl overflow-hidden border border-gray-800">
-                    <button onClick={() => toggleSection(index)} className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition text-left">
-                      <span className="font-bold text-gray-200 text-sm line-clamp-1">{section.title}</span>
-                      <ChevronDown size={16} className={`text-gray-500 transition-transform duration-300 ${expandedSections[index] ? "rotate-180" : ""}`} />
+                  <div key={index} className="bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shadow-sm">
+                    <button onClick={() => toggleSection(index)} className="w-full flex items-center justify-between p-4 hover:bg-slate-800 transition text-left">
+                      <span className="font-bold text-slate-200 text-sm line-clamp-1 pr-4">{section.title}</span>
+                      <ChevronDown size={18} className={`text-slate-500 transition-transform duration-300 ${expandedSections[index] ? "rotate-180" : ""}`} />
                     </button>
 
                     {expandedSections[index] && (
-                      <div className="bg-gray-950/50">
-                        
-                        {/* VIDEOS */}
+                      <div className="bg-slate-950/50 pb-2">
                         {section.videos?.map((vid, vIdx) => (
-                          <div key={vIdx} onClick={() => setActiveContent({type: 'video', data: vid})} className={`p-3 pl-6 flex items-center justify-between cursor-pointer transition border-l-2 ${activeContent?.data._id === vid._id ? "border-l-blue-500 bg-gray-800/80" : "border-l-transparent hover:bg-gray-800/50"}`}>
+                          <div key={vIdx} onClick={() => setActiveContent({type: 'video', data: vid})} className={`p-3 pl-6 flex items-center justify-between cursor-pointer transition border-l-2 ${activeContent?.data._id === vid._id ? "border-l-blue-500 bg-slate-800/80" : "border-l-transparent hover:bg-slate-800/50"}`}>
                              <div className="flex items-center gap-3">
-                                 <MonitorPlay size={16} className={activeContent?.data._id === vid._id ? "text-blue-400" : "text-gray-600"}/>
-                                 <span className={`text-sm ${activeContent?.data._id === vid._id ? "text-blue-100 font-medium" : "text-gray-400"}`}>{vid.title}</span>
+                                 <MonitorPlay size={16} className={activeContent?.data._id === vid._id ? "text-blue-400" : "text-slate-500"}/>
+                                 <span className={`text-sm ${activeContent?.data._id === vid._id ? "text-blue-100 font-bold" : "text-slate-400 font-medium"}`}>{vid.title}</span>
                              </div>
-                             {completedItems.includes(vid._id) && <CheckCircle size={14} className="text-green-500"/>}
+                             {completedItems.includes(vid._id) && <CheckCircle size={14} className="text-green-500 drop-shadow-md"/>}
                           </div>
                         ))}
-
-                        {/* PDFs/RESOURCES */}
                         {section.resources?.map((res, rIdx) => (
-                          <div key={rIdx} onClick={() => setActiveContent({type: 'resource', data: res})} className={`p-3 pl-6 flex items-center justify-between cursor-pointer transition border-l-2 ${activeContent?.data._id === res._id ? "border-l-green-500 bg-gray-800/80" : "border-l-transparent hover:bg-gray-800/50"}`}>
+                          <div key={rIdx} onClick={() => setActiveContent({type: 'resource', data: res})} className={`p-3 pl-6 flex items-center justify-between cursor-pointer transition border-l-2 ${activeContent?.data._id === res._id ? "border-l-emerald-500 bg-slate-800/80" : "border-l-transparent hover:bg-slate-800/50"}`}>
                              <div className="flex items-center gap-3">
-                                 <FileText size={16} className={activeContent?.data._id === res._id ? "text-green-400" : "text-gray-600"}/>
-                                 <span className={`text-sm ${activeContent?.data._id === res._id ? "text-green-100 font-medium" : "text-gray-400"}`}>{res.title}</span>
+                                 <FileText size={16} className={activeContent?.data._id === res._id ? "text-emerald-400" : "text-slate-500"}/>
+                                 <span className={`text-sm ${activeContent?.data._id === res._id ? "text-emerald-100 font-bold" : "text-slate-400 font-medium"}`}>{res.title}</span>
                              </div>
-                             {completedItems.includes(res._id) && <CheckCircle size={14} className="text-green-500"/>}
+                             {completedItems.includes(res._id) && <CheckCircle size={14} className="text-green-500 drop-shadow-md"/>}
                           </div>
                         ))}
-
-                        {/* LINKS/BIBTEX */}
                         {section.links?.map((link, lIdx) => (
-                          <div key={lIdx} onClick={() => setActiveContent({type: 'link', data: link})} className={`p-3 pl-6 flex items-center justify-between cursor-pointer transition border-l-2 ${activeContent?.data._id === link._id ? "border-l-purple-500 bg-gray-800/80" : "border-l-transparent hover:bg-gray-800/50"}`}>
+                          <div key={lIdx} onClick={() => setActiveContent({type: 'link', data: link})} className={`p-3 pl-6 flex items-center justify-between cursor-pointer transition border-l-2 ${activeContent?.data._id === link._id ? "border-l-purple-500 bg-slate-800/80" : "border-l-transparent hover:bg-slate-800/50"}`}>
                              <div className="flex items-center gap-3">
-                                 <LinkIcon size={16} className={activeContent?.data._id === link._id ? "text-purple-400" : "text-gray-600"}/>
-                                 <span className={`text-sm ${activeContent?.data._id === link._id ? "text-purple-100 font-medium" : "text-gray-400"}`}>{link.title}</span>
+                                 <LinkIcon size={16} className={activeContent?.data._id === link._id ? "text-purple-400" : "text-slate-500"}/>
+                                 <span className={`text-sm ${activeContent?.data._id === link._id ? "text-purple-100 font-bold" : "text-slate-400 font-medium"}`}>{link.title}</span>
                              </div>
-                             {completedItems.includes(link._id) && <CheckCircle size={14} className="text-green-500"/>}
+                             {completedItems.includes(link._id) && <CheckCircle size={14} className="text-green-500 drop-shadow-md"/>}
                           </div>
                         ))}
                       </div>
@@ -263,62 +411,58 @@ const LearnerDashboard = () => {
     );
   }
 
-  // VIEW A: THE DASHBOARD GRID
+  // =====================================================================
+  // VIEW A: THE DASHBOARD GRID & HIDDEN CERTIFICATE
+  // =====================================================================
   return (
-    <div className="min-h-screen bg-gray-950 text-white pb-20">
+    <div className="min-h-screen bg-slate-950 text-white pb-20 font-sans relative overflow-x-hidden">
       
-      {/* Header Profile Area WITH NEW BUTTONS */}
-      <div className="bg-gray-900 border-b border-gray-800 pt-8 pb-16 px-8 relative">
+      {/* Header Area */}
+      <div className="bg-slate-900 border-b border-slate-800 pt-8 pb-16 px-8 relative shadow-sm">
           <div className="max-w-7xl mx-auto">
-              
-              {/* --- NEW NAVIGATION BUTTONS --- */}
-              <div className="flex items-center gap-4 mb-6">
-                  <button 
-                      onClick={() => navigate('/')} 
-                      className="text-sm font-medium text-gray-300 hover:text-white flex items-center gap-2 transition bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg border border-gray-700"
-                  >
-                      <Home size={16} /> Home
+              <div className="flex items-center gap-4 mb-8">
+                  <button onClick={() => navigate('/')} className="text-sm font-bold text-slate-300 hover:text-white flex items-center gap-2 transition bg-slate-800 hover:bg-slate-700 px-5 py-2.5 rounded-xl border border-slate-700 shadow-sm">
+                      <Home size={16} /> Back to Catalog
                   </button>
               </div>
-              {/* -------------------------------- */}
-
-              <h1 className="text-3xl md:text-4xl font-bold mb-2">My Learning Arena</h1>
-              <p className="text-gray-400">Pick up right where you left off.</p>
+              <h1 className="text-3xl md:text-5xl font-black mb-3 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">My Learning Arena</h1>
+              <p className="text-slate-400 font-medium text-lg">Your active quests and ongoing training.</p>
           </div>
       </div>
-      <div className="max-w-7xl mx-auto px-8 -mt-8">
+
+      <div className="max-w-7xl mx-auto px-8 -mt-8 relative z-10">
           {enrolledCourses.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 bg-gray-900 rounded-2xl border border-gray-800 shadow-2xl">
-              <div className="bg-gray-800 p-6 rounded-full mb-6"><BookOpen className="w-12 h-12 text-blue-500" /></div>
-              <h2 className="text-2xl font-bold mb-3 text-white">Your journey has not yet begun</h2>
-              <p className="text-gray-400 mb-8 text-center max-w-md">You aren't enrolled in any courses yet.</p>
-              <Link to="/courses" className="px-8 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold shadow-lg">Browse Available Courses</Link>
+            <div className="flex flex-col items-center justify-center py-24 bg-slate-900 rounded-3xl border border-slate-800 shadow-2xl">
+              <div className="bg-blue-500/10 p-6 rounded-full mb-6 border border-blue-500/20"><BookOpen className="w-16 h-16 text-blue-500" /></div>
+              <h2 className="text-3xl font-black mb-3 text-white">Your journey has not yet begun</h2>
+              <p className="text-slate-400 mb-8 text-center max-w-md font-medium text-lg">The Lands Between await. Discover new skills and begin your training.</p>
+              <Link to="/courses" className="px-10 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-xl font-black text-lg shadow-xl shadow-blue-900/30 transform hover:-translate-y-1 transition-all">Browse Courses</Link>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {enrolledCourses.map((course) => {
                 const prog = calculateProgress(course);
                 return (
-                <div key={course._id} className="bg-gray-900 rounded-2xl overflow-hidden border border-gray-800 hover:border-blue-500/50 transition-all shadow-xl group flex flex-col">
-                  <div className="h-48 relative overflow-hidden bg-black">
-                      <img src={course.thumbnail || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800"} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition opacity-80 group-hover:opacity-100" />
+                <div key={course._id} className="bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 hover:border-blue-500/50 transition-all shadow-xl group flex flex-col">
+                  <div className="h-52 relative overflow-hidden bg-slate-950">
+                      <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-700 opacity-90 group-hover:opacity-100" />
+                      <button onClick={(e) => handleUnenroll(course._id, e)} className="absolute top-4 right-4 bg-slate-900/80 backdrop-blur-sm text-slate-300 hover:text-red-400 p-2.5 rounded-xl opacity-0 group-hover:opacity-100 transition-all border border-slate-700 hover:border-red-500/50" title="Drop Course">
+                         <Trash2 size={18}/>
+                      </button>
                   </div>
                   <div className="p-6 flex-1 flex flex-col">
-                      <h3 className="text-xl font-bold text-white mb-2 line-clamp-2">{course.title}</h3>
-                      
-                      {/* REAL PROGRESS BAR */}
-                      <div className="mb-6 mt-auto pt-4">
-                          <div className="flex justify-between text-xs text-gray-400 mb-2 font-medium">
-                              <span>Overall Progress</span>
-                              <span className={prog === 100 ? "text-green-400" : "text-blue-400"}>{prog}%</span>
+                      <h3 className="text-xl font-black text-white mb-2 line-clamp-2 leading-tight">{course.title}</h3>
+                      <div className="mb-6 mt-auto pt-6">
+                          <div className="flex justify-between text-xs text-slate-400 mb-2 font-bold uppercase tracking-wider">
+                              <span>Progress</span>
+                              <span className={prog === 100 ? "text-yellow-400" : "text-blue-400"}>{prog}%</span>
                           </div>
-                          <div className="w-full bg-gray-800 rounded-full h-1.5">
-                              <div className={`h-1.5 rounded-full transition-all duration-500 ${prog === 100 ? "bg-green-500" : "bg-blue-500"}`} style={{ width: `${prog}%` }}></div>
+                          <div className="w-full bg-slate-800 rounded-full h-2 shadow-inner">
+                              <div className={`h-2 rounded-full transition-all duration-700 ${prog === 100 ? "bg-gradient-to-r from-yellow-500 to-amber-400 shadow-[0_0_10px_rgba(234,179,8,0.5)]" : "bg-gradient-to-r from-blue-600 to-sky-400"}`} style={{ width: `${prog}%` }}></div>
                           </div>
                       </div>
-                      
-                      <button onClick={() => handleStartCourse(course)} className="w-full py-3 bg-gray-800 hover:bg-blue-600 text-white rounded-xl font-bold transition-colors flex items-center justify-center gap-2">
-                        {prog === 100 ? <><Award size={18} className="text-yellow-400"/> Review Course</> : <><PlayCircle size={18} /> Resume Journey</>}
+                      <button onClick={() => handleStartCourse(course)} className={`w-full py-4 rounded-xl font-black transition-all flex items-center justify-center gap-2 shadow-lg transform hover:-translate-y-0.5 ${prog === 100 ? 'bg-slate-800 text-yellow-500 hover:bg-slate-700 border border-yellow-500/30' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/30'}`}>
+                        {prog === 100 ? <><Trophy size={20}/> Revisit Victory</> : <><PlayCircle size={20} /> Resume Training</>}
                       </button>
                   </div>
                 </div>
@@ -326,6 +470,52 @@ const LearnerDashboard = () => {
             </div>
           )}
       </div>
+
+      {/* --- HIDDEN HTML CERTIFICATE TEMPLATE --- */}
+      {/* Positioned far off-screen so it never messes with the layout */}
+      <div className="fixed -left-[10000px] top-0">
+          <div 
+             ref={certificateRef} 
+             className="w-[1123px] h-[794px] bg-white relative flex flex-col items-center justify-center p-16 font-serif"
+             style={{
+                 backgroundImage: `url("data:image/svg+xml,%3Csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100%25' height='100%25' fill='none' stroke='%23d1d5db' stroke-width='40' /%3E%3Crect width='96%25' height='94%25' x='2%25' y='3%25' fill='none' stroke='%23e5e7eb' stroke-width='4' /%3E%3C/svg%3E")`,
+                 backgroundSize: 'cover'
+             }}
+          >
+             <div className="text-center z-10 w-full px-20">
+                 <div className="mb-8 mx-auto w-24 h-24 bg-blue-600 text-white flex items-center justify-center rounded-full border-4 border-blue-200">
+                     <Award size={48} />
+                 </div>
+                 
+                 <h1 className="text-6xl font-black text-gray-900 tracking-wider mb-2 uppercase">Certificate of Completion</h1>
+                 <p className="text-xl text-gray-500 font-medium tracking-widest uppercase mb-12">This is to certify that</p>
+                 
+                 <h2 className="text-5xl font-bold text-blue-700 italic border-b-2 border-gray-300 pb-4 inline-block px-10 mb-8">
+                     {userInfo?.name || "Student Name"}
+                 </h2>
+                 
+                 <p className="text-2xl text-gray-600 mb-6 leading-relaxed">
+                     has successfully mastered the curriculum and completed all requirements for
+                 </p>
+                 
+                 <h3 className="text-4xl font-black text-gray-900 mb-16 px-12">
+                     "{completedCourseName}"
+                 </h3>
+                 
+                 <div className="flex justify-between items-end w-full px-16 mt-10">
+                     <div className="text-center w-64 border-t-2 border-gray-400 pt-4">
+                         <p className="text-xl font-bold text-gray-800">{new Date().toLocaleDateString()}</p>
+                         <p className="text-sm text-gray-500 uppercase tracking-wide">Date of Issue</p>
+                     </div>
+                     <div className="text-center w-64 border-t-2 border-gray-400 pt-4">
+                         <p className="text-xl font-bold text-gray-800 signature-font" style={{fontFamily: "'Brush Script MT', cursive"}}>Instructor / Admin</p>
+                         <p className="text-sm text-gray-500 uppercase tracking-wide">Authorized Signature</p>
+                     </div>
+                 </div>
+             </div>
+          </div>
+      </div>
+
     </div>
   );
 };

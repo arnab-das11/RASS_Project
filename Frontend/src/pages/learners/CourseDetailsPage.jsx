@@ -176,22 +176,21 @@ const CourseDetailsPage = () => {
         {/* LEFT COLUMN: Details & What You'll Learn */}
         <div className="lg:col-span-2 space-y-10">
           
-          {/* What You'll Learn Section (Amaze the Mentor Feature) */}
+          {/* SYNCED: What You'll Learn Section */}
           <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
             <h3 className="text-2xl font-black text-gray-900 mb-6">What you'll learn</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {[
-                    "Master the fundamental concepts and principles of this topic.",
-                    "Apply theoretical knowledge to practical, real-world scenarios.",
-                    "Build a strong foundation for advanced career opportunities.",
-                    "Develop critical thinking and problem-solving skills in this domain."
-                ].map((point, idx) => (
-                    <div key={idx} className="flex items-start gap-3">
-                        <CheckCircle2 className="text-green-500 shrink-0 mt-0.5" size={20}/>
-                        <span className="text-gray-600 leading-relaxed">{point}</span>
-                    </div>
-                ))}
-            </div>
+            {course.learningObjectives && course.learningObjectives.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {course.learningObjectives.map((point, idx) => (
+                        <div key={idx} className="flex items-start gap-3">
+                            <CheckCircle2 className="text-green-500 shrink-0 mt-0.5" size={20}/>
+                            <span className="text-gray-600 leading-relaxed font-medium">{point}</span>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <p className="text-gray-500 italic">Objectives will be updated shortly by the instructor.</p>
+            )}
           </div>
 
           {/* Full Description */}
