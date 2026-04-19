@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   BookOpen, PlayCircle, MonitorPlay, ChevronDown, CheckCircle, 
@@ -7,7 +7,9 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { jsPDF } from "jspdf";
-import html2canvas from "html2canvas";
+
+// ---> BUG FIXED: Added ../ to go up two folder levels <---
+import { CERT_TEMPLATE_BASE64 } from '../../assets/certificateTemplate';
 
 const LearnerDashboard = () => {
   const navigate = useNavigate();
@@ -29,9 +31,6 @@ const LearnerDashboard = () => {
   const [showTrophy, setShowTrophy] = useState(false);
   const [completedCourseName, setCompletedCourseName] = useState("");
   const [isGeneratingCert, setIsGeneratingCert] = useState(false);
-  
-  // Ref for the hidden certificate
-  const certificateRef = useRef(null);
 
   // --- DATA FETCHING ---
   useEffect(() => {
@@ -164,37 +163,98 @@ const LearnerDashboard = () => {
     }
   };
 
-  // --- CERTIFICATE GENERATOR ---
-  const generateCertificatePDF = async () => {
-    const certElement = certificateRef.current;
-    if (!certElement) return;
-
+  // --- 🌟 CUSTOM NATIVE CERTIFICATE GENERATOR 🌟 ---
+  const generateCertificatePDF = () => {
     setIsGeneratingCert(true);
     
     try {
-        // Create canvas from the hidden HTML element
-        const canvas = await html2canvas(certElement, { 
-            scale: 2, // High quality
-            useCORS: true // Allows external images/fonts if you add them later
+        const doc = new jsPDF('landscape', 'mm', 'a4'); 
+        
+        // Ensure the imported string exists before trying to draw it
+        if (CERT_TEMPLATE_BASE64) {
+            doc.addImage(CERT_TEMPLATE_BASE64, 'PNG', 0, 0, 297, 210);
+        }
+
+        // --- "This is to certify that" ---
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(50, 50, 50); 
+        doc.text("This is to certify that", 148.5, 75, { align: "center" });
+
+        // --- STUDENT NAME ---
+        doc.setFontSize(36);
+        doc.setFont("times", "normal"); 
+        doc.setTextColor(44, 133, 111); // Green/Teal color
+        doc.text(userInfo?.name || "Student Name", 148.5, 92, { align: "center" });
+        
+        // Line under the student name
+        doc.setLineWidth(0.5);
+        doc.setDrawColor(44, 133, 111);
+        doc.line(70, 96, 227, 96);
+        doc.circle(70, 96, 1, 'F'); 
+        doc.circle(227, 96, 1, 'F'); 
+
+        // --- COURSE DESCRIPTION PARAGRAPH ---
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(50, 50, 50);
+        
+        const paragraph = `has successfully completed a professional training program in "${completedCourseName}".\nTheir dedication and commitment to the learning process are truly commendable.`;
+        doc.text(paragraph, 148.5, 115, { align: "center", lineHeightFactor: 1.5 });
+
+        // --- DATE ---
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(20, 20, 20);
+        const issueDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        doc.text(`Awarded on ${issueDate}`, 148.5, 140, { align: "center" });
+// =====================================================================
+        // --- 4 GROUP MEMBERS SIGNATURE SECTION (Hand-written Style) ---
+        // =====================================================================
+        
+        const signatories = [
+            { name: "Arnab Das", title: "Lead System Architect", x: 45 },
+            { name: "Sahitya Sk", title: "Backend Engineer", x: 252 },
+            { name: "Rishav Biswas", title: "Full-Stack Developer", x: 114 },
+            { name: "Soumyadeep B. Dewan", title: "UI/UX Strategist", x: 183 }, 
+        ];
+
+        signatories.forEach(signatory => {
+            // 1. THE "HAND-WRITTEN" SIGNATURE
+            // We use 'times' italic and a slightly lighter blue/black to mimic ink
+            doc.setFont("times", "italic");
+            doc.setFontSize(18);
+            doc.setTextColor(30, 40, 70); // Dark Blue-ish Ink color
+            
+            // We place the signature at Y=172 (slighly higher than the line at 178)
+            // and add a slight horizontal offset to make it look less "perfect"
+            doc.text(signatory.name, signatory.x - 2, 172, { align: "center" });
+
+            // 2. THE SIGNATURE LINE
+            doc.setLineWidth(0.3);
+            doc.setDrawColor(180, 180, 180);
+            doc.line(signatory.x - 25, 178, signatory.x + 25, 178);
+
+            // 3. THE PRINTED NAME (Official)
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(10);
+            doc.setTextColor(44, 133, 111); // Matches your design's Green/Teal
+            doc.text(signatory.name.toUpperCase(), signatory.x, 184, { align: "center" });
+
+            // 4. THE DESIGNATION
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(8);
+            doc.setTextColor(120, 120, 120);
+            doc.text(signatory.title, signatory.x, 189, { align: "center" });
         });
-        
-        const imgData = canvas.toDataURL('image/png');
-        
-        // Create PDF (Landscape, A4 format)
-        const pdf = new jsPDF('landscape', 'mm', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-        
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-        
+
         // Download the PDF
-        pdf.save(`${completedCourseName.replace(/\s+/g, '_')}_Certificate.pdf`);
-        
-        // Close modal after success
+        doc.save(`${completedCourseName.replace(/\s+/g, '_')}_Certificate.pdf`);
         setShowTrophy(false);
+
     } catch (error) {
         console.error("Certificate Generation Error:", error);
-        alert("Failed to generate certificate. Please try again.");
+        alert("Failed to generate certificate.");
     } finally {
         setIsGeneratingCert(false);
     }
@@ -218,7 +278,7 @@ const LearnerDashboard = () => {
     if (activeContent.type === 'resource') {
         const url = activeContent.data.url;
         
-        // EXTENSION CHECKER (Fixed for rar and xls)
+        // EXTENSION CHECKER
         const extMatch = url.match(/\.([a-z0-9]+)(?:[\?#]|$)/i);
         const ext = extMatch ? extMatch[1].toLowerCase() : '';
         const unsupportedTypes = ['zip', 'rar', '7z', 'tar', 'exe', 'xls', 'xlsx', 'csv'];
@@ -412,12 +472,11 @@ const LearnerDashboard = () => {
   }
 
   // =====================================================================
-  // VIEW A: THE DASHBOARD GRID & HIDDEN CERTIFICATE
+  // VIEW A: THE DASHBOARD GRID
   // =====================================================================
   return (
     <div className="min-h-screen bg-slate-950 text-white pb-20 font-sans relative overflow-x-hidden">
       
-      {/* Header Area */}
       <div className="bg-slate-900 border-b border-slate-800 pt-8 pb-16 px-8 relative shadow-sm">
           <div className="max-w-7xl mx-auto">
               <div className="flex items-center gap-4 mb-8">
@@ -470,52 +529,6 @@ const LearnerDashboard = () => {
             </div>
           )}
       </div>
-
-      {/* --- HIDDEN HTML CERTIFICATE TEMPLATE --- */}
-      {/* Positioned far off-screen so it never messes with the layout */}
-      <div className="fixed -left-[10000px] top-0">
-          <div 
-             ref={certificateRef} 
-             className="w-[1123px] h-[794px] bg-white relative flex flex-col items-center justify-center p-16 font-serif"
-             style={{
-                 backgroundImage: `url("data:image/svg+xml,%3Csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100%25' height='100%25' fill='none' stroke='%23d1d5db' stroke-width='40' /%3E%3Crect width='96%25' height='94%25' x='2%25' y='3%25' fill='none' stroke='%23e5e7eb' stroke-width='4' /%3E%3C/svg%3E")`,
-                 backgroundSize: 'cover'
-             }}
-          >
-             <div className="text-center z-10 w-full px-20">
-                 <div className="mb-8 mx-auto w-24 h-24 bg-blue-600 text-white flex items-center justify-center rounded-full border-4 border-blue-200">
-                     <Award size={48} />
-                 </div>
-                 
-                 <h1 className="text-6xl font-black text-gray-900 tracking-wider mb-2 uppercase">Certificate of Completion</h1>
-                 <p className="text-xl text-gray-500 font-medium tracking-widest uppercase mb-12">This is to certify that</p>
-                 
-                 <h2 className="text-5xl font-bold text-blue-700 italic border-b-2 border-gray-300 pb-4 inline-block px-10 mb-8">
-                     {userInfo?.name || "Student Name"}
-                 </h2>
-                 
-                 <p className="text-2xl text-gray-600 mb-6 leading-relaxed">
-                     has successfully mastered the curriculum and completed all requirements for
-                 </p>
-                 
-                 <h3 className="text-4xl font-black text-gray-900 mb-16 px-12">
-                     "{completedCourseName}"
-                 </h3>
-                 
-                 <div className="flex justify-between items-end w-full px-16 mt-10">
-                     <div className="text-center w-64 border-t-2 border-gray-400 pt-4">
-                         <p className="text-xl font-bold text-gray-800">{new Date().toLocaleDateString()}</p>
-                         <p className="text-sm text-gray-500 uppercase tracking-wide">Date of Issue</p>
-                     </div>
-                     <div className="text-center w-64 border-t-2 border-gray-400 pt-4">
-                         <p className="text-xl font-bold text-gray-800 signature-font" style={{fontFamily: "'Brush Script MT', cursive"}}>Instructor / Admin</p>
-                         <p className="text-sm text-gray-500 uppercase tracking-wide">Authorized Signature</p>
-                     </div>
-                 </div>
-             </div>
-          </div>
-      </div>
-
     </div>
   );
 };
