@@ -7,8 +7,6 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { jsPDF } from "jspdf";
-
-// ---> BUG FIXED: Added ../ to go up two folder levels <---
 import { CERT_TEMPLATE_BASE64 } from '../../assets/certificateTemplate';
 
 const LearnerDashboard = () => {
@@ -16,11 +14,11 @@ const LearnerDashboard = () => {
 
   // --- STATE MANAGEMENT ---
   const [enrolledCourses, setEnrolledCourses] = useState([]);
-  const [completedItems, setCompletedItems] = useState([]); 
+  const [completedItems, setCompletedItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [progressLoading, setProgressLoading] = useState(false);
   const [userInfo, setUserInfo] = useState(null);
-  
+
   // View Controllers
   const [selectedCourse, setSelectedCourse] = useState(null); 
   const [activeContent, setActiveContent] = useState(null); 
@@ -166,92 +164,70 @@ const LearnerDashboard = () => {
   // --- 🌟 CUSTOM NATIVE CERTIFICATE GENERATOR 🌟 ---
   const generateCertificatePDF = () => {
     setIsGeneratingCert(true);
-    
     try {
-        const doc = new jsPDF('landscape', 'mm', 'a4'); 
-        
-        // Ensure the imported string exists before trying to draw it
+        const doc = new jsPDF('landscape', 'mm', 'a4');
         if (CERT_TEMPLATE_BASE64) {
             doc.addImage(CERT_TEMPLATE_BASE64, 'PNG', 0, 0, 297, 210);
         }
 
-        // --- "This is to certify that" ---
         doc.setFontSize(14);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(50, 50, 50); 
         doc.text("This is to certify that", 148.5, 75, { align: "center" });
 
-        // --- STUDENT NAME ---
         doc.setFontSize(36);
         doc.setFont("times", "normal"); 
-        doc.setTextColor(44, 133, 111); // Green/Teal color
+        doc.setTextColor(44, 133, 111);
         doc.text(userInfo?.name || "Student Name", 148.5, 92, { align: "center" });
-        
-        // Line under the student name
+
         doc.setLineWidth(0.5);
         doc.setDrawColor(44, 133, 111);
         doc.line(70, 96, 227, 96);
         doc.circle(70, 96, 1, 'F'); 
-        doc.circle(227, 96, 1, 'F'); 
+        doc.circle(227, 96, 1, 'F');
 
-        // --- COURSE DESCRIPTION PARAGRAPH ---
         doc.setFontSize(12);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(50, 50, 50);
-        
         const paragraph = `has successfully completed a professional training program in "${completedCourseName}".\nTheir dedication and commitment to the learning process are truly commendable.`;
         doc.text(paragraph, 148.5, 115, { align: "center", lineHeightFactor: 1.5 });
 
-        // --- DATE ---
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(20, 20, 20);
         const issueDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
         doc.text(`Awarded on ${issueDate}`, 148.5, 140, { align: "center" });
-// =====================================================================
-        // --- 4 GROUP MEMBERS SIGNATURE SECTION (Hand-written Style) ---
-        // =====================================================================
-        
+
         const signatories = [
             { name: "Arnab Das", title: "Lead System Architect", x: 45 },
-            { name: "Sahitya Sk", title: "Backend Engineer", x: 252 },
             { name: "Rishav Biswas", title: "Full-Stack Developer", x: 114 },
             { name: "Soumyadeep B. Dewan", title: "UI/UX Strategist", x: 183 }, 
+            { name: "Sahitya Sk", title: "Backend Engineer", x: 252 },
         ];
 
         signatories.forEach(signatory => {
-            // 1. THE "HAND-WRITTEN" SIGNATURE
-            // We use 'times' italic and a slightly lighter blue/black to mimic ink
             doc.setFont("times", "italic");
             doc.setFontSize(18);
-            doc.setTextColor(30, 40, 70); // Dark Blue-ish Ink color
-            
-            // We place the signature at Y=172 (slighly higher than the line at 178)
-            // and add a slight horizontal offset to make it look less "perfect"
+            doc.setTextColor(30, 40, 70); 
             doc.text(signatory.name, signatory.x - 2, 172, { align: "center" });
 
-            // 2. THE SIGNATURE LINE
             doc.setLineWidth(0.3);
             doc.setDrawColor(180, 180, 180);
             doc.line(signatory.x - 25, 178, signatory.x + 25, 178);
 
-            // 3. THE PRINTED NAME (Official)
             doc.setFont("helvetica", "bold");
             doc.setFontSize(10);
-            doc.setTextColor(44, 133, 111); // Matches your design's Green/Teal
+            doc.setTextColor(44, 133, 111); 
             doc.text(signatory.name.toUpperCase(), signatory.x, 184, { align: "center" });
 
-            // 4. THE DESIGNATION
             doc.setFont("helvetica", "normal");
             doc.setFontSize(8);
             doc.setTextColor(120, 120, 120);
             doc.text(signatory.title, signatory.x, 189, { align: "center" });
         });
 
-        // Download the PDF
         doc.save(`${completedCourseName.replace(/\s+/g, '_')}_Certificate.pdf`);
         setShowTrophy(false);
-
     } catch (error) {
         console.error("Certificate Generation Error:", error);
         alert("Failed to generate certificate.");
@@ -277,13 +253,11 @@ const LearnerDashboard = () => {
 
     if (activeContent.type === 'resource') {
         const url = activeContent.data.url;
-        
-        // EXTENSION CHECKER
         const extMatch = url.match(/\.([a-z0-9]+)(?:[\?#]|$)/i);
         const ext = extMatch ? extMatch[1].toLowerCase() : '';
         const unsupportedTypes = ['zip', 'rar', '7z', 'tar', 'exe', 'xls', 'xlsx', 'csv'];
         const isUnsupported = unsupportedTypes.includes(ext);
-        
+
         if (isUnsupported) {
             return (
                 <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-slate-900">
@@ -479,10 +453,33 @@ const LearnerDashboard = () => {
       
       <div className="bg-slate-900 border-b border-slate-800 pt-8 pb-16 px-8 relative shadow-sm">
           <div className="max-w-7xl mx-auto">
-              <div className="flex items-center gap-4 mb-8">
+              <div className="flex items-center justify-between mb-8">
                   <button onClick={() => navigate('/')} className="text-sm font-bold text-slate-300 hover:text-white flex items-center gap-2 transition bg-slate-800 hover:bg-slate-700 px-5 py-2.5 rounded-xl border border-slate-700 shadow-sm">
                       <Home size={16} /> Back to Catalog
                   </button>
+
+                  {/* --- NEW: BULLETPROOF AVATAR FOR LEARNER --- */}
+                  <div className="flex items-center gap-4">
+                      <div className="text-right hidden sm:block">
+                          <p className="text-sm font-bold text-slate-200">{userInfo?.name}</p>
+                          <p className="text-xs text-blue-400 font-bold uppercase tracking-wider">Learner</p>
+                      </div>
+                      {userInfo?.profilePicture ? (
+                          <img 
+                              src={userInfo.profilePicture} 
+                              alt={userInfo.name} 
+                              className="w-12 h-12 rounded-full object-cover border-2 border-blue-500/50 shadow-lg"
+                              onError={(e) => {
+                                  e.target.onerror = null; 
+                                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(userInfo.name || 'Learner')}&background=random&color=fff`;
+                              }}
+                          />
+                      ) : (
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-lg uppercase">
+                              {userInfo?.name?.charAt(0) || "L"}
+                          </div>
+                      )}
+                  </div>
               </div>
               <h1 className="text-3xl md:text-5xl font-black mb-3 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">My Learning Arena</h1>
               <p className="text-slate-400 font-medium text-lg">Your active quests and ongoing training.</p>

@@ -27,7 +27,6 @@ const InstructorDashboard = () => {
 
     const fetchInstructorData = async () => {
       try {
-        // Fetch ALL courses and Pending courses, then filter locally to be safe
         const [approvedRes, pendingRes] = await Promise.all([
           axios.get('http://localhost:5000/api/courses'),
           axios.get('http://localhost:5000/api/courses/pending')
@@ -35,13 +34,11 @@ const InstructorDashboard = () => {
 
         const allFetched = [...approvedRes.data, ...pendingRes.data];
         
-        // Filter only courses belonging to this instructor
         const filtered = allFetched.filter(c => {
             const instId = c.instructorId?._id || c.instructorId;
             return instId === user._id;
         });
 
-        // Remove duplicates if any
         const uniqueCourses = Array.from(new Map(filtered.map(item => [item._id, item])).values());
         setMyCourses(uniqueCourses);
       } catch (error) {
@@ -57,7 +54,6 @@ const InstructorDashboard = () => {
   const handleRequestDelete = async (courseId) => {
     if (!window.confirm("Are you sure you want to request deletion of this course? The Admin must approve it.")) return;
     try {
-        // Assuming you have a route to request deletion or update status
         await axios.put(`http://localhost:5000/api/courses/${courseId}/status`, { status: 'deletion_pending' });
         setMyCourses(prev => prev.map(c => c._id === courseId ? { ...c, status: 'deletion_pending' } : c));
         alert("Deletion request sent to Admin.");
@@ -80,9 +76,23 @@ const InstructorDashboard = () => {
       {/* Top Navigation */}
       <nav className="bg-[#112240] border-b border-blue-900/50 px-8 py-4 flex justify-between items-center sticky top-0 z-50 shadow-xl">
         <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-black shadow-lg">
-                {userInfo?.name.charAt(0)}
-            </div>
+            {/* --- BULLETPROOF AVATAR --- */}
+            {userInfo?.profilePicture ? (
+                <img 
+                    src={userInfo.profilePicture} 
+                    alt={userInfo.name} 
+                    className="w-10 h-10 rounded-xl object-cover border-2 border-sky-500/50 shadow-lg"
+                    onError={(e) => {
+                        e.target.onerror = null; 
+                        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(userInfo.name || 'Instructor')}&background=random&color=fff`;
+                    }}
+                />
+            ) : (
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-black shadow-lg uppercase">
+                    {userInfo?.name?.charAt(0) || "I"}
+                </div>
+            )}
+            
             <div>
                 <h1 className="text-xl font-bold text-sky-100 tracking-tight">Instructor Portal</h1>
                 <p className="text-xs text-sky-400/70 font-semibold uppercase tracking-wider">Welcome back, {userInfo?.name}</p>
@@ -129,7 +139,7 @@ const InstructorDashboard = () => {
                                 {course.status === 'approved' && <span className="text-green-400 border-green-400/30 flex items-center gap-1"><CheckCircle2 size={14}/> Active</span>}
                                 {course.status === 'pending' && <span className="text-yellow-400 border-yellow-400/30 flex items-center gap-1"><Clock size={14}/> Pending Review</span>}
                                 {course.status === 'deletion_pending' && <span className="text-red-400 border-red-400/30 flex items-center gap-1"><AlertCircle size={14}/> Deleting</span>}
-                                {course.status === 'rejected' && <span className="text-red-500 border-red-500/30 flex items-center gap-1"><XCircle size={14}/> Rejected</span>}
+                                {course.status === 'rejected' && <span className="text-red-500 border-red-500/30 flex items-center gap-1"><AlertCircle size={14}/> Rejected</span>}
                             </div>
                         </div>
 

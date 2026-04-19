@@ -113,11 +113,23 @@ const Navbar = () => {
                   className="p-1 rounded-full hover:bg-blue-50 transition flex items-center gap-1 border border-transparent hover:border-blue-100"
                   title={t("profile")}
                 >
-                  {/* --- NEW: AVATAR LOGIC --- */}
+                  {/* --- BULLETPROOF AVATAR LOGIC (DESKTOP) --- */}
                   {userInfo ? (
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-md uppercase">
-                        {userInfo.name?.charAt(0) || "U"}
-                    </div>
+                    userInfo.profilePicture ? (
+                      <img 
+                        src={userInfo.profilePicture} 
+                        alt={userInfo.name} 
+                        className="w-8 h-8 rounded-full object-cover border-2 border-blue-500/50 shadow-sm"
+                        onError={(e) => {
+                            e.target.onerror = null; 
+                            e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(userInfo.name || 'User')}&background=random&color=fff`;
+                        }}
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-md uppercase">
+                          {userInfo.name?.charAt(0) || "U"}
+                      </div>
+                    )
                   ) : (
                     <div className="p-1.5 bg-gray-100 rounded-full text-gray-600">
                         <User size={20} />
@@ -188,10 +200,27 @@ const Navbar = () => {
 
                 <div className="mt-4 pt-4 border-t border-gray-100">
                   <button onClick={() => setShowSidebarProfileMenu(!showSidebarProfileMenu)} className="flex items-center gap-2 text-gray-700 hover:text-blue-600 transition w-full">
-                    {/* MOBILE AVATAR */}
+                    
+                    {/* --- BULLETPROOF AVATAR LOGIC (MOBILE) --- */}
                     {userInfo ? (
-                        <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold uppercase">{userInfo.name?.charAt(0) || "U"}</div>
-                    ) : <User size={18} />}
+                      userInfo.profilePicture ? (
+                        <img 
+                          src={userInfo.profilePicture} 
+                          alt={userInfo.name} 
+                          className="w-6 h-6 rounded-full object-cover border border-blue-500/50 shadow-sm"
+                          onError={(e) => {
+                              e.target.onerror = null; 
+                              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(userInfo.name || 'User')}&background=random&color=fff&size=64`;
+                          }}
+                        />
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold uppercase">
+                            {userInfo.name?.charAt(0) || "U"}
+                        </div>
+                      )
+                    ) : (
+                      <User size={18} />
+                    )}
                     
                     <span>{userInfo ? userInfo.name : t("profile")}</span>
                     <ChevronDown size={16} className={`ml-auto transition-transform ${showSidebarProfileMenu ? "rotate-180" : ""}`}/>

@@ -1,138 +1,122 @@
 import { useState } from "react";
-import { Lock, Mail, User, Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import axios from 'axios';
+import { Shield, Mail, Lock, Loader, ChevronRight, Fingerprint } from "lucide-react";
+import axios from "axios";
 
-const AdminSignUp = () => {
-  const [isLogin, setIsLogin] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
-  
-  // State for inputs
-  const [name, setName] = useState("");
+const AdminLogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const toggleMode = () => setIsLogin(!isLogin);
-  const togglePassword = () => setShowPassword(!showPassword);
-
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
+    setLoading(true);
+
     try {
-      const endpoint = isLogin 
-        ? "http://localhost:5000/api/users/login" 
-        : "http://localhost:5000/api/users/register";
+      const { data } = await axios.post("http://localhost:5000/api/users/login", {
+        email,
+        password,
+      });
 
-      const payload = { email, password };
-      
-      if (!isLogin) {
-        payload.name = name;
-        payload.role = "admin"; // Force role to Admin
+      // THE SUPREME LEADER CHECK: Boot them out if they aren't an admin
+      if (data.role !== "admin") {
+        alert("ACCESS DENIED: Insufficient Clearance Level. This portal is for System Administrators only.");
+        setLoading(false);
+        return;
       }
 
-      const { data } = await axios.post(endpoint, payload);
-      
-      // --- SECURITY CHECK ---
-      // If logging in, ensure the user from DB is actually an ADMIN
-      if (isLogin && data.role !== 'admin') {
-        alert("Access Denied: You are not authorized as an Admin.");
-        return; // Stop execution immediately
-      }
-      // ----------------------
-
+      // If they are the Admin, save data and let them in
       localStorage.setItem("userInfo", JSON.stringify(data));
-      alert(`${isLogin ? "Login" : "Sign Up"} Successful!`);
       navigate("/admin-dashboard");
-
+      
     } catch (error) {
-      const msg = error.response?.data?.message || error.message;
-      alert("Error: " + msg);
+      const errorMsg = error.response?.data?.message || "Authentication Failed";
+      alert("System Error: " + errorMsg);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-yellow-200 via-white to-yellow-200">
-      <div className="bg-white backdrop-blur shadow-xl border-none rounded-3xl w-96 p-8 transition-all duration-500 hover:shadow-2xl">
-        <h1 className="text-3xl font-bold text-center text-indigo-600 mb-6">
-          {isLogin ? "Admin Login" : "Admin Sign Up"}
-        </h1>
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden font-sans">
+      
+      {/* Background Abstract Effects */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/20 blur-[120px] rounded-full"></div>
+          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-600/20 blur-[120px] rounded-full"></div>
+      </div>
 
-        <form onSubmit={handleSubmit}>
-          {!isLogin && (
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-1">Full Name</label>
-              <div className="flex items-center border border-gray-300 rounded-lg px-3 py-2">
-                <User className="text-gray-400 mr-2" size={18} />
-                <input
-                  type="text"
-                  placeholder="Enter your name"
-                  className="w-full outline-none"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
+      {/* The Vault Door (Login Card) */}
+      <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-10 rounded-3xl shadow-2xl w-full max-w-md relative z-10 transform transition-all">
+        
+        {/* Header */}
+        <div className="text-center mb-10">
+          <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-blue-900/50 mb-6 border border-blue-500/30">
+            <Shield size={40} className="text-white" />
+          </div>
+          <h1 className="text-3xl font-black text-white tracking-tight mb-2">System Override</h1>
+          <p className="text-sm text-slate-400 font-medium uppercase tracking-widest">Super Administrator Portal</p>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleLogin} className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Admin Identity</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <Mail size={18} className="text-slate-500" />
               </div>
-            </div>
-          )}
-
-          <div className="mb-4">
-            <label className="block text-gray-700 mb-1">Email</label>
-            <div className="flex items-center border border-gray-300 rounded-lg px-3 py-2">
-              <Mail className="text-gray-400 mr-2" size={18} />
               <input
                 type="email"
-                placeholder="admin@gmail.com"
-                className="w-full outline-none"
+                required
+                className="w-full bg-slate-950 border border-slate-800 text-white text-sm rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent block pl-11 p-3.5 outline-none transition-all placeholder-slate-700 font-medium"
+                placeholder="admin@empire.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                required
               />
             </div>
           </div>
 
-          <div className="mb-6">
-            <label className="block text-gray-700 mb-1">Password</label>
-            <div className="flex items-center border border-gray-300 rounded-lg px-3 py-2">
-              <Lock className="text-gray-400 mr-2" size={18} />
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Clearance Code</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <Lock size={18} className="text-slate-500" />
+              </div>
               <input
-                type={showPassword ? "text" : "password"}
-                placeholder="••••••••"
-                className="w-full outline-none"
+                type="password"
+                required
+                className="w-full bg-slate-950 border border-slate-800 text-white text-sm rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent block pl-11 p-3.5 outline-none transition-all placeholder-slate-700 font-medium"
+                placeholder="••••••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                required
               />
-              <button
-                type="button"
-                onClick={togglePassword}
-                className="focus:outline-none text-gray-500 hover:text-indigo-600"
-              >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
             </div>
           </div>
 
           <button
             type="submit"
-            className="w-full bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-green-500 hover:text-black transition-all"
+            disabled={loading}
+            className={`w-full py-4 rounded-xl font-black text-white flex items-center justify-center gap-2 transition-all shadow-lg ${
+              loading ? "bg-slate-800 text-slate-400 cursor-not-allowed" : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-900/50 transform hover:-translate-y-1"
+            }`}
           >
-            {isLogin ? "Login" : "Sign Up"}
+            {loading ? <Loader className="animate-spin" size={20} /> : <Fingerprint size={20} />}
+            {loading ? "Verifying Clearance..." : "Bypass Security"}
+            {!loading && <ChevronRight size={18} className="ml-1" />}
           </button>
         </form>
 
-        <p className="text-center text-gray-600 mt-4">
-          {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-          <button
-            onClick={toggleMode}
-            className="text-indigo-600 font-medium hover:underline"
-          >
-            {isLogin ? "Sign up" : "Login"}
-          </button>
-        </p>
+        {/* Footer Warning */}
+        <div className="mt-8 pt-6 border-t border-slate-800 text-center">
+            <p className="text-xs text-slate-500 font-medium flex items-center justify-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> Unauthorized access is strictly monitored.
+            </p>
+        </div>
       </div>
     </div>
   );
 };
 
-export default AdminSignUp;
+export default AdminLogin;

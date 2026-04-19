@@ -1,10 +1,15 @@
 import { useState, useEffect } from "react";
 import { 
   Menu, X, Users, GraduationCap, LayoutDashboard, 
-  CheckCircle, XCircle, LogOut, BookOpen, Trash2, PlusCircle, Eye, Edit3
+  CheckCircle, XCircle, LogOut, BookOpen, Trash2, Edit3, Eye
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from 'axios';
+// --- NEW: IMPORT RECHARTS ---
+import { 
+  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, 
+  CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer 
+} from 'recharts';
 
 const AdminDashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -25,10 +30,10 @@ const AdminDashboard = () => {
   const [allCourses, setAllCourses] = useState([]); 
   const [loading, setLoading] = useState(true);
 
-  // --- MODAL STATES ---
-  const [viewLearner, setViewLearner] = useState(null); // Which learner's courses are we looking at?
-  const [viewInstructor, setViewInstructor] = useState(null); // Which instructor's uploads are we looking at?
-  const [editingCourse, setEditingCourse] = useState(null); // Which course are we editing?
+  // Modal States
+  const [viewLearner, setViewLearner] = useState(null); 
+  const [viewInstructor, setViewInstructor] = useState(null); 
+  const [editingCourse, setEditingCourse] = useState(null); 
 
   // --- FETCH DATA ---
   const fetchData = async () => {
@@ -59,6 +64,26 @@ const AdminDashboard = () => {
   const learnersList = users.filter(u => u.role === 'learner');
   const instructorsList = users.filter(u => u.role === 'instructor');
 
+  // --- ANALYTICS DATA CALCULATION ---
+  // 1. Pie Chart Data (Users)
+  const userRoleData = [
+    { name: 'Learners', value: learnersList.length },
+    { name: 'Instructors', value: instructorsList.length }
+  ];
+  const PIE_COLORS = ['#3b82f6', '#8b5cf6']; // Blue and Purple
+
+  // 2. Bar Chart Data (Courses by Category)
+  const categoryCounts = allCourses.reduce((acc, course) => {
+    const cat = course.category || 'Uncategorized';
+    acc[cat] = (acc[cat] || 0) + 1;
+    return acc;
+  }, {});
+  
+  const courseCategoryData = Object.keys(categoryCounts).map(key => ({
+    name: key,
+    Courses: categoryCounts[key]
+  }));
+
   // --- HANDLERS ---
   const handleAction = async (course, actionType) => {
     if (course.status === 'deletion_pending') {
@@ -71,6 +96,7 @@ const AdminDashboard = () => {
                 setAllCourses(prev => prev.filter(c => c._id !== course._id));
             } else {
                 await axios.put(`http://localhost:5000/api/courses/${course._id}/status`, { status: 'approved' });
+                fetchData();
             }
         } catch (error) { alert("Error processing request."); }
     } else {
@@ -79,7 +105,7 @@ const AdminDashboard = () => {
         try {
             const newStatus = actionType === 'approve' ? 'approved' : 'rejected';
             await axios.put(`http://localhost:5000/api/courses/${course._id}/status`, { status: newStatus });
-            if (actionType === 'approve') fetchData(); // Refresh to get the new course in the list
+            if (actionType === 'approve') fetchData(); 
         } catch (error) { alert("Error updating status."); }
     }
   };
@@ -95,26 +121,22 @@ const AdminDashboard = () => {
       if(!window.confirm("Remove this student from the course?")) return;
       try {
           await axios.post('http://localhost:5000/api/users/unenroll', { userId, courseId });
-          // Update local UI state to reflect removal immediately
           setViewLearner(prev => ({
               ...prev,
               enrolledCourses: prev.enrolledCourses.filter(c => c._id !== courseId)
           }));
-          fetchData(); // Refresh main data in background
+          fetchData(); 
       } catch (error) { alert("Failed to unenroll student."); }
   };
 
   const handleSaveCourseEdit = async (e) => {
       e.preventDefault();
       try {
-          // Assuming you have a standard PUT route to update a course
           await axios.put(`http://localhost:5000/api/courses/${editingCourse._id}`, editingCourse);
           setEditingCourse(null);
-          fetchData(); // Refresh UI
+          fetchData(); 
           alert("Course updated successfully!");
-      } catch (error) {
-          alert("Failed to update course.");
-      }
+      } catch (error) { alert("Failed to update course."); }
   };
 
   const handleLogout = () => {
@@ -139,7 +161,7 @@ const AdminDashboard = () => {
 
         <nav className="flex-1 space-y-2">
           {[
-            { id: 'dashboard', icon: LayoutDashboard, label: 'Overview' },
+            { id: 'dashboard', icon: LayoutDashboard, label: 'Overview & Analytics' },
             { id: 'all-courses', icon: BookOpen, label: 'Manage Courses' },
             { id: 'learners', icon: GraduationCap, label: 'Student Roster' },
             { id: 'instructors', icon: Users, label: 'Instructors' }
@@ -177,9 +199,11 @@ const AdminDashboard = () => {
         <main className="p-8 overflow-y-auto bg-gray-50 flex-1 relative">
           {loading ? <div className="flex justify-center items-center h-full"><div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600"></div></div> : (
             <>
-              {/* --- DASHBOARD TAB --- */}
+              {/* --- DASHBOARD TAB (WITH CHARTS) --- */}
               {activeTab === "dashboard" && (
                 <div className="max-w-7xl mx-auto animate-fade-in">
+                  
+                  {/* Top Stats Row */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between group hover:border-orange-300 transition cursor-default">
                       <div>
@@ -202,6 +226,59 @@ const AdminDashboard = () => {
                       </div>
                       <div className="w-16 h-16 bg-purple-50 rounded-full flex items-center justify-center text-purple-600"><Users size={28}/></div>
                     </div>
+                  </div>
+
+                  {/* --- NEW: ANALYTICS CHARTS ROW --- */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+                      
+                      {/* Pie Chart: User Demographics */}
+                      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 lg:col-span-1">
+                          <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                              <Users className="text-blue-500" size={20}/> User Demographics
+                          </h3>
+                          <div className="h-[250px] w-full">
+                              <ResponsiveContainer width="100%" height="100%">
+                                  <PieChart>
+                                      <Pie
+                                          data={userRoleData}
+                                          cx="50%"
+                                          cy="50%"
+                                          innerRadius={60}
+                                          outerRadius={90}
+                                          paddingAngle={5}
+                                          dataKey="value"
+                                      >
+                                          {userRoleData.map((entry, index) => (
+                                              <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                          ))}
+                                      </Pie>
+                                      <RechartsTooltip />
+                                      <Legend verticalAlign="bottom" height={36}/>
+                                  </PieChart>
+                              </ResponsiveContainer>
+                          </div>
+                      </div>
+
+                      {/* Bar Chart: Course Library */}
+                      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 lg:col-span-2">
+                          <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                              <BookOpen className="text-purple-500" size={20}/> Course Library by Category
+                          </h3>
+                          <div className="h-[250px] w-full">
+                              <ResponsiveContainer width="100%" height="100%">
+                                  <BarChart data={courseCategoryData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB"/>
+                                      <XAxis dataKey="name" tick={{fontSize: 12, fill: '#6B7280'}} axisLine={false} tickLine={false} />
+                                      <YAxis tick={{fontSize: 12, fill: '#6B7280'}} axisLine={false} tickLine={false} allowDecimals={false} />
+                                      <RechartsTooltip 
+                                          cursor={{fill: '#F3F4F6'}} 
+                                          contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'}}
+                                      />
+                                      <Bar dataKey="Courses" fill="#8b5cf6" radius={[4, 4, 0, 0]} barSize={40} />
+                                  </BarChart>
+                              </ResponsiveContainer>
+                          </div>
+                      </div>
                   </div>
 
                   {/* Pending Approvals Table */}
@@ -274,11 +351,9 @@ const AdminDashboard = () => {
                                     <div className="mt-auto flex justify-between items-center border-t border-gray-100 pt-4">
                                         <span className="font-black text-gray-800">${course.price}</span>
                                         <div className="flex items-center gap-2">
-                                            {/* EDIT BUTTON */}
                                             <button onClick={() => setEditingCourse(course)} className="text-blue-600 hover:text-white p-2 hover:bg-blue-600 bg-blue-50 rounded-lg transition" title="Edit Course">
                                                 <Edit3 size={18}/>
                                             </button>
-                                            {/* DELETE BUTTON */}
                                             <button onClick={() => handleDeleteDirectly(course._id)} className="text-red-600 hover:text-white p-2 hover:bg-red-600 bg-red-50 rounded-lg transition" title="Delete Course">
                                                 <Trash2 size={18}/>
                                             </button>
@@ -347,7 +422,6 @@ const AdminDashboard = () => {
                     </thead>
                     <tbody className="divide-y divide-gray-100 text-sm">
                       {instructorsList.map(user => {
-                        // Calculate how many courses this instructor owns
                         const myCourses = allCourses.filter(c => c.instructorId?._id === user._id || c.instructorId === user._id);
                         return (
                         <tr key={user._id} className="hover:bg-purple-50/50 transition">
