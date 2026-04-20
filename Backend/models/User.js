@@ -15,6 +15,11 @@ const userSchema = new mongoose.Schema({
     enum: ['learner', 'instructor', 'admin'], 
     default: 'learner' 
   },
+  // Inside your userSchema:
+  profilePicture: {
+    type: String,
+    default: "https://cdn-icons-png.flaticon.com/512/149/149071.png" // A nice default avatar
+  },
   
   // NEW: Store Google ID
   googleId: { type: String },

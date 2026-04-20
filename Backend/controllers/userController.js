@@ -28,12 +28,16 @@ export const registerUser = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // --- DYNAMIC AVATAR FOR MANUAL USERS ---
+    const dynamicAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&color=fff&size=128&bold=true`;
+
     const user = await User.create({
       name,
       email,
       password: hashedPassword,
       role, 
-      instructorId: iid || null 
+      instructorId: iid || null,
+      profilePicture: dynamicAvatar // Saved to DB
     });
 
     if (user) {
@@ -42,6 +46,7 @@ export const registerUser = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        profilePicture: user.profilePicture, // Sent to frontend
         token: generateToken(user._id),
       });
     }
@@ -61,6 +66,7 @@ export const loginUser = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        profilePicture: user.profilePicture, // Sent to frontend
         token: generateToken(user._id),
       });
     } else {
@@ -79,7 +85,8 @@ export const googleLogin = async (req, res) => {
       audience: process.env.GOOGLE_CLIENT_ID, 
     });
     
-    const { email, name, sub: googleId } = ticket.getPayload();
+    // --- EXTRACT REAL GOOGLE PICTURE ---
+    const { email, name, sub: googleId, picture: profilePicture } = ticket.getPayload();
 
     let user = await User.findOne({ email });
 
@@ -89,14 +96,19 @@ export const googleLogin = async (req, res) => {
       }
       if (!user.googleId) {
         user.googleId = googleId;
-        await user.save();
       }
+      // Update Google picture if it changed
+      if (profilePicture && user.profilePicture !== profilePicture) {
+          user.profilePicture = profilePicture;
+      }
+      await user.save();
     } else {
       user = await User.create({
         name,
         email,
         googleId,
         role: 'learner', 
+        profilePicture // Saved to DB
       });
     }
 
@@ -105,6 +117,7 @@ export const googleLogin = async (req, res) => {
       name: user.name,
       email: user.email,
       role: user.role,
+      profilePicture: user.profilePicture, // Sent to frontend
       token: generateToken(user._id),
     });
 
@@ -116,7 +129,6 @@ export const googleLogin = async (req, res) => {
 
 export const getAllUsers = async (req, res) => {
   try {
-    // We added .populate() so the Admin can see the actual course details!
     const users = await User.find({}).select('-password').populate('enrolledCourses');
     res.json(users);
   } catch (error) {
@@ -124,88 +136,58 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
-// --- NEW ACTUAL ENROLLMENT LOGIC ---
 export const enrollCourse = async (req, res) => {
   try {
     const { userId, courseId } = req.body;
-
     const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (user.enrolledCourses.includes(courseId)) return res.status(400).json({ message: 'You are already enrolled in this course.' });
 
-    // Prevent double enrollment
-    if (user.enrolledCourses.includes(courseId)) {
-      return res.status(400).json({ message: 'You are already enrolled in this course.' });
-    }
-
-    // Save to database
     user.enrolledCourses.push(courseId);
     await user.save();
 
-    res.status(200).json({ 
-      message: 'Successfully enrolled!', 
-      enrolledCourses: user.enrolledCourses 
-    });
-
+    res.status(200).json({ message: 'Successfully enrolled!', enrolledCourses: user.enrolledCourses });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
-// @desc    Get user's enrolled courses
-// @route   GET /api/users/:id/enrolled
+
 export const getEnrolledCourses = async (req, res) => {
   try {
     const user = await User.findById(req.params.id).populate('enrolledCourses');
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    if (!user) return res.status(404).json({ message: 'User not found' });
     res.status(200).json(user.enrolledCourses);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Toggle a specific lecture/resource as complete or incomplete
-// @route   PUT /api/users/progress
 export const markAsComplete = async (req, res) => {
   try {
     const { userId, contentId } = req.body;
-
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Toggle Logic: If it's there, remove it. If it's not, add it.
     if (user.completedContent.includes(contentId)) {
       user.completedContent = user.completedContent.filter(id => id !== contentId);
     } else {
       user.completedContent.push(contentId);
     }
-
     await user.save();
-
-    res.status(200).json({ 
-      message: 'Progress updated', 
-      completedContent: user.completedContent 
-    });
+    res.status(200).json({ message: 'Progress updated', completedContent: user.completedContent });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Admin: Remove a course from a learner
-// @route   POST /api/users/unenroll
 export const unenrollCourse = async (req, res) => {
   try {
     const { userId, courseId } = req.body;
     const user = await User.findById(userId);
-    
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Filter out the course
     user.enrolledCourses = user.enrolledCourses.filter(id => id.toString() !== courseId);
     await user.save();
-
     res.status(200).json({ message: 'User unenrolled successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
