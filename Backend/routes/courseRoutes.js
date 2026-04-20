@@ -9,7 +9,8 @@ import {
   getPendingCourses,
   updateCourseStatus,
   requestDeleteCourse, // <--- NEW IMPORT
-  addLecture
+  addLecture,
+  updateCourse
 } from "../controllers/courseController.js";
 
 const router = express.Router();
@@ -30,5 +31,6 @@ router.post("/:id/lectures", upload.fields([
 
 router.get("/:id", getCourseById);
 router.delete("/:id", deleteCourse); // Admin Force Delete
+router.put('/:id', updateCourse); // Allows Admin to edit course details
 
 export default router;

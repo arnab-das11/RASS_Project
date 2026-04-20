@@ -15,7 +15,8 @@ const storage = new CloudinaryStorage({
   cloudinary,
   params: async (req, file) => {
 
-    const isOfficeDoc =
+    const isRawFile =
+      file.mimetype === "application/pdf" ||
       file.mimetype.includes("word") ||
       file.mimetype.includes("presentation") ||
       file.mimetype.includes("text");
@@ -26,10 +27,7 @@ const storage = new CloudinaryStorage({
 
     return {
       folder: "lms_project",
-
-      // ⭐ THIS IS THE KEY FIX
-      resource_type: isOfficeDoc ? "raw" : "auto",
-
+      resource_type: isRawFile ? "raw" : "auto",
       public_id: `${fileName}_${Date.now()}`,
     };
   },
