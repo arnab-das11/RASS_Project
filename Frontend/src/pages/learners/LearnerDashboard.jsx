@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { 
   BookOpen, PlayCircle, MonitorPlay, ChevronDown, CheckCircle, 
   ArrowLeft, Loader, FileText, Link as LinkIcon, ExternalLink, 
-  Award, Home, Download, Trash2, Trophy, Undo
+  Award, Home, Download, Trash2, Trophy, Undo, Sparkles, Brain, XCircle
 } from 'lucide-react';
 import axios from 'axios';
 import { jsPDF } from "jspdf";
@@ -29,6 +29,14 @@ const LearnerDashboard = () => {
   const [showTrophy, setShowTrophy] = useState(false);
   const [completedCourseName, setCompletedCourseName] = useState("");
   const [isGeneratingCert, setIsGeneratingCert] = useState(false);
+
+  // --- 🧠 AI QUIZ STATE ---
+  const [showQuizModal, setShowQuizModal] = useState(false);
+  const [quizData, setQuizData] = useState(null);
+  const [quizLoading, setQuizLoading] = useState(false);
+  const [quizSelectedOption, setQuizSelectedOption] = useState("");
+  const [quizResult, setQuizResult] = useState(null); // 'correct', 'incorrect', null
+  const [pendingCompletionId, setPendingCompletionId] = useState(null);
 
   // --- DATA FETCHING ---
   useEffect(() => {
@@ -125,41 +133,87 @@ const LearnerDashboard = () => {
     return totalItems === 0 ? 0 : Math.round((finishedItems / totalItems) * 100);
   };
 
+  // --- 🧠 AI QUIZ LOGIC INTERCEPTOR ---
   const handleToggleComplete = async () => {
     if (!activeContent || !activeContent.data._id) return;
     
     const contentId = activeContent.data._id;
     const isCurrentlyDone = completedItems.includes(contentId);
     
-    setProgressLoading(true);
+    // IF UNMARKING: Do it directly without a quiz
+    if (isCurrentlyDone) {
+        setProgressLoading(true);
+        const newCompletedList = completedItems.filter(id => id !== contentId);
+        setCompletedItems(newCompletedList);
+        try {
+            const { data } = await axios.put('http://localhost:5000/api/users/progress', {
+                userId: userInfo._id, contentId: contentId
+            });
+            setCompletedItems(data.completedContent);
+        } catch (error) { console.error("Failed to update progress", error); } 
+        finally { setProgressLoading(false); }
+        return;
+    }
 
-    const newCompletedList = isCurrentlyDone 
-        ? completedItems.filter(id => id !== contentId) 
-        : [...completedItems, contentId];
-    
+    // IF MARKING DONE: Trigger the AI Quiz
+    setPendingCompletionId(contentId);
+    setShowQuizModal(true);
+    setQuizLoading(true);
+    setQuizData(null);
+    setQuizResult(null);
+    setQuizSelectedOption("");
+
+    try {
+        const response = await axios.post('http://localhost:5000/api/ai/generate-quiz', {
+            courseTitle: selectedCourse.title,
+            lectureTitle: activeContent.data.title
+        });
+        setQuizData(response.data);
+    } catch (error) {
+        console.error("AI Quiz failed to load, skipping...", error);
+        // Fallback: If AI fails, let them complete the video anyway so they don't get stuck
+        executeCompletion(contentId);
+        setShowQuizModal(false);
+    } finally {
+        setQuizLoading(false);
+    }
+  };
+
+  // --- THE ACTUAL COMPLETION EXECUTION ---
+  const executeCompletion = async (contentId) => {
+    setProgressLoading(true);
+    const newCompletedList = [...completedItems, contentId];
     setCompletedItems(newCompletedList);
 
-    if (!isCurrentlyDone) {
-        const newProgress = calculateProgress(selectedCourse, newCompletedList);
-        if (newProgress === 100) {
-            setCompletedCourseName(selectedCourse.title);
-            setShowTrophy(true);
-        }
+    const newProgress = calculateProgress(selectedCourse, newCompletedList);
+    if (newProgress === 100) {
+        setCompletedCourseName(selectedCourse.title);
+        setShowTrophy(true);
     }
 
     try {
         const { data } = await axios.put('http://localhost:5000/api/users/progress', {
-            userId: userInfo._id,
-            contentId: contentId
+            userId: userInfo._id, contentId: contentId
         });
         setCompletedItems(data.completedContent);
-    } catch (error) {
-        console.error("Failed to update progress", error);
-        setCompletedItems(completedItems);
-    } finally {
-        setProgressLoading(false);
-    }
+    } catch (error) { console.error("Failed to update progress", error); } 
+    finally { setProgressLoading(false); }
   };
+
+  const handleQuizSubmit = () => {
+      if (!quizSelectedOption) return;
+      
+      if (quizSelectedOption === quizData.correctAnswer) {
+          setQuizResult('correct');
+          setTimeout(() => {
+              setShowQuizModal(false);
+              executeCompletion(pendingCompletionId);
+          }, 1500); // Give them 1.5s to see the green success state before closing
+      } else {
+          setQuizResult('incorrect');
+      }
+  };
+
 
   // --- 🌟 CUSTOM NATIVE CERTIFICATE GENERATOR 🌟 ---
   const generateCertificatePDF = () => {
@@ -319,9 +373,99 @@ const LearnerDashboard = () => {
     return (
       <div className="flex flex-col lg:flex-row min-h-screen bg-slate-950 text-slate-200 relative">
         
+        {/* 🧠 NEW: AI QUIZ MODAL */}
+        {showQuizModal && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
+                <div className="bg-gradient-to-b from-slate-900 to-slate-950 p-8 rounded-3xl border border-blue-500/30 shadow-2xl shadow-blue-500/20 max-w-xl w-full">
+                    
+                    {quizLoading ? (
+                        <div className="flex flex-col items-center justify-center py-12">
+                            <div className="relative mb-6">
+                                <Brain className="w-16 h-16 text-blue-500 animate-pulse" />
+                                <Sparkles className="w-6 h-6 text-yellow-400 absolute -top-2 -right-2 animate-spin-slow" />
+                            </div>
+                            <h3 className="text-xl font-bold text-white mb-2">Gemini is analyzing the lecture...</h3>
+                            <p className="text-slate-400 text-sm">Generating a custom knowledge check.</p>
+                        </div>
+                    ) : quizData ? (
+                        <div className="animate-fade-in">
+                            <div className="flex items-center gap-3 mb-6 border-b border-slate-800 pb-4">
+                                <div className="p-2 bg-blue-500/10 rounded-xl border border-blue-500/30">
+                                    <Brain className="text-blue-400 w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-black text-white">AI Knowledge Check</h3>
+                                    <p className="text-xs text-blue-400 font-bold uppercase tracking-wider">Pass to Complete Lesson</p>
+                                </div>
+                            </div>
+
+                            <p className="text-lg font-medium text-slate-200 mb-6 leading-relaxed">
+                                {quizData.question}
+                            </p>
+
+                            <div className="space-y-3 mb-6">
+                                {quizData.options.map((option, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => {
+                                            setQuizSelectedOption(option);
+                                            setQuizResult(null); // Reset result if they change answer
+                                        }}
+                                        disabled={quizResult === 'correct'}
+                                        className={`w-full text-left p-4 rounded-xl border transition-all ${
+                                            quizSelectedOption === option 
+                                                ? 'bg-blue-600/20 border-blue-500 text-blue-100' 
+                                                : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-slate-500'
+                                        } ${
+                                            quizResult === 'correct' && option === quizData.correctAnswer ? 'bg-green-500/20 border-green-500 text-green-100' : ''
+                                        }`}
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <span>{option}</span>
+                                            {quizSelectedOption === option && quizResult !== 'correct' && <div className="w-3 h-3 bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.8)]"></div>}
+                                            {quizResult === 'correct' && option === quizData.correctAnswer && <CheckCircle className="text-green-500 w-5 h-5" />}
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+
+                            {quizResult === 'incorrect' && (
+                                <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex items-start gap-3 animate-fade-in">
+                                    <XCircle className="text-red-400 w-5 h-5 mt-0.5 flex-shrink-0" />
+                                    <div>
+                                        <p className="text-sm font-bold text-red-400 mb-1">Incorrect. Try again!</p>
+                                        <p className="text-sm text-slate-300"><strong>Hint:</strong> {quizData.hint}</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="flex gap-3">
+                                <button onClick={() => setShowQuizModal(false)} className="px-6 py-3 rounded-xl font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition flex-1">
+                                    Cancel
+                                </button>
+                                <button 
+                                    onClick={handleQuizSubmit}
+                                    disabled={!quizSelectedOption || quizResult === 'correct'}
+                                    className={`px-6 py-3 rounded-xl font-black transition shadow-lg flex-1 ${
+                                        quizResult === 'correct' 
+                                            ? 'bg-green-600 text-white shadow-green-900/50' 
+                                            : !quizSelectedOption 
+                                                ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
+                                                : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/30'
+                                    }`}
+                                >
+                                    {quizResult === 'correct' ? 'Lesson Completed!' : 'Submit Answer'}
+                                </button>
+                            </div>
+                        </div>
+                    ) : null}
+                </div>
+            </div>
+        )}
+
         {/* CELEBRATION & CERTIFICATE MODAL */}
         {showTrophy && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+            <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
                 <div className="bg-gradient-to-b from-slate-900 to-slate-950 p-10 rounded-3xl border border-yellow-500/30 shadow-2xl shadow-yellow-500/20 max-w-md w-full text-center transform scale-105 transition-all">
                     <div className="w-24 h-24 bg-yellow-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
                         <Trophy className="text-yellow-400 w-12 h-12" />
@@ -375,8 +519,7 @@ const LearnerDashboard = () => {
                         disabled={progressLoading}
                         className={`px-6 py-3 font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg ${isCurrentItemDone ? 'bg-slate-800 text-slate-300 hover:bg-red-500/10 hover:text-red-400 border border-slate-700 hover:border-red-500/30' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/30'}`}
                     >
-                        {progressLoading ? <Loader className="animate-spin" size={20}/> : isCurrentItemDone ? <Undo size={20} /> : <CheckCircle size={20} />}
-                        {isCurrentItemDone ? "Unmark as Complete" : "Mark as Complete"}
+                        {progressLoading ? <Loader className="animate-spin" size={20}/> : isCurrentItemDone ? <Undo size={20} /> : <><Sparkles size={18}/> Verify Mastery</>}
                     </button>
                 )}
             </div>
@@ -458,7 +601,6 @@ const LearnerDashboard = () => {
                       <Home size={16} /> Back to Catalog
                   </button>
 
-                  {/* --- NEW: BULLETPROOF AVATAR FOR LEARNER --- */}
                   <div className="flex items-center gap-4">
                       <div className="text-right hidden sm:block">
                           <p className="text-sm font-bold text-slate-200">{userInfo?.name}</p>

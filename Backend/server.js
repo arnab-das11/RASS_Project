@@ -1,4 +1,5 @@
 // Backend/server.js
+import aiRoutes from './routes/aiRoutes.js';
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
@@ -23,6 +24,7 @@ app.use(cors({
 app.use('/api/users', userRoutes); // <--- Add this line before the test route
 app.use('/api/courses', courseRoutes); // <--- 2. Add this line
 app.use('/api/admin', adminRoutes);
+app.use('/api/ai', aiRoutes);
 
 // 3. Connect to Database (The "Pantry")
 mongoose.connect(process.env.MONGO_URI)
