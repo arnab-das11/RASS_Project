@@ -190,9 +190,24 @@ const AdminDashboard = () => {
                  <p className="text-sm font-bold text-gray-800">{userInfo.name}</p>
                  <p className="text-xs text-blue-600 font-semibold uppercase tracking-wider">Super Admin</p>
              </div>
-             <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold border-2 border-blue-200 shadow-sm">
-                {userInfo.name.charAt(0)}
-             </div>
+             
+             {/* THE FIX: Bulletproof Avatar Logic */}
+             {userInfo?.profilePicture ? (
+                 <img 
+                     src={userInfo.profilePicture} 
+                     alt={userInfo.name} 
+                     className="w-10 h-10 rounded-full object-cover border-2 border-blue-500 shadow-md"
+                     onError={(e) => {
+                         e.target.onerror = null; 
+                         e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(userInfo.name || 'Admin')}&background=random&color=fff`;
+                     }}
+                 />
+             ) : (
+                 <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold border-2 border-blue-200 shadow-sm uppercase">
+                     {userInfo?.name?.charAt(0) || "A"}
+                 </div>
+             )}
+
           </div>
         </header>
 
