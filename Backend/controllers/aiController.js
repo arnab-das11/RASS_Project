@@ -73,3 +73,38 @@ export const generateQuiz = async (req, res) => {
     });
   }
 };
+
+export const generateFinalExam = async (req, res) => {
+  try {
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const { courseTitle, courseDescription, lectureTitles } = req.body;
+
+    const prompt = `You are an expert programming tutor. Create a 10-question multiple-choice final exam to test a student who has completed the course "${courseTitle}".
+    The course description is: "${courseDescription}".
+    The lectures and modules covered in this course are:
+    ${lectureTitles.map((title, idx) => `${idx + 1}. ${title}`).join("\n")}
+    
+    Create exactly 10 questions of varying difficulties (beginner, intermediate, advanced) covering the course content.
+    For each question, provide 4 options.
+    
+    Return ONLY a raw JSON array of 10 objects (no markdown formatting, no backticks). It must follow this exact structure:
+    [
+      {
+        "question": "The question text",
+        "options": ["Option A", "Option B", "Option C", "Option D"],
+        "correctAnswer": "The exact string of the correct option",
+        "hint": "A helpful hint explaining the concept"
+      }
+    ]`;
+
+    const result = await generateWithFallback(genAI, prompt);
+    let responseText = await result.response.text();
+
+    let cleanText = responseText.replace(/```json/gi, "").replace(/```/g, "").trim();
+    res.status(200).json(JSON.parse(cleanText));
+
+  } catch (error) {
+    console.error("❌ AI Final Exam Critical Error:", error);
+    res.status(500).json({ message: "Failed to generate AI final exam." });
+  }
+};

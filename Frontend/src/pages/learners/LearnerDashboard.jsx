@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { 
   BookOpen, PlayCircle, MonitorPlay, ChevronDown, CheckCircle, 
   ArrowLeft, Loader, FileText, Link as LinkIcon, ExternalLink, 
-  Award, Home, Download, Trash2, Trophy, Undo, Sparkles, Brain, XCircle
+  Award, Home, Download, Trash2, Trophy, Undo, Sparkles, Brain, XCircle,
+  Lock
 } from 'lucide-react';
 import axios from 'axios';
 import { jsPDF } from "jspdf";
@@ -38,6 +39,17 @@ const LearnerDashboard = () => {
   const [quizResult, setQuizResult] = useState(null); // 'correct', 'incorrect', null
   const [pendingCompletionId, setPendingCompletionId] = useState(null);
 
+  // --- 🎓 FINAL EXAM STATE ---
+  const [passedExams, setPassedExams] = useState([]);
+  const [showExamUnlockedModal, setShowExamUnlockedModal] = useState(false);
+  const [showFinalExamModal, setShowFinalExamModal] = useState(false);
+  const [finalExamQuestions, setFinalExamQuestions] = useState([]);
+  const [finalExamLoading, setFinalExamLoading] = useState(false);
+  const [finalExamCurrentIndex, setFinalExamCurrentIndex] = useState(0);
+  const [finalExamAnswers, setFinalExamAnswers] = useState({});
+  const [finalExamSubmitting, setFinalExamSubmitting] = useState(false);
+  const [finalExamResult, setFinalExamResult] = useState(null); // { score: number, passed: boolean }
+
   // --- DATA FETCHING ---
   useEffect(() => {
     const fetchMyCourses = async () => {
@@ -53,8 +65,13 @@ const LearnerDashboard = () => {
         const currentUser = userRes.data.find(u => u._id === user._id);
         
         setEnrolledCourses(data);
-        if (currentUser && currentUser.completedContent) {
-            setCompletedItems(currentUser.completedContent);
+        if (currentUser) {
+            if (currentUser.completedContent) {
+                setCompletedItems(currentUser.completedContent);
+            }
+            if (currentUser.passedExams) {
+                setPassedExams(currentUser.passedExams);
+            }
         }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -66,14 +83,44 @@ const LearnerDashboard = () => {
   }, [navigate]);
 
   // --- HELPER FUNCTIONS ---
+  const getCourseItems = (course) => {
+    const items = [];
+    if (!course || !course.lectures) return items;
+    course.lectures.forEach((section, sIdx) => {
+      section.videos?.forEach(vid => items.push({ id: vid._id, type: 'video', data: vid, sectionIndex: sIdx }));
+      section.resources?.forEach(res => items.push({ id: res._id, type: 'resource', data: res, sectionIndex: sIdx }));
+      section.links?.forEach(link => items.push({ id: link._id, type: 'link', data: link, sectionIndex: sIdx }));
+    });
+    return items;
+  };
+
+  const isItemLocked = (itemId, course, completedList) => {
+    const items = getCourseItems(course);
+    const index = items.findIndex(item => item.id === itemId);
+    if (index <= 0) return false; // First item is never locked
+    
+    // Check if any previous item is not completed
+    for (let i = 0; i < index; i++) {
+      if (!completedList.includes(items[i].id)) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   const handleStartCourse = (course) => {
     setSelectedCourse(course);
-    if (course.lectures && course.lectures.length > 0) {
-        setExpandedSections({ 0: true });
-        const firstSec = course.lectures[0];
-        if (firstSec.videos?.length > 0) setActiveContent({ type: 'video', data: firstSec.videos[0] });
-        else if (firstSec.resources?.length > 0) setActiveContent({ type: 'resource', data: firstSec.resources[0] });
-        else if (firstSec.links?.length > 0) setActiveContent({ type: 'link', data: firstSec.links[0] });
+    const items = getCourseItems(course);
+    
+    // Find the first uncompleted item
+    const firstUncompleted = items.find(item => !completedItems.includes(item.id));
+    if (firstUncompleted) {
+      setActiveContent({ type: firstUncompleted.type, data: firstUncompleted.data });
+      setExpandedSections({ [firstUncompleted.sectionIndex]: true });
+    } else if (items.length > 0) {
+      // If all completed, open the final exam screen (by setting activeContent to null)
+      setActiveContent(null);
+      setExpandedSections({ 0: true });
     }
   };
 
@@ -185,10 +232,20 @@ const LearnerDashboard = () => {
     const newCompletedList = [...completedItems, contentId];
     setCompletedItems(newCompletedList);
 
+    const items = getCourseItems(selectedCourse);
+    const currentIndex = items.findIndex(item => item.id === contentId);
+    const nextItem = currentIndex !== -1 && currentIndex + 1 < items.length ? items[currentIndex + 1] : null;
+
     const newProgress = calculateProgress(selectedCourse, newCompletedList);
     if (newProgress === 100) {
         setCompletedCourseName(selectedCourse.title);
-        setShowTrophy(true);
+        setShowExamUnlockedModal(true);
+        setActiveContent(null);
+    } else if (nextItem) {
+        setTimeout(() => {
+            setActiveContent({ type: nextItem.type, data: nextItem.data });
+            setExpandedSections(prev => ({ ...prev, [nextItem.sectionIndex]: true }));
+        }, 1000);
     }
 
     try {
@@ -214,9 +271,76 @@ const LearnerDashboard = () => {
       }
   };
 
+  // --- 🎓 FINAL EXAM LOGIC ---
+  const fetchFinalExam = async (courseToUse = selectedCourse) => {
+    if (!courseToUse) return;
+    setFinalExamLoading(true);
+    setFinalExamQuestions([]);
+    setFinalExamAnswers({});
+    setFinalExamCurrentIndex(0);
+    setFinalExamResult(null);
+    try {
+      const lectureTitles = [];
+      courseToUse.lectures?.forEach(sec => lectureTitles.push(sec.title));
+      
+      const { data } = await axios.post('http://localhost:5000/api/ai/generate-final-exam', {
+        courseTitle: courseToUse.title,
+        courseDescription: courseToUse.description,
+        lectureTitles: lectureTitles
+      });
+      setFinalExamQuestions(data);
+      setShowFinalExamModal(true);
+    } catch (error) {
+      alert("Failed to load final exam: " + (error.response?.data?.message || error.message));
+    } finally {
+      setFinalExamLoading(false);
+    }
+  };
+
+  const handleFinalExamSubmit = async () => {
+    if (Object.keys(finalExamAnswers).length < 10) {
+      alert("Please answer all 10 questions before submitting.");
+      return;
+    }
+
+    setFinalExamSubmitting(true);
+    try {
+      let correctCount = 0;
+      finalExamQuestions.forEach((q, idx) => {
+        if (finalExamAnswers[idx] === q.correctAnswer) {
+          correctCount++;
+        }
+      });
+
+      const passed = correctCount >= 7;
+
+      if (passed) {
+        const targetCourseId = courseToUse => courseToUse?._id || selectedCourse?._id || enrolledCourses.find(c => c.title === completedCourseName)?._id;
+        const { data } = await axios.put('http://localhost:5000/api/users/pass-exam', {
+          userId: userInfo._id,
+          courseId: targetCourseId()
+        });
+        setPassedExams(data.passedExams);
+      }
+
+      setFinalExamResult({
+        score: correctCount,
+        passed: passed
+      });
+    } catch (error) {
+      alert("Failed to submit exam: " + (error.response?.data?.message || error.message));
+    } finally {
+      setFinalExamSubmitting(false);
+    }
+  };
+
+  const handleFinalExamRetake = () => {
+    fetchFinalExam();
+  };
+
 
   // --- 🌟 CUSTOM NATIVE CERTIFICATE GENERATOR 🌟 ---
-  const generateCertificatePDF = () => {
+  const generateCertificatePDF = (courseName = selectedCourse?.title || completedCourseName) => {
     setIsGeneratingCert(true);
     try {
         const doc = new jsPDF('landscape', 'mm', 'a4');
@@ -243,7 +367,7 @@ const LearnerDashboard = () => {
         doc.setFontSize(12);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(50, 50, 50);
-        const paragraph = `has successfully completed a professional training program in "${completedCourseName}".\nTheir dedication and commitment to the learning process are truly commendable.`;
+        const paragraph = `has successfully completed a professional training program in "${courseName}".\nTheir dedication and commitment to the learning process are truly commendable.`;
         doc.text(paragraph, 148.5, 115, { align: "center", lineHeightFactor: 1.5 });
 
         doc.setFontSize(12);
@@ -280,7 +404,7 @@ const LearnerDashboard = () => {
             doc.text(signatory.title, signatory.x, 189, { align: "center" });
         });
 
-        doc.save(`${completedCourseName.replace(/\s+/g, '_')}_Certificate.pdf`);
+        doc.save(`${courseName.replace(/\s+/g, '_')}_Certificate.pdf`);
         setShowTrophy(false);
     } catch (error) {
         console.error("Certificate Generation Error:", error);
@@ -293,6 +417,46 @@ const LearnerDashboard = () => {
   // --- DYNAMIC CONTENT WINDOW ---
   const renderActiveContent = () => {
     if (!activeContent) {
+        const prog = calculateProgress(selectedCourse);
+        if (prog === 100) {
+            const isPassed = passedExams.includes(selectedCourse._id);
+            if (isPassed) {
+                return (
+                  <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-slate-900">
+                    <div className="w-20 h-20 bg-yellow-500/10 rounded-full flex items-center justify-center mb-6 border border-yellow-500/20">
+                      <Trophy className="text-yellow-400 w-12 h-12 animate-bounce" />
+                    </div>
+                    <h3 className="text-2xl font-black text-white mb-4">Course Mastered! 🏆</h3>
+                    <p className="text-gray-400 mb-8 max-w-md">Congratulations! You have completed all lessons and passed the final exam. Download your certificate below.</p>
+                    <button 
+                       onClick={() => { setCompletedCourseName(selectedCourse.title); generateCertificatePDF(selectedCourse.title); }}
+                       className="px-8 py-4 bg-gradient-to-r from-yellow-600 to-amber-500 hover:from-yellow-500 hover:to-amber-400 text-slate-900 font-black rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-yellow-600/30 transform hover:-translate-y-0.5"
+                    >
+                       {isGeneratingCert ? <Loader className="animate-spin"/> : <Award size={18} />}
+                       Download Certificate (PDF)
+                    </button>
+                  </div>
+                );
+            } else {
+                return (
+                  <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-slate-900">
+                    <div className="w-20 h-20 bg-blue-500/10 rounded-full flex items-center justify-center mb-6 border border-blue-500/20">
+                      <Brain className="text-blue-400 w-10 h-10 animate-pulse" />
+                    </div>
+                    <h3 className="text-2xl font-black text-white mb-4">All Lessons Completed! 🧠</h3>
+                    <p className="text-gray-400 mb-8 max-w-md">You are now eligible to take the Final Exam. Pass it with a score of 70% (7/10) or more to earn your digital certificate.</p>
+                    <button 
+                       onClick={() => fetchFinalExam()}
+                       disabled={finalExamLoading}
+                       className="px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-blue-900/30 transform hover:-translate-y-0.5"
+                    >
+                       {finalExamLoading ? <Loader className="animate-spin"/> : <Brain size={18} />}
+                       Start Final Exam (10 MCQs)
+                    </button>
+                  </div>
+                );
+            }
+        }
         return (
             <div className="flex flex-col items-center justify-center h-full text-gray-500">
                 <BookOpen className="w-16 h-16 mb-4 opacity-20" />
@@ -463,6 +627,205 @@ const LearnerDashboard = () => {
             </div>
         )}
 
+        {/* 🎓 EXAM UNLOCKED MODAL */}
+        {showExamUnlockedModal && (
+            <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-fade-in">
+                <div className="bg-gradient-to-b from-slate-900 to-slate-950 p-10 rounded-3xl border border-blue-500/30 shadow-2xl shadow-blue-500/20 max-w-md w-full text-center">
+                    <div className="w-24 h-24 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <Brain className="text-blue-400 w-12 h-12 animate-pulse" />
+                    </div>
+                    <h2 className="text-3xl font-black text-white mb-2">Lessons Complete! 🎓</h2>
+                    <p className="text-slate-300 font-medium mb-6">You've successfully finished all lectures and lessons in this course. You are now ready to attempt the Final Exam.</p>
+                    
+                    <button 
+                        onClick={() => {
+                            setShowExamUnlockedModal(false);
+                            fetchFinalExam();
+                        }}
+                        className="w-full flex items-center justify-center gap-3 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black rounded-xl shadow-lg transition-all mb-3"
+                    >
+                        <Brain size={20} />
+                        Start Final Exam (10 MCQs)
+                    </button>
+
+                    <button onClick={() => setShowExamUnlockedModal(false)} className="text-sm font-bold text-slate-500 hover:text-slate-300 transition">
+                        Review materials first
+                    </button>
+                </div>
+            </div>
+        )}
+
+        {/* 🎓 FINAL EXAM MODAL */}
+        {showFinalExamModal && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto">
+                <div className="bg-gradient-to-b from-slate-900 to-slate-950 rounded-3xl border border-blue-500/30 shadow-2xl shadow-blue-500/20 max-w-2xl w-full overflow-hidden my-8">
+                    
+                    {/* Header */}
+                    <div className="p-6 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <Brain className="text-blue-400 w-6 h-6" />
+                            <div>
+                                <h3 className="text-xl font-black text-white">Final Master Exam</h3>
+                                <p className="text-xs text-blue-400 font-bold uppercase tracking-wider">Course Mastery Verification</p>
+                            </div>
+                        </div>
+                        {(!finalExamResult || !finalExamResult.passed) && (
+                            <button 
+                                onClick={() => setShowFinalExamModal(false)}
+                                className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition"
+                            >
+                                <XCircle size={20} />
+                            </button>
+                        )}
+                    </div>
+
+                    {finalExamSubmitting ? (
+                        <div className="p-12 flex flex-col items-center justify-center">
+                            <Loader className="animate-spin text-blue-500 w-12 h-12 mb-4" />
+                            <h4 className="text-lg font-bold text-white mb-2">Grading your Exam...</h4>
+                            <p className="text-slate-400 text-sm">Evaluating your responses for final mastery.</p>
+                        </div>
+                    ) : finalExamResult ? (
+                        /* Result view */
+                        <div className="p-8 text-center animate-fade-in">
+                            {finalExamResult.passed ? (
+                                <>
+                                    <div className="w-24 h-24 bg-yellow-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-yellow-500/20 animate-bounce">
+                                        <Trophy className="text-yellow-400 w-12 h-12" />
+                                    </div>
+                                    <h3 className="text-3xl font-black text-white mb-2">Victory Achieved! 🏆</h3>
+                                    <p className="text-slate-300 font-medium mb-6">
+                                        Congratulations, {userInfo?.name}! You passed the Final Exam with a score of <span className="text-yellow-400 font-black">{finalExamResult.score}/10</span> ({finalExamResult.score * 10}%). You have fully mastered this course!
+                                    </p>
+                                    <div className="flex gap-4">
+                                        <button 
+                                            onClick={() => {
+                                                setShowFinalExamModal(false);
+                                                const title = selectedCourse?.title || completedCourseName;
+                                                setCompletedCourseName(title);
+                                                generateCertificatePDF(title);
+                                            }}
+                                            className="flex-1 flex items-center justify-center gap-3 py-4 bg-gradient-to-r from-yellow-600 to-amber-500 hover:from-yellow-500 hover:to-amber-400 text-slate-900 font-black rounded-xl shadow-lg transition-all animate-pulse"
+                                        >
+                                            <Award size={20} /> Download Certificate
+                                        </button>
+                                        <button 
+                                            onClick={() => setShowFinalExamModal(false)}
+                                            className="px-6 py-4 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-all"
+                                        >
+                                            Close
+                                        </button>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="w-24 h-24 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-500/20">
+                                        <XCircle className="text-red-400 w-12 h-12" />
+                                    </div>
+                                    <h3 className="text-3xl font-black text-white mb-2">Mastery Check Failed</h3>
+                                    <p className="text-slate-300 font-medium mb-2">
+                                        You scored <span className="text-red-400 font-bold">{finalExamResult.score}/10</span>. A passing score of at least <span className="text-blue-400 font-bold">7/10</span> is required to earn your certificate.
+                                    </p>
+                                    <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+                                        We suggest reviewing the curriculum lessons, especially the sections you felt less confident about. When you are ready, try again to test your understanding!
+                                    </p>
+                                    <div className="flex gap-4">
+                                        <button 
+                                            onClick={handleFinalExamRetake}
+                                            className="flex-1 flex items-center justify-center gap-3 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black rounded-xl shadow-lg transition-all"
+                                        >
+                                            <Undo size={18} /> Retake Exam (New Questions)
+                                        </button>
+                                        <button 
+                                            onClick={() => setShowFinalExamModal(false)}
+                                            className="px-6 py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition-all"
+                                        >
+                                            Review Lessons
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    ) : (
+                        /* Questionnaire view */
+                        <div className="p-8 animate-fade-in">
+                            {finalExamQuestions.length > 0 && (
+                                <>
+                                    {/* Progress info */}
+                                    <div className="mb-6">
+                                        <div className="flex justify-between items-center text-sm font-bold text-slate-400 mb-2">
+                                            <span className="uppercase tracking-wider">Question {finalExamCurrentIndex + 1} of 10</span>
+                                            <span>{Math.round(((finalExamCurrentIndex) / 10) * 100)}% Complete</span>
+                                        </div>
+                                        <div className="w-full bg-slate-800 rounded-full h-2">
+                                            <div className="bg-blue-500 h-2 rounded-full transition-all duration-300" style={{ width: `${((finalExamCurrentIndex + 1) / 10) * 100}%` }}></div>
+                                        </div>
+                                    </div>
+
+                                    {/* Question Text */}
+                                    <p className="text-xl font-bold text-white mb-6 leading-relaxed">
+                                        {finalExamQuestions[finalExamCurrentIndex].question}
+                                    </p>
+
+                                    {/* Options */}
+                                    <div className="space-y-3 mb-8">
+                                        {finalExamQuestions[finalExamCurrentIndex].options.map((option, idx) => {
+                                            const isSelected = finalExamAnswers[finalExamCurrentIndex] === option;
+                                            return (
+                                                <button
+                                                    key={idx}
+                                                    onClick={() => setFinalExamAnswers(prev => ({ ...prev, [finalExamCurrentIndex]: option }))}
+                                                    className={`w-full text-left p-4 rounded-xl border transition-all ${
+                                                        isSelected 
+                                                            ? 'bg-blue-600/20 border-blue-500 text-blue-100' 
+                                                            : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-slate-500'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <span>{option}</span>
+                                                        {isSelected && <div className="w-3 h-3 bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.8)]"></div>}
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Navigation */}
+                                    <div className="flex justify-between items-center border-t border-slate-800 pt-6">
+                                        <button 
+                                            disabled={finalExamCurrentIndex === 0}
+                                            onClick={() => setFinalExamCurrentIndex(prev => prev - 1)}
+                                            className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition"
+                                        >
+                                            Previous
+                                        </button>
+                                        
+                                        {finalExamCurrentIndex < 9 ? (
+                                            <button 
+                                                disabled={!finalExamAnswers[finalExamCurrentIndex]}
+                                                onClick={() => setFinalExamCurrentIndex(prev => prev + 1)}
+                                                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                            >
+                                                Next Question
+                                            </button>
+                                        ) : (
+                                            <button 
+                                                disabled={Object.keys(finalExamAnswers).length < 10}
+                                                onClick={handleFinalExamSubmit}
+                                                className="px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-black rounded-xl shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                Submit Exam
+                                            </button>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+        )}
+
         {/* CELEBRATION & CERTIFICATE MODAL */}
         {showTrophy && (
             <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
@@ -474,7 +837,7 @@ const LearnerDashboard = () => {
                     <p className="text-slate-300 font-medium mb-6">You have successfully mastered <span className="text-yellow-400">"{completedCourseName}"</span>.</p>
                     
                     <button 
-                        onClick={generateCertificatePDF} 
+                        onClick={() => generateCertificatePDF(completedCourseName)} 
                         disabled={isGeneratingCert}
                         className="w-full flex items-center justify-center gap-3 py-4 bg-gradient-to-r from-yellow-600 to-amber-500 hover:from-yellow-500 hover:to-amber-400 text-slate-900 font-black rounded-xl shadow-lg shadow-yellow-600/30 transition-all disabled:opacity-70 disabled:cursor-not-allowed mb-3"
                     >
@@ -551,37 +914,113 @@ const LearnerDashboard = () => {
 
                     {expandedSections[index] && (
                       <div className="bg-slate-950/50 pb-2">
-                        {section.videos?.map((vid, vIdx) => (
-                          <div key={vIdx} onClick={() => setActiveContent({type: 'video', data: vid})} className={`p-3 pl-6 flex items-center justify-between cursor-pointer transition border-l-2 ${activeContent?.data._id === vid._id ? "border-l-blue-500 bg-slate-800/80" : "border-l-transparent hover:bg-slate-800/50"}`}>
-                             <div className="flex items-center gap-3">
-                                 <MonitorPlay size={16} className={activeContent?.data._id === vid._id ? "text-blue-400" : "text-slate-500"}/>
-                                 <span className={`text-sm ${activeContent?.data._id === vid._id ? "text-blue-100 font-bold" : "text-slate-400 font-medium"}`}>{vid.title}</span>
-                             </div>
-                             {completedItems.includes(vid._id) && <CheckCircle size={14} className="text-green-500 drop-shadow-md"/>}
-                          </div>
-                        ))}
-                        {section.resources?.map((res, rIdx) => (
-                          <div key={rIdx} onClick={() => setActiveContent({type: 'resource', data: res})} className={`p-3 pl-6 flex items-center justify-between cursor-pointer transition border-l-2 ${activeContent?.data._id === res._id ? "border-l-emerald-500 bg-slate-800/80" : "border-l-transparent hover:bg-slate-800/50"}`}>
-                             <div className="flex items-center gap-3">
-                                 <FileText size={16} className={activeContent?.data._id === res._id ? "text-emerald-400" : "text-slate-500"}/>
-                                 <span className={`text-sm ${activeContent?.data._id === res._id ? "text-emerald-100 font-bold" : "text-slate-400 font-medium"}`}>{res.title}</span>
-                             </div>
-                             {completedItems.includes(res._id) && <CheckCircle size={14} className="text-green-500 drop-shadow-md"/>}
-                          </div>
-                        ))}
-                        {section.links?.map((link, lIdx) => (
-                          <div key={lIdx} onClick={() => setActiveContent({type: 'link', data: link})} className={`p-3 pl-6 flex items-center justify-between cursor-pointer transition border-l-2 ${activeContent?.data._id === link._id ? "border-l-purple-500 bg-slate-800/80" : "border-l-transparent hover:bg-slate-800/50"}`}>
-                             <div className="flex items-center gap-3">
-                                 <LinkIcon size={16} className={activeContent?.data._id === link._id ? "text-purple-400" : "text-slate-500"}/>
-                                 <span className={`text-sm ${activeContent?.data._id === link._id ? "text-purple-100 font-bold" : "text-slate-400 font-medium"}`}>{link.title}</span>
-                             </div>
-                             {completedItems.includes(link._id) && <CheckCircle size={14} className="text-green-500 drop-shadow-md"/>}
-                          </div>
-                        ))}
+                        {section.videos?.map((vid, vIdx) => {
+                          const locked = isItemLocked(vid._id, selectedCourse, completedItems);
+                          return (
+                            <div key={vIdx} 
+                                 onClick={() => !locked && setActiveContent({type: 'video', data: vid})} 
+                                 className={`p-3 pl-6 flex items-center justify-between transition border-l-2 ${
+                                   locked 
+                                     ? "border-l-transparent cursor-not-allowed opacity-50 bg-slate-950/20" 
+                                     : activeContent?.data._id === vid._id 
+                                       ? "border-l-blue-500 bg-slate-800/80 cursor-pointer" 
+                                       : "border-l-transparent hover:bg-slate-800/50 cursor-pointer"
+                                 }`}
+                            >
+                               <div className="flex items-center gap-3">
+                                   {locked ? (
+                                     <Lock size={16} className="text-slate-600"/>
+                                   ) : (
+                                     <MonitorPlay size={16} className={activeContent?.data._id === vid._id ? "text-blue-400" : "text-slate-500"}/>
+                                   )}
+                                   <span className={`text-sm ${
+                                     locked 
+                                       ? "text-slate-600 font-medium" 
+                                       : activeContent?.data._id === vid._id 
+                                         ? "text-blue-100 font-bold" 
+                                         : "text-slate-400 font-medium"
+                                   }`}>{vid.title}</span>
+                               </div>
+                               {!locked && completedItems.includes(vid._id) && <CheckCircle size={14} className="text-green-500 drop-shadow-md"/>}
+                            </div>
+                          );
+                        })}
+                        {section.resources?.map((res, rIdx) => {
+                          const locked = isItemLocked(res._id, selectedCourse, completedItems);
+                          return (
+                            <div key={rIdx} 
+                                 onClick={() => !locked && setActiveContent({type: 'resource', data: res})} 
+                                 className={`p-3 pl-6 flex items-center justify-between transition border-l-2 ${
+                                   locked 
+                                     ? "border-l-transparent cursor-not-allowed opacity-50 bg-slate-950/20" 
+                                     : activeContent?.data._id === res._id 
+                                       ? "border-l-emerald-500 bg-slate-800/80 cursor-pointer" 
+                                       : "border-l-transparent hover:bg-slate-800/50 cursor-pointer"
+                                 }`}
+                            >
+                               <div className="flex items-center gap-3">
+                                   {locked ? (
+                                     <Lock size={16} className="text-slate-600"/>
+                                   ) : (
+                                     <FileText size={16} className={activeContent?.data._id === res._id ? "text-emerald-400" : "text-slate-500"}/>
+                                   )}
+                                   <span className={`text-sm ${
+                                     locked 
+                                       ? "text-slate-600 font-medium" 
+                                       : activeContent?.data._id === res._id 
+                                         ? "text-emerald-100 font-bold" 
+                                         : "text-slate-400 font-medium"
+                                   }`}>{res.title}</span>
+                               </div>
+                               {!locked && completedItems.includes(res._id) && <CheckCircle size={14} className="text-green-500 drop-shadow-md"/>}
+                            </div>
+                          );
+                        })}
+                        {section.links?.map((link, lIdx) => {
+                          const locked = isItemLocked(link._id, selectedCourse, completedItems);
+                          return (
+                            <div key={lIdx} 
+                                 onClick={() => !locked && setActiveContent({type: 'link', data: link})} 
+                                 className={`p-3 pl-6 flex items-center justify-between transition border-l-2 ${
+                                   locked 
+                                     ? "border-l-transparent cursor-not-allowed opacity-50 bg-slate-950/20" 
+                                     : activeContent?.data._id === link._id 
+                                       ? "border-l-purple-500 bg-slate-800/80 cursor-pointer" 
+                                       : "border-l-transparent hover:bg-slate-800/50 cursor-pointer"
+                                 }`}
+                            >
+                               <div className="flex items-center gap-3">
+                                   {locked ? (
+                                     <Lock size={16} className="text-slate-600"/>
+                                   ) : (
+                                     <LinkIcon size={16} className={activeContent?.data._id === link._id ? "text-purple-400" : "text-slate-500"}/>
+                                   )}
+                                   <span className={`text-sm ${
+                                     locked 
+                                       ? "text-slate-600 font-medium" 
+                                       : activeContent?.data._id === link._id 
+                                         ? "text-purple-100 font-bold" 
+                                         : "text-slate-400 font-medium"
+                                   }`}>{link.title}</span>
+                               </div>
+                               {!locked && completedItems.includes(link._id) && <CheckCircle size={14} className="text-green-500 drop-shadow-md"/>}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
                 ))}
+             {currentProgress === 100 && (
+                <div className="bg-slate-900 rounded-2xl overflow-hidden border border-amber-500/30 shadow-sm mt-4 shrink-0">
+                  <button onClick={() => setActiveContent(null)} className={`w-full flex items-center justify-between p-4 hover:bg-slate-800 transition text-left ${!activeContent ? "bg-slate-800/80" : ""}`}>
+                    <div className="flex items-center gap-3">
+                        <Trophy className="text-yellow-500 w-5 h-5 animate-pulse"/>
+                        <span className="font-bold text-yellow-400 text-sm">Final Exam & Certificate</span>
+                    </div>
+                  </button>
+                </div>
+             )}
           </div>
         </div>
       </div>
@@ -659,9 +1098,37 @@ const LearnerDashboard = () => {
                               <div className={`h-2 rounded-full transition-all duration-700 ${prog === 100 ? "bg-gradient-to-r from-yellow-500 to-amber-400 shadow-[0_0_10px_rgba(234,179,8,0.5)]" : "bg-gradient-to-r from-blue-600 to-sky-400"}`} style={{ width: `${prog}%` }}></div>
                           </div>
                       </div>
-                      <button onClick={() => handleStartCourse(course)} className={`w-full py-4 rounded-xl font-black transition-all flex items-center justify-center gap-2 shadow-lg transform hover:-translate-y-0.5 ${prog === 100 ? 'bg-slate-800 text-yellow-500 hover:bg-slate-700 border border-yellow-500/30' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/30'}`}>
-                        {prog === 100 ? <><Trophy size={20}/> Revisit Victory</> : <><PlayCircle size={20} /> Resume Training</>}
-                      </button>
+                      {prog === 100 ? (
+                        passedExams.includes(course._id) ? (
+                          <button 
+                            onClick={() => {
+                              setSelectedCourse(course);
+                              setCompletedCourseName(course.title);
+                              setShowTrophy(true);
+                            }} 
+                            className="w-full py-4 rounded-xl font-black transition-all flex items-center justify-center gap-2 shadow-lg transform hover:-translate-y-0.5 bg-gradient-to-r from-yellow-600 to-amber-500 hover:from-yellow-500 hover:to-amber-400 text-slate-900 font-bold"
+                          >
+                            <Trophy size={20}/> Claim Certificate
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={() => {
+                              setSelectedCourse(course);
+                              fetchFinalExam(course);
+                            }} 
+                            className="w-full py-4 rounded-xl font-black transition-all flex items-center justify-center gap-2 shadow-lg transform hover:-translate-y-0.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold"
+                          >
+                            <Brain size={20}/> Take Final Exam
+                          </button>
+                        )
+                      ) : (
+                        <button 
+                          onClick={() => handleStartCourse(course)} 
+                          className="w-full py-4 rounded-xl font-black transition-all flex items-center justify-center gap-2 shadow-lg transform hover:-translate-y-0.5 bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/30"
+                        >
+                          <PlayCircle size={20} /> Resume Training
+                        </button>
+                      )}
                   </div>
                 </div>
               )})}
