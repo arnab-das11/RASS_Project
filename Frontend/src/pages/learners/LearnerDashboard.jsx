@@ -729,11 +729,14 @@ const LearnerDashboard = () => {
                                 <textarea 
                                     value={voiceAnswer}
                                     onChange={(e) => setVoiceAnswer(e.target.value)}
-                                    placeholder="Type your answer here or click 'Speak Answer' to describe it verbally..."
-                                    rows={4}
+                                    placeholder="Describe in 1 short sentence (e.g. 5-15 words). Click 'Speak Answer' to speak verbally..."
+                                    rows={3}
                                     disabled={voicePassed === true}
-                                    className="w-full p-4 text-sm bg-slate-950 border border-slate-800 focus:border-blue-500 rounded-xl outline-none text-slate-200 resize-none"
+                                    className="w-full p-4 text-sm bg-slate-950 border border-slate-800 focus:border-blue-500 rounded-xl outline-none text-slate-200 resize-none animate-fade-in"
                                 />
+                                <span className="text-[10px] text-slate-500 pl-1 block">
+                                    💡 Tip: Keep it under 2 sentences for instant presentation evaluation.
+                                </span>
                             </div>
 
                             {/* Feedback Box */}

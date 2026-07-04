@@ -182,8 +182,8 @@ export const generateVoiceQuestion = async (req, res) => {
     const prompt = `You are a university professor. We are checking the mastery of a student for the lesson: "${lectureTitle}" in the course: "${courseTitle}".
     Course Description: ${courseDescription}
 
-    Create exactly one (1) open-ended conceptual question to test if they understood this lesson. 
-    The question should require a short explanatory answer (1-3 sentences) rather than a simple yes/no.
+    Create exactly one (1) extremely simple, short open-ended conceptual question to test if they understood this lesson. 
+    The question must be very direct and answerable in a single, short sentence of 5-15 words. Keep it easy and quick.
     
     Return ONLY a raw JSON object (no markdown, no backticks):
     {
@@ -211,14 +211,15 @@ export const verifyVoiceAnswer = async (req, res) => {
     Question: "${question}"
     Student's Answer: "${answer}"
 
-    Grade the student's answer. It must be conceptually correct and demonstrate a basic understanding of the question. 
-    It doesn't need to be perfect, but must contain key elements.
-    If the response is empty or nonsensical, it must fail.
+    Grade the student's answer. It should be evaluated very leniently for a live demonstration.
+    If the response is conceptually related to the topic, pass it.
+    The response is expected to be extremely brief (a single short sentence or phrase of 5-15 words).
+    Keep your feedback response very short and concise (maximum 1 sentence of 5-10 words).
 
     Return ONLY a raw JSON object (no markdown, no backticks):
     {
       "passed": true or false,
-      "feedback": "A short (1-2 sentences) constructive message explaining why they passed or what key information they missed."
+      "feedback": "A very brief explanation (1 sentence maximum)."
     }`;
 
     const result = await generateWithFallback(genAI, prompt);
