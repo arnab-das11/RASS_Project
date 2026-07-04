@@ -58,6 +58,12 @@ const LearnerDashboard = () => {
   const [recsLoading, setRecsLoading] = useState(false);
   const [newSkillInput, setNewSkillInput] = useState("");
 
+  // --- 📝 AI STUDY HUB & NOTES STATE ---
+  const [aiSummary, setAiSummary] = useState("");
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState("curriculum");
+  const [studyNotes, setStudyNotes] = useState("");
+
   // --- DATA FETCHING ---
   const fetchRecommendations = async (userId) => {
     setRecsLoading(true);
@@ -105,6 +111,27 @@ const LearnerDashboard = () => {
     };
     fetchMyCourses();
   }, [navigate]);
+
+  useEffect(() => {
+    if (activeContent && activeContent.data && userInfo) {
+      setAiSummary("");
+      setVoiceAnswer("");
+      setVoiceFeedback("");
+      setVoicePassed(null);
+      
+      const key = `notes_${userInfo._id}_${selectedCourse?._id || 'course'}_${activeContent.data._id}`;
+      const savedNotes = localStorage.getItem(key);
+      setStudyNotes(savedNotes || "");
+    }
+  }, [activeContent, userInfo, selectedCourse]);
+
+  const handleNotesChange = (text) => {
+    setStudyNotes(text);
+    if (activeContent && activeContent.data && userInfo) {
+      const key = `notes_${userInfo._id}_${selectedCourse?._id || 'course'}_${activeContent.data._id}`;
+      localStorage.setItem(key, text);
+    }
+  };
 
   const handleAddSkill = async (e) => {
     e.preventDefault();
@@ -186,6 +213,34 @@ const LearnerDashboard = () => {
         console.error("Failed to start Speech Recognition:", err);
       }
     }
+  };
+
+  const fetchAiSummary = async () => {
+    if (aiSummary || !activeContent || !activeContent.data) return;
+    setSummaryLoading(true);
+    try {
+      const response = await axios.post('http://localhost:5000/api/ai/generate-summary', {
+        courseTitle: selectedCourse.title,
+        lectureTitle: activeContent.data.title,
+        description: activeContent.data.description || ""
+      });
+      setAiSummary(response.data.summary);
+    } catch (error) {
+      console.error("Failed to generate summary", error);
+      setAiSummary("Failed to generate AI summary. Try again later!");
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
+  const getYouTubeEmbedUrl = (url) => {
+    if (!url) return null;
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    if (match && match[2].length === 11) {
+      return `https://www.youtube.com/embed/${match[2]}`;
+    }
+    return null;
   };
 
   // --- HELPER FUNCTIONS ---
@@ -552,6 +607,7 @@ const LearnerDashboard = () => {
     }
   };
 
+
   // --- DYNAMIC CONTENT WINDOW ---
   const renderActiveContent = () => {
     if (!activeContent) {
@@ -604,7 +660,23 @@ const LearnerDashboard = () => {
     }
 
     if (activeContent.type === 'video') {
-        return <video src={activeContent.data.videoUrl} controls autoPlay className="w-full h-full object-contain" />;
+        const ytEmbed = getYouTubeEmbedUrl(activeContent.data.videoUrl);
+        return (
+          <div className="w-full h-full relative">
+              {ytEmbed ? (
+                  <iframe 
+                      src={ytEmbed} 
+                      frameBorder="0" 
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                      allowFullScreen
+                      className="w-full h-full"
+                      title={activeContent.data.title}
+                  />
+              ) : (
+                  <video src={activeContent.data.videoUrl} controls autoPlay className="w-full h-full object-contain" />
+              )}
+          </div>
+        );
     }
 
     if (activeContent.type === 'resource') {
@@ -616,7 +688,7 @@ const LearnerDashboard = () => {
 
         if (isUnsupported) {
             return (
-                <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-slate-900">
+                <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-slate-900 w-full">
                     <FileText className="w-20 h-20 text-emerald-500 mb-6" />
                     <h3 className="text-2xl font-bold text-white mb-4">{activeContent.data.title}</h3>
                     <p className="text-gray-400 mb-8 max-w-md">This file format (<strong>.{ext.toUpperCase()}</strong>) cannot be viewed directly in the browser.</p>
@@ -633,13 +705,13 @@ const LearnerDashboard = () => {
 
         const docUrl = encodeURIComponent(url.replace("/image/upload/", "/raw/upload/"));
         return (
-            <div className="w-full h-full flex flex-col bg-slate-900">
-                <div className="p-3 flex justify-end bg-slate-950 border-b border-slate-800">
+            <div className="w-full h-full flex flex-col bg-[#090a0f]">
+                <div className="p-2 flex justify-end bg-[#12131a] border-b border-[#222331]">
                     <button 
                         onClick={() => handleResourceDownload(url, activeContent.data.title, activeContent.data._id)}
-                        className="flex items-center gap-2 text-sm font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-400/10 px-4 py-2 rounded-lg transition"
+                        className="flex items-center gap-2 text-xs font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-400/10 px-3 py-1.5 rounded transition animate-fade-in"
                     >
-                        {downloadingFileId === activeContent.data._id ? <Loader className="animate-spin" size={16}/> : <Download size={16}/>}
+                        {downloadingFileId === activeContent.data._id ? <Loader className="animate-spin" size={14}/> : <Download size={14}/>}
                         Download Document
                     </button>
                 </div>
@@ -650,20 +722,28 @@ const LearnerDashboard = () => {
 
     if (activeContent.type === 'link') {
         return (
-            <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-slate-900">
-                <LinkIcon className="w-20 h-20 text-purple-500 mb-6" />
-                <h3 className="text-2xl font-bold text-white mb-4">{activeContent.data.title}</h3>
-                <p className="text-gray-400 mb-8 max-w-md">External resource securely linked.</p>
-                <a href={activeContent.data.url} target="_blank" rel="noopener noreferrer"
-                   className="px-8 py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl flex items-center gap-2 transition shadow-lg shadow-purple-900/30">
-                   Open Resource <ExternalLink size={18} />
-                </a>
+            <div className="w-full h-full flex flex-col bg-[#090a0f]">
+                <div className="p-2 flex justify-between items-center bg-[#12131a] border-b border-[#222331]">
+                    <span className="text-xs text-slate-400 font-bold pl-2 truncate max-w-[60%]">Viewing Curated Web Resource</span>
+                    <a 
+                        href={activeContent.data.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-xs font-bold text-purple-400 hover:text-purple-300 bg-purple-400/10 px-3 py-1 rounded transition animate-fade-in"
+                    >
+                        <ExternalLink size={12}/> Open in New Tab
+                    </a>
+                </div>
+                <iframe 
+                    src={activeContent.data.url} 
+                    className="w-full flex-1 bg-white border-0" 
+                    title={activeContent.data.title} 
+                />
             </div>
         );
     }
   };
-
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white"><Loader className="w-8 h-8 animate-spin text-blue-500 mr-3" /></div>;
+if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white"><Loader className="w-8 h-8 animate-spin text-blue-500 mr-3" /></div>;
 
   // =====================================================================
   // VIEW B: THE PLAYER MODE (Active Learning)
@@ -673,17 +753,17 @@ const LearnerDashboard = () => {
     const isCurrentItemDone = activeContent && completedItems.includes(activeContent.data._id);
 
     return (
-      <div className="flex flex-col lg:flex-row min-h-screen bg-slate-950 text-slate-200 relative">
+      <div className="flex flex-col lg:flex-row lg:h-screen lg:overflow-hidden bg-[#0a0b10] text-slate-200 relative font-sans">
         
         {/* 🎙️ NEW: AI VOICE ORAL ASSESSMENT MODAL */}
         {showVoiceModal && (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
-                <div className="bg-gradient-to-b from-slate-900 to-slate-950 p-8 rounded-3xl border border-blue-500/30 shadow-2xl shadow-blue-500/20 max-w-xl w-full">
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-fade-in">
+                <div className="bg-gradient-to-b from-[#13141f] to-[#0a0b10] p-8 rounded-3xl border border-indigo-500/30 shadow-2xl shadow-indigo-500/10 max-w-xl w-full">
                     
                     {voiceLoading ? (
                         <div className="flex flex-col items-center justify-center py-12">
                             <div className="relative mb-6">
-                                <Brain className="w-16 h-16 text-blue-500 animate-pulse" />
+                                <Brain className="w-16 h-16 text-indigo-500 animate-pulse" />
                                 <Sparkles className="w-6 h-6 text-yellow-400 absolute -top-2 -right-2 animate-spin-slow" />
                             </div>
                             <h3 className="text-xl font-bold text-white mb-2">Gemini is processing...</h3>
@@ -691,18 +771,18 @@ const LearnerDashboard = () => {
                         </div>
                     ) : voiceQuestion ? (
                         <div className="animate-fade-in space-y-6">
-                            <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
-                                <div className="p-2 bg-blue-500/10 rounded-xl border border-blue-500/30">
-                                    <Brain className="text-blue-400 w-6 h-6" />
+                            <div className="flex items-center gap-3 border-b border-[#222433] pb-4">
+                                <div className="p-2 bg-indigo-500/10 rounded-xl border border-indigo-500/30">
+                                    <Brain className="text-indigo-400 w-6 h-6" />
                                 </div>
                                 <div>
                                     <h3 className="text-xl font-black text-white">Oral Concept Check</h3>
-                                    <p className="text-xs text-blue-400 font-bold uppercase tracking-wider">Explain verbally or type your answer</p>
+                                    <p className="text-xs text-indigo-400 font-bold uppercase tracking-wider">Explain verbally or type your answer</p>
                                 </div>
                             </div>
 
-                            <div className="bg-slate-950/60 p-5 rounded-2xl border border-slate-800 shadow-inner">
-                                <span className="text-[10px] text-blue-400 font-bold uppercase tracking-wider block mb-1">Conceptual Question</span>
+                            <div className="bg-[#090a0f] p-5 rounded-2xl border border-[#222433] shadow-inner">
+                                <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider block mb-1">Conceptual Question</span>
                                 <p className="text-base font-semibold text-slate-200 leading-relaxed">
                                     {voiceQuestion}
                                 </p>
@@ -718,10 +798,10 @@ const LearnerDashboard = () => {
                                         className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all ${
                                             isListening 
                                                 ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse shadow-lg shadow-red-500/30' 
-                                                : 'bg-blue-600/10 hover:bg-blue-600 border border-blue-500/20 text-blue-400 hover:text-white'
+                                                : 'bg-indigo-600/10 hover:bg-indigo-600 border border-indigo-500/20 text-indigo-400 hover:text-white'
                                         }`}
                                     >
-                                        <span className={`w-2 h-2 rounded-full ${isListening ? 'bg-white animate-ping' : 'bg-blue-400'}`}></span>
+                                        <span className={`w-2 h-2 rounded-full ${isListening ? 'bg-white animate-ping' : 'bg-indigo-400'}`}></span>
                                         {isListening ? "Listening... (Click to stop)" : "Speak Answer (Mic)"}
                                     </button>
                                 </div>
@@ -732,7 +812,7 @@ const LearnerDashboard = () => {
                                     placeholder="Describe in 1 short sentence (e.g. 5-15 words). Click 'Speak Answer' to speak verbally..."
                                     rows={3}
                                     disabled={voicePassed === true}
-                                    className="w-full p-4 text-sm bg-slate-950 border border-slate-800 focus:border-blue-500 rounded-xl outline-none text-slate-200 resize-none animate-fade-in"
+                                    className="w-full p-4 text-sm bg-[#090a0f] border border-[#222433] focus:border-indigo-500 rounded-xl outline-none text-slate-200 resize-none animate-fade-in"
                                 />
                                 <span className="text-[10px] text-slate-500 pl-1 block">
                                     💡 Tip: Keep it under 2 sentences for instant presentation evaluation.
@@ -768,7 +848,7 @@ const LearnerDashboard = () => {
                                         }
                                         setShowVoiceModal(false);
                                     }} 
-                                    className="px-6 py-3.5 rounded-xl font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition flex-1 border border-transparent hover:border-slate-700"
+                                    className="px-6 py-3.5 rounded-xl font-bold text-slate-400 hover:text-white hover:bg-[#1c1d26] transition flex-1 border border-transparent hover:border-[#222433]"
                                 >
                                     Close
                                 </button>
@@ -779,8 +859,8 @@ const LearnerDashboard = () => {
                                         voicePassed 
                                             ? 'bg-green-600 hover:bg-green-500 text-white shadow-green-900/50' 
                                             : !voiceAnswer.trim()
-                                                ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
-                                                : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/30'
+                                                ? 'bg-[#1c1d26] text-slate-500 cursor-not-allowed' 
+                                                : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-900/30'
                                     }`}
                                 >
                                     {voicePassed ? 'Close & Continue' : 'Evaluate Answer'}
@@ -795,9 +875,9 @@ const LearnerDashboard = () => {
         {/* 🎓 EXAM UNLOCKED MODAL */}
         {showExamUnlockedModal && (
             <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-fade-in">
-                <div className="bg-gradient-to-b from-slate-900 to-slate-950 p-10 rounded-3xl border border-blue-500/30 shadow-2xl shadow-blue-500/20 max-w-md w-full text-center">
-                    <div className="w-24 h-24 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <Brain className="text-blue-400 w-12 h-12 animate-pulse" />
+                <div className="bg-gradient-to-b from-[#13141f] to-[#0a0b10] p-10 rounded-3xl border border-indigo-500/30 shadow-2xl shadow-indigo-500/20 max-w-md w-full text-center">
+                    <div className="w-24 h-24 bg-[#1c1d26] rounded-full flex items-center justify-center mx-auto mb-6">
+                        <Brain className="text-indigo-400 w-12 h-12 animate-pulse" />
                     </div>
                     <h2 className="text-3xl font-black text-white mb-2">Lessons Complete! 🎓</h2>
                     <p className="text-slate-300 font-medium mb-6">You've successfully finished all lectures and lessons in this course. You are now ready to attempt the Final Exam.</p>
@@ -807,7 +887,7 @@ const LearnerDashboard = () => {
                             setShowExamUnlockedModal(false);
                             fetchFinalExam();
                         }}
-                        className="w-full flex items-center justify-center gap-3 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black rounded-xl shadow-lg transition-all mb-3"
+                        className="w-full flex items-center justify-center gap-3 py-4 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-black rounded-xl shadow-lg transition-all mb-3"
                     >
                         <Brain size={20} />
                         Start Final Exam (10 MCQs)
@@ -823,21 +903,21 @@ const LearnerDashboard = () => {
         {/* 🎓 FINAL EXAM MODAL */}
         {showFinalExamModal && (
             <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto">
-                <div className="bg-gradient-to-b from-slate-900 to-slate-950 rounded-3xl border border-blue-500/30 shadow-2xl shadow-blue-500/20 max-w-2xl w-full overflow-hidden my-8">
+                <div className="bg-gradient-to-b from-[#13141f] to-[#0a0b10] rounded-3xl border border-indigo-500/30 shadow-2xl shadow-indigo-500/20 max-w-2xl w-full overflow-hidden my-8 animate-fade-in">
                     
                     {/* Header */}
-                    <div className="p-6 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
+                    <div className="p-6 bg-[#13141f] border-b border-[#222433] flex justify-between items-center">
                         <div className="flex items-center gap-3">
-                            <Brain className="text-blue-400 w-6 h-6" />
+                            <Brain className="text-indigo-400 w-6 h-6" />
                             <div>
                                 <h3 className="text-xl font-black text-white">Final Master Exam</h3>
-                                <p className="text-xs text-blue-400 font-bold uppercase tracking-wider">Course Mastery Verification</p>
+                                <p className="text-xs text-indigo-400 font-bold uppercase tracking-wider">Course Mastery Verification</p>
                             </div>
                         </div>
                         {(!finalExamResult || !finalExamResult.passed) && (
                             <button 
                                 onClick={() => setShowFinalExamModal(false)}
-                                className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition"
+                                className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-[#1c1d26] transition"
                             >
                                 <XCircle size={20} />
                             </button>
@@ -846,7 +926,7 @@ const LearnerDashboard = () => {
 
                     {finalExamSubmitting ? (
                         <div className="p-12 flex flex-col items-center justify-center">
-                            <Loader className="animate-spin text-blue-500 w-12 h-12 mb-4" />
+                            <Loader className="animate-spin text-indigo-500 w-12 h-12 mb-4" />
                             <h4 className="text-lg font-bold text-white mb-2">Grading your Exam...</h4>
                             <p className="text-slate-400 text-sm">Evaluating your responses for final mastery.</p>
                         </div>
@@ -859,53 +939,41 @@ const LearnerDashboard = () => {
                                         <Trophy className="text-yellow-400 w-12 h-12" />
                                     </div>
                                     <h3 className="text-3xl font-black text-white mb-2">Victory Achieved! 🏆</h3>
-                                    <p className="text-slate-300 font-medium mb-6">
-                                        Congratulations, {userInfo?.name}! You passed the Final Exam with a score of <span className="text-yellow-400 font-black">{finalExamResult.score}/10</span> ({finalExamResult.score * 10}%). You have fully mastered this course!
-                                    </p>
-                                    <div className="flex gap-4">
-                                        <button 
-                                            onClick={() => {
-                                                setShowFinalExamModal(false);
-                                                const title = selectedCourse?.title || completedCourseName;
-                                                setCompletedCourseName(title);
-                                                generateCertificatePDF(title);
-                                            }}
-                                            className="flex-1 flex items-center justify-center gap-3 py-4 bg-gradient-to-r from-yellow-600 to-amber-500 hover:from-yellow-500 hover:to-amber-400 text-slate-900 font-black rounded-xl shadow-lg transition-all animate-pulse"
-                                        >
-                                            <Award size={20} /> Download Certificate
-                                        </button>
-                                        <button 
-                                            onClick={() => setShowFinalExamModal(false)}
-                                            className="px-6 py-4 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-all"
-                                        >
-                                            Close
-                                        </button>
-                                    </div>
+                                    <p className="text-slate-300 font-medium mb-8 max-w-md mx-auto">Sensational job! You passed the exam with a score of <span className="text-yellow-400 font-black">{finalExamResult.score}/10</span>. You are certified!</p>
+                                    <button 
+                                        onClick={() => { setShowFinalExamModal(false); setShowTrophy(true); }}
+                                        className="px-10 py-4 bg-gradient-to-r from-yellow-600 to-amber-500 hover:from-yellow-500 hover:to-amber-400 text-slate-900 font-black rounded-xl shadow-lg transition-all"
+                                    >
+                                        Claim Certificate
+                                    </button>
                                 </>
                             ) : (
                                 <>
                                     <div className="w-24 h-24 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-500/20">
-                                        <XCircle className="text-red-400 w-12 h-12" />
+                                        <XCircle className="text-red-400 w-12 h-12 animate-pulse" />
                                     </div>
-                                    <h3 className="text-3xl font-black text-white mb-2">Mastery Check Failed</h3>
-                                    <p className="text-slate-300 font-medium mb-2">
-                                        You scored <span className="text-red-400 font-bold">{finalExamResult.score}/10</span>. A passing score of at least <span className="text-blue-400 font-bold">7/10</span> is required to earn your certificate.
-                                    </p>
-                                    <p className="text-slate-400 text-sm mb-6 leading-relaxed">
-                                        We suggest reviewing the curriculum lessons, especially the sections you felt less confident about. When you are ready, try again to test your understanding!
-                                    </p>
-                                    <div className="flex gap-4">
-                                        <button 
-                                            onClick={handleFinalExamRetake}
-                                            className="flex-1 flex items-center justify-center gap-3 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black rounded-xl shadow-lg transition-all"
-                                        >
-                                            <Undo size={18} /> Retake Exam (New Questions)
-                                        </button>
+                                    <h3 className="text-3xl font-black text-white mb-2">Exam Unsuccessful</h3>
+                                    <p className="text-slate-300 font-medium mb-4 max-w-md mx-auto">You scored <span className="text-red-400 font-black">{finalExamResult.score}/10</span>. A minimum score of 7/10 is required to pass.</p>
+                                    
+                                    {finalExamResult.suggestions && (
+                                        <div className="bg-[#090a0f] p-5 rounded-2xl border border-[#222433] text-left max-w-md mx-auto mb-8">
+                                            <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider block mb-1">Study Advice</span>
+                                            <p className="text-xs text-slate-400 leading-relaxed font-medium">{finalExamResult.suggestions}</p>
+                                        </div>
+                                    )}
+
+                                    <div className="flex gap-4 max-w-sm mx-auto">
                                         <button 
                                             onClick={() => setShowFinalExamModal(false)}
-                                            className="px-6 py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition-all"
+                                            className="px-6 py-3.5 bg-[#1c1d26] hover:bg-[#2c2d3a] text-slate-300 font-bold rounded-xl flex-1 transition"
                                         >
-                                            Review Lessons
+                                            Review Syllabus
+                                        </button>
+                                        <button 
+                                            onClick={() => { setFinalExamAnswers({}); setFinalExamCurrentIndex(0); setFinalExamResult(null); fetchFinalExam(); }}
+                                            className="px-6 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl flex-1 shadow-lg shadow-indigo-900/30 transition"
+                                        >
+                                            Try Again
                                         </button>
                                     </div>
                                 </>
@@ -922,8 +990,8 @@ const LearnerDashboard = () => {
                                             <span className="uppercase tracking-wider">Question {finalExamCurrentIndex + 1} of 10</span>
                                             <span>{Math.round(((finalExamCurrentIndex) / 10) * 100)}% Complete</span>
                                         </div>
-                                        <div className="w-full bg-slate-800 rounded-full h-2">
-                                            <div className="bg-blue-500 h-2 rounded-full transition-all duration-300" style={{ width: `${((finalExamCurrentIndex + 1) / 10) * 100}%` }}></div>
+                                        <div className="w-full bg-[#1c1d26] rounded-full h-2">
+                                            <div className="bg-indigo-500 h-2 rounded-full transition-all duration-300" style={{ width: `${((finalExamCurrentIndex + 1) / 10) * 100}%` }}></div>
                                         </div>
                                     </div>
 
@@ -942,13 +1010,13 @@ const LearnerDashboard = () => {
                                                     onClick={() => setFinalExamAnswers(prev => ({ ...prev, [finalExamCurrentIndex]: option }))}
                                                     className={`w-full text-left p-4 rounded-xl border transition-all ${
                                                         isSelected 
-                                                            ? 'bg-blue-600/20 border-blue-500 text-blue-100' 
-                                                            : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-slate-500'
+                                                            ? 'bg-indigo-600/20 border-indigo-500 text-indigo-100' 
+                                                            : 'bg-[#1c1d26]/50 border-[#222433] text-slate-300 hover:bg-[#1c1d26] hover:border-[#2e3047]'
                                                     }`}
                                                 >
                                                     <div className="flex items-center justify-between">
                                                         <span>{option}</span>
-                                                        {isSelected && <div className="w-3 h-3 bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.8)]"></div>}
+                                                        {isSelected && <div className="w-3 h-3 bg-indigo-500 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.8)]"></div>}
                                                     </div>
                                                 </button>
                                             );
@@ -956,11 +1024,11 @@ const LearnerDashboard = () => {
                                     </div>
 
                                     {/* Navigation */}
-                                    <div className="flex justify-between items-center border-t border-slate-800 pt-6">
+                                    <div className="flex justify-between items-center border-t border-[#222433] pt-6">
                                         <button 
                                             disabled={finalExamCurrentIndex === 0}
                                             onClick={() => setFinalExamCurrentIndex(prev => prev - 1)}
-                                            className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition"
+                                            className="px-5 py-2.5 bg-[#1c1d26] hover:bg-[#2c2d3a] text-slate-300 font-bold rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition"
                                         >
                                             Previous
                                         </button>
@@ -969,7 +1037,7 @@ const LearnerDashboard = () => {
                                             <button 
                                                 disabled={!finalExamAnswers[finalExamCurrentIndex]}
                                                 onClick={() => setFinalExamCurrentIndex(prev => prev + 1)}
-                                                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition"
                                             >
                                                 Next Question
                                             </button>
@@ -994,7 +1062,7 @@ const LearnerDashboard = () => {
         {/* CELEBRATION & CERTIFICATE MODAL */}
         {showTrophy && (
             <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
-                <div className="bg-gradient-to-b from-slate-900 to-slate-950 p-10 rounded-3xl border border-yellow-500/30 shadow-2xl shadow-yellow-500/20 max-w-md w-full text-center transform scale-105 transition-all">
+                <div className="bg-gradient-to-b from-[#13141f] to-[#0a0b10] p-10 rounded-3xl border border-yellow-500/30 shadow-2xl shadow-yellow-500/20 max-w-md w-full text-center transform scale-105 transition-all">
                     <div className="w-24 h-24 bg-yellow-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
                         <Trophy className="text-yellow-400 w-12 h-12" />
                     </div>
@@ -1018,25 +1086,25 @@ const LearnerDashboard = () => {
         )}
 
         {/* LEFT COLUMN: Dynamic Player & Controls */}
-        <div className="w-full lg:w-2/3 flex flex-col border-r border-slate-800">
-          <div className="p-4 bg-slate-900 flex items-center justify-between border-b border-slate-800 shadow-sm">
-              <button onClick={() => setSelectedCourse(null)} className="text-sm font-bold text-slate-400 hover:text-white flex items-center gap-2 transition px-3 py-1.5 rounded-lg hover:bg-slate-800">
+        <div className="w-full lg:w-2/3 lg:h-full flex flex-col border-r border-[#222433] lg:overflow-hidden">
+          <div className="p-4 bg-[#12131a] flex items-center justify-between border-b border-[#222433] shadow-sm shrink-0">
+              <button onClick={() => setSelectedCourse(null)} className="text-sm font-bold text-slate-400 hover:text-white flex items-center gap-2 transition px-3 py-1.5 rounded-lg hover:bg-[#1c1d26]">
                 <ArrowLeft size={16} /> Dashboard
               </button>
               <h2 className="font-bold text-slate-200 truncate max-w-md">{selectedCourse.title}</h2>
           </div>
           
-          <div className="aspect-video bg-black flex items-center justify-center relative shadow-2xl">
+          <div className="flex-1 min-h-[350px] lg:min-h-0 bg-black flex items-center justify-center relative shadow-2xl overflow-hidden">
              {renderActiveContent()}
           </div>
           
-          <div className="p-6 md:p-8 flex-1 bg-slate-900">
-            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+          <div className="p-6 md:p-8 bg-[#12131a] space-y-4 overflow-y-auto custom-scrollbar shrink-0 max-h-[35%] lg:max-h-[35%]">
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 border-b border-[#222433] pb-4">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-black text-white mb-3">
+                    <h1 className="text-2xl md:text-3xl font-black text-white mb-2 leading-tight">
                         {activeContent ? activeContent.data.title : "Course Overview"}
                     </h1>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${activeContent?.type === 'video' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : activeContent?.type === 'resource' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'}`}>
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${activeContent?.type === 'video' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : activeContent?.type === 'resource' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'}`}>
                         {activeContent?.type || "Information"}
                     </span>
                 </div>
@@ -1045,145 +1113,257 @@ const LearnerDashboard = () => {
                     <button 
                         onClick={handleToggleComplete}
                         disabled={progressLoading}
-                        className={`px-6 py-3 font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg ${isCurrentItemDone ? 'bg-slate-800 text-slate-300 hover:bg-red-500/10 hover:text-red-400 border border-slate-700 hover:border-red-500/30' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/30'}`}
+                        className={`px-6 py-3 font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg ${isCurrentItemDone ? 'bg-[#1c1d26] text-slate-300 hover:bg-red-500/10 hover:text-red-400 border border-[#222433] hover:border-red-500/30' : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-900/30'}`}
                     >
                         {progressLoading ? <Loader className="animate-spin" size={20}/> : isCurrentItemDone ? <Undo size={20} /> : <><Sparkles size={18}/> Verify Mastery</>}
                     </button>
                 )}
             </div>
+
+            {/* General Lesson Description Area */}
+            {activeContent && activeContent.data.description && (
+                <div className="bg-[#090a0f] p-5 rounded-2xl border border-[#222433] shadow-inner animate-fade-in">
+                    <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider block mb-1">
+                        {activeContent.type === 'video' ? 'Lecture Notes' : activeContent.type === 'resource' ? 'Study Guidelines' : 'Reference Notes'}
+                    </span>
+                    <p className="text-xs md:text-sm text-slate-300 font-medium leading-relaxed">
+                        {activeContent.data.description}
+                    </p>
+                </div>
+            )}
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Curriculum Sidebar */}
-        <div className="w-full lg:w-1/3 bg-slate-950 h-screen lg:sticky top-0 overflow-hidden flex flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.2)] z-10">
-          <div className="p-6 bg-slate-900 border-b border-slate-800 z-10">
-             <h3 className="text-xl font-black text-white flex items-center gap-2"><Award className="text-yellow-500"/> Curriculum</h3>
-             <div className="mt-5">
-                 <div className="flex justify-between text-xs font-bold text-slate-400 mb-2">
-                     <span className="uppercase tracking-wider">Progress</span>
-                     <span className={currentProgress === 100 ? "text-yellow-400" : "text-blue-400"}>{currentProgress}%</span>
-                 </div>
-                 <div className="w-full bg-slate-800 rounded-full h-2.5 shadow-inner">
-                     <div className={`h-2.5 rounded-full transition-all duration-700 ease-out shadow-lg ${currentProgress === 100 ? "bg-gradient-to-r from-yellow-500 to-amber-400" : "bg-gradient-to-r from-blue-600 to-sky-400"}`} style={{ width: `${currentProgress}%` }}></div>
-                 </div>
+        {/* RIGHT COLUMN: Tabbed Sidebar */}
+        <div className="w-full lg:w-1/3 bg-[#0d0e15] h-full lg:h-full overflow-hidden flex flex-col border-l border-[#222433] shadow-2xl z-10 animate-fade-in">
+          
+          {/* Header & Progress Info */}
+          <div className="p-6 bg-[#12131a] border-b border-[#222433]">
+             <div className="flex justify-between items-center mb-4">
+                 <h3 className="text-lg font-black text-white flex items-center gap-2"><Award className="text-yellow-500 w-5 h-5"/> Learning Engine</h3>
+                 <span className={`text-xs font-black px-2.5 py-1 rounded-full ${currentProgress === 100 ? 'bg-yellow-500/10 text-yellow-400' : 'bg-indigo-500/10 text-indigo-400'}`}>
+                     {currentProgress}% Done
+                 </span>
+             </div>
+             <div className="w-full bg-[#1c1d26] rounded-full h-2">
+                 <div className={`h-2 rounded-full transition-all duration-700 ease-out ${currentProgress === 100 ? "bg-gradient-to-r from-yellow-500 to-amber-400 shadow-[0_0_10px_rgba(234,179,8,0.5)]" : "bg-gradient-to-r from-indigo-500 to-blue-500"}`} style={{ width: `${currentProgress}%` }}></div>
              </div>
           </div>
-          
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
-             {selectedCourse.lectures?.map((section, index) => (
-                  <div key={index} className="bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shadow-sm">
-                    <button onClick={() => toggleSection(index)} className="w-full flex items-center justify-between p-4 hover:bg-slate-800 transition text-left">
-                      <span className="font-bold text-slate-200 text-sm line-clamp-1 pr-4">{section.title}</span>
-                      <ChevronDown size={18} className={`text-slate-500 transition-transform duration-300 ${expandedSections[index] ? "rotate-180" : ""}`} />
-                    </button>
 
-                    {expandedSections[index] && (
-                      <div className="bg-slate-950/50 pb-2">
-                        {section.videos?.map((vid, vIdx) => {
-                          const locked = isItemLocked(vid._id, selectedCourse, completedItems);
-                          return (
-                            <div key={vIdx} 
-                                 onClick={() => !locked && setActiveContent({type: 'video', data: vid})} 
-                                 className={`p-3 pl-6 flex items-center justify-between transition border-l-2 ${
-                                   locked 
-                                     ? "border-l-transparent cursor-not-allowed opacity-50 bg-slate-950/20" 
-                                     : activeContent?.data._id === vid._id 
-                                       ? "border-l-blue-500 bg-slate-800/80 cursor-pointer" 
-                                       : "border-l-transparent hover:bg-slate-800/50 cursor-pointer"
-                                 }`}
-                            >
-                               <div className="flex items-center gap-3">
-                                   {locked ? (
-                                     <Lock size={16} className="text-slate-600"/>
-                                   ) : (
-                                     <MonitorPlay size={16} className={activeContent?.data._id === vid._id ? "text-blue-400" : "text-slate-500"}/>
-                                   )}
-                                   <span className={`text-sm ${
-                                     locked 
-                                       ? "text-slate-600 font-medium" 
-                                       : activeContent?.data._id === vid._id 
-                                         ? "text-blue-100 font-bold" 
-                                         : "text-slate-400 font-medium"
-                                   }`}>{vid.title}</span>
-                               </div>
-                               {!locked && completedItems.includes(vid._id) && <CheckCircle size={14} className="text-green-500 drop-shadow-md"/>}
-                            </div>
-                          );
-                        })}
-                        {section.resources?.map((res, rIdx) => {
-                          const locked = isItemLocked(res._id, selectedCourse, completedItems);
-                          return (
-                            <div key={rIdx} 
-                                 onClick={() => !locked && setActiveContent({type: 'resource', data: res})} 
-                                 className={`p-3 pl-6 flex items-center justify-between transition border-l-2 ${
-                                   locked 
-                                     ? "border-l-transparent cursor-not-allowed opacity-50 bg-slate-950/20" 
-                                     : activeContent?.data._id === res._id 
-                                       ? "border-l-emerald-500 bg-slate-800/80 cursor-pointer" 
-                                       : "border-l-transparent hover:bg-slate-800/50 cursor-pointer"
-                                 }`}
-                            >
-                               <div className="flex items-center gap-3">
-                                   {locked ? (
-                                     <Lock size={16} className="text-slate-600"/>
-                                   ) : (
-                                     <FileText size={16} className={activeContent?.data._id === res._id ? "text-emerald-400" : "text-slate-500"}/>
-                                   )}
-                                   <span className={`text-sm ${
-                                     locked 
-                                       ? "text-slate-600 font-medium" 
-                                       : activeContent?.data._id === res._id 
-                                         ? "text-emerald-100 font-bold" 
-                                         : "text-slate-400 font-medium"
-                                   }`}>{res.title}</span>
-                               </div>
-                               {!locked && completedItems.includes(res._id) && <CheckCircle size={14} className="text-green-500 drop-shadow-md"/>}
-                            </div>
-                          );
-                        })}
-                        {section.links?.map((link, lIdx) => {
-                          const locked = isItemLocked(link._id, selectedCourse, completedItems);
-                          return (
-                            <div key={lIdx} 
-                                 onClick={() => !locked && setActiveContent({type: 'link', data: link})} 
-                                 className={`p-3 pl-6 flex items-center justify-between transition border-l-2 ${
-                                   locked 
-                                     ? "border-l-transparent cursor-not-allowed opacity-50 bg-slate-950/20" 
-                                     : activeContent?.data._id === link._id 
-                                       ? "border-l-purple-500 bg-slate-800/80 cursor-pointer" 
-                                       : "border-l-transparent hover:bg-slate-800/50 cursor-pointer"
-                                 }`}
-                            >
-                               <div className="flex items-center gap-3">
-                                   {locked ? (
-                                     <Lock size={16} className="text-slate-600"/>
-                                   ) : (
-                                     <LinkIcon size={16} className={activeContent?.data._id === link._id ? "text-purple-400" : "text-slate-500"}/>
-                                   )}
-                                   <span className={`text-sm ${
-                                     locked 
-                                       ? "text-slate-600 font-medium" 
-                                       : activeContent?.data._id === link._id 
-                                         ? "text-purple-100 font-bold" 
-                                         : "text-slate-400 font-medium"
-                                   }`}>{link.title}</span>
-                               </div>
-                               {!locked && completedItems.includes(link._id) && <CheckCircle size={14} className="text-green-500 drop-shadow-md"/>}
-                            </div>
-                          );
-                        })}
+          {/* Tab Navigation Headers */}
+          <div className="flex border-b border-[#222433] bg-[#12131a]/60">
+            <button 
+              onClick={() => setSidebarTab("curriculum")}
+              className={`flex-1 py-3.5 text-xs font-bold uppercase tracking-wider text-center border-b-2 transition flex items-center justify-center gap-1.5 ${
+                sidebarTab === "curriculum" 
+                  ? 'border-indigo-500 text-white bg-[#0d0e15]' 
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              📁 Syllabus
+            </button>
+            <button 
+              onClick={() => { setSidebarTab("summary"); fetchAiSummary(); }}
+              className={`flex-1 py-3.5 text-xs font-bold uppercase tracking-wider text-center border-b-2 transition flex items-center justify-center gap-1.5 ${
+                sidebarTab === "summary" 
+                  ? 'border-indigo-500 text-white bg-[#0d0e15]' 
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              🧠 AI Notes
+            </button>
+            <button 
+              onClick={() => setSidebarTab("notes")}
+              className={`flex-1 py-3.5 text-xs font-bold uppercase tracking-wider text-center border-b-2 transition flex items-center justify-center gap-1.5 ${
+                sidebarTab === "notes" 
+                  ? 'border-indigo-500 text-white bg-[#0d0e15]' 
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              📝 Notepad
+            </button>
+          </div>
+
+          {/* Tab Contents */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
+             {sidebarTab === "curriculum" && (
+                <div className="space-y-3">
+                   {selectedCourse.lectures?.map((section, index) => (
+                      <div key={index} className="bg-[#12131a] rounded-2xl overflow-hidden border border-[#222433] shadow-sm">
+                        <button onClick={() => toggleSection(index)} className="w-full flex items-center justify-between p-4 hover:bg-[#181922] transition text-left">
+                          <span className="font-bold text-slate-200 text-sm line-clamp-1 pr-4">{section.title}</span>
+                          <ChevronDown size={18} className={`text-slate-500 transition-transform duration-300 ${expandedSections[index] ? "rotate-180" : ""}`} />
+                        </button>
+
+                        {expandedSections[index] && (
+                          <div className="bg-[#090a0f]/50 pb-2 border-t border-[#222433]/30">
+                            {section.videos?.map((vid, vIdx) => {
+                              const locked = isItemLocked(vid._id, selectedCourse, completedItems);
+                              return (
+                                <div key={vIdx} 
+                                     onClick={() => !locked && setActiveContent({type: 'video', data: vid})} 
+                                     className={`p-3 pl-6 flex items-center justify-between transition border-l-2 ${
+                                       locked 
+                                         ? "border-l-transparent cursor-not-allowed opacity-50 bg-slate-950/20" 
+                                         : activeContent?.data._id === vid._id 
+                                           ? "border-l-indigo-500 bg-[#181922] cursor-pointer" 
+                                           : "border-l-transparent hover:bg-[#181922]/50 cursor-pointer"
+                                     }`}
+                                >
+                                   <div className="flex items-center gap-3">
+                                       {locked ? (
+                                         <Lock size={16} className="text-slate-600"/>
+                                       ) : (
+                                         <MonitorPlay size={16} className={activeContent?.data._id === vid._id ? "text-indigo-400" : "text-slate-500"}/>
+                                       )}
+                                       <span className={`text-sm ${
+                                         locked 
+                                           ? "text-slate-600 font-medium" 
+                                           : activeContent?.data._id === vid._id 
+                                             ? "text-indigo-100 font-bold" 
+                                             : "text-slate-400 font-medium"
+                                       }`}>{vid.title}</span>
+                                   </div>
+                                   {!locked && completedItems.includes(vid._id) && <CheckCircle size={14} className="text-green-500 drop-shadow-md"/>}
+                                </div>
+                              );
+                            })}
+                            {section.resources?.map((res, rIdx) => {
+                              const locked = isItemLocked(res._id, selectedCourse, completedItems);
+                              return (
+                                <div key={rIdx} 
+                                     onClick={() => !locked && setActiveContent({type: 'resource', data: res})} 
+                                     className={`p-3 pl-6 flex items-center justify-between transition border-l-2 ${
+                                       locked 
+                                         ? "border-l-transparent cursor-not-allowed opacity-50 bg-slate-950/20" 
+                                         : activeContent?.data._id === res._id 
+                                           ? "border-l-emerald-500 bg-[#181922] cursor-pointer" 
+                                           : "border-l-transparent hover:bg-[#181922]/50 cursor-pointer"
+                                     }`}
+                                >
+                                   <div className="flex items-center gap-3">
+                                       {locked ? (
+                                         <Lock size={16} className="text-slate-600"/>
+                                       ) : (
+                                         <FileText size={16} className={activeContent?.data._id === res._id ? "text-emerald-400" : "text-slate-500"}/>
+                                       )}
+                                       <span className={`text-sm ${
+                                         locked 
+                                           ? "text-slate-600 font-medium" 
+                                           : activeContent?.data._id === res._id 
+                                             ? "text-emerald-100 font-bold" 
+                                             : "text-slate-400 font-medium"
+                                       }`}>{res.title}</span>
+                                   </div>
+                                   {!locked && completedItems.includes(res._id) && <CheckCircle size={14} className="text-green-500 drop-shadow-md"/>}
+                                </div>
+                              );
+                            })}
+                            {section.links?.map((link, lIdx) => {
+                              const locked = isItemLocked(link._id, selectedCourse, completedItems);
+                              return (
+                                <div key={lIdx} 
+                                     onClick={() => !locked && setActiveContent({type: 'link', data: link})} 
+                                     className={`p-3 pl-6 flex items-center justify-between transition border-l-2 ${
+                                       locked 
+                                         ? "border-l-transparent cursor-not-allowed opacity-50 bg-slate-950/20" 
+                                         : activeContent?.data._id === link._id 
+                                           ? "border-l-purple-500 bg-[#181922] cursor-pointer" 
+                                           : "border-l-transparent hover:bg-[#181922]/50 cursor-pointer"
+                                     }`}
+                                >
+                                   <div className="flex items-center gap-3">
+                                       {locked ? (
+                                         <Lock size={16} className="text-slate-600"/>
+                                       ) : (
+                                         <LinkIcon size={16} className={activeContent?.data._id === link._id ? "text-purple-400" : "text-slate-500"}/>
+                                       )}
+                                       <span className={`text-sm ${
+                                         locked 
+                                           ? "text-slate-600 font-medium" 
+                                           : activeContent?.data._id === link._id 
+                                             ? "text-purple-100 font-bold" 
+                                             : "text-slate-400 font-medium"
+                                       }`}>{link.title}</span>
+                                   </div>
+                                   {!locked && completedItems.includes(link._id) && <CheckCircle size={14} className="text-green-500 drop-shadow-md"/>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                ))}
-             {currentProgress === 100 && (
-                <div className="bg-slate-900 rounded-2xl overflow-hidden border border-amber-500/30 shadow-sm mt-4 shrink-0">
-                  <button onClick={() => setActiveContent(null)} className={`w-full flex items-center justify-between p-4 hover:bg-slate-800 transition text-left ${!activeContent ? "bg-slate-800/80" : ""}`}>
-                    <div className="flex items-center gap-3">
-                        <Trophy className="text-yellow-500 w-5 h-5 animate-pulse"/>
-                        <span className="font-bold text-yellow-400 text-sm">Final Exam & Certificate</span>
-                    </div>
-                  </button>
+                   ))}
+                   {currentProgress === 100 && (
+                      <div className="bg-[#12131a] rounded-2xl overflow-hidden border border-amber-500/35 shadow-sm mt-4 shrink-0 animate-fade-in">
+                        <button onClick={() => setActiveContent(null)} className={`w-full flex items-center justify-between p-4 hover:bg-[#181922] transition text-left ${!activeContent ? "bg-[#181922]" : ""}`}>
+                          <div className="flex items-center gap-3">
+                              <Trophy className="text-yellow-500 w-5 h-5 animate-pulse"/>
+                              <span className="font-bold text-yellow-400 text-sm">Final Exam & Certificate</span>
+                          </div>
+                        </button>
+                      </div>
+                   )}
+                </div>
+             )}
+
+             {sidebarTab === "summary" && (
+                <div className="space-y-4 h-full">
+                   {activeContent ? (
+                      summaryLoading ? (
+                        <div className="flex flex-col items-center justify-center py-20 text-center">
+                          <Loader className="animate-spin text-indigo-500 w-8 h-8 mb-3" />
+                          <p className="text-xs text-slate-400">Gemini is drafting study notes...</p>
+                        </div>
+                      ) : aiSummary ? (
+                        <div className="bg-[#12131a] p-5 rounded-2xl border border-[#222433] shadow-inner animate-fade-in space-y-3">
+                          <div className="flex justify-between items-center border-b border-[#222433] pb-2">
+                             <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">AI Study Guide</span>
+                             <span className="text-[10px] text-slate-400 font-semibold truncate max-w-[50%]">{activeContent.data.title}</span>
+                          </div>
+                          <div className="text-xs text-slate-300 whitespace-pre-line leading-relaxed font-medium">
+                            {aiSummary}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-16">
+                          <Brain className="w-12 h-12 text-slate-700 mx-auto mb-3 opacity-30 animate-pulse" />
+                          <p className="text-xs text-slate-400 mb-4 font-medium">Draft a conceptual study guide for this lesson.</p>
+                          <button 
+                            onClick={fetchAiSummary}
+                            className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-indigo-900/30"
+                          >
+                            Generate AI Summary
+                          </button>
+                        </div>
+                      )
+                   ) : (
+                      <div className="text-center py-16 text-slate-500 text-xs">
+                         Select a lesson to generate its study guide.
+                      </div>
+                   )}
+                </div>
+             )}
+
+             {sidebarTab === "notes" && (
+                <div className="h-full flex flex-col gap-3 animate-fade-in">
+                   {activeContent ? (
+                      <>
+                         <div className="flex justify-between items-center pl-1">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate max-w-[90%]">Lesson Notes ({activeContent.data.title})</span>
+                         </div>
+                         <textarea 
+                            value={studyNotes}
+                            onChange={(e) => handleNotesChange(e.target.value)}
+                            placeholder="Type notes for this lesson... Saved instantly."
+                            className="w-full flex-1 p-4 text-xs bg-[#12131a] border border-[#222433] focus:border-indigo-500 rounded-2xl outline-none text-slate-200 resize-none font-medium h-[calc(100vh-320px)] lg:h-full min-h-[250px]"
+                         />
+                      </>
+                   ) : (
+                      <div className="text-center py-16 text-slate-500 text-xs">
+                         Select a lesson to record your study notes.
+                      </div>
+                   )}
                 </div>
              )}
           </div>

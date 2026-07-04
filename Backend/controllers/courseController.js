@@ -129,20 +129,67 @@ export const requestDeleteCourse = async (req, res) => {
 
 export const addLecture = async (req, res) => {
   try {
-    const { title, links } = req.body;
+    const { title, links, videoDescriptions, resourceDescriptions, youtubeVideos } = req.body;
     const course = await Course.findById(req.params.id);
     if (!course) return res.status(404).json({ message: "Course not found" });
 
+    // Parse descriptions lists
+    let videoDescList = [];
+    if (videoDescriptions) {
+      try {
+        videoDescList = JSON.parse(videoDescriptions);
+      } catch (e) {
+        videoDescList = Array.isArray(videoDescriptions) ? videoDescriptions : [videoDescriptions];
+      }
+    }
+
+    let resourceDescList = [];
+    if (resourceDescriptions) {
+      try {
+        resourceDescList = JSON.parse(resourceDescriptions);
+      } catch (e) {
+        resourceDescList = Array.isArray(resourceDescriptions) ? resourceDescriptions : [resourceDescriptions];
+      }
+    }
+
     const videoList = [];
+    // Process YouTube Videos
+    if (youtubeVideos) {
+      try {
+        const ytList = JSON.parse(youtubeVideos);
+        ytList.forEach((yt) => {
+          videoList.push({
+            title: yt.title,
+            videoUrl: yt.url,
+            videoPublicId: "youtube",
+            description: yt.description || ""
+          });
+        });
+      } catch (e) {
+        console.error("Failed to parse youtubeVideos", e);
+      }
+    }
+
     if (req.files && req.files['videos']) {
-      req.files['videos'].forEach((file) => {
-        videoList.push({ title: file.originalname, videoUrl: file.path, videoPublicId: file.filename });
+      req.files['videos'].forEach((file, index) => {
+        videoList.push({ 
+          title: file.originalname, 
+          videoUrl: file.path, 
+          videoPublicId: file.filename,
+          description: videoDescList[index] || ""
+        });
       });
     }
     const resourceList = [];
     if (req.files && req.files['resources']) {
-      req.files['resources'].forEach((file) => {
-        resourceList.push({ title: file.originalname, url: file.path, publicId: file.filename, type: file.mimetype.split('/')[1] });
+      req.files['resources'].forEach((file, index) => {
+        resourceList.push({ 
+          title: file.originalname, 
+          url: file.path, 
+          publicId: file.filename, 
+          type: file.mimetype.split('/')[1],
+          description: resourceDescList[index] || ""
+        });
       });
     }
     let linkList = [];

@@ -232,3 +232,27 @@ export const verifyVoiceAnswer = async (req, res) => {
     res.status(500).json({ message: "Failed to evaluate answer." });
   }
 };
+
+export const generateSummary = async (req, res) => {
+  try {
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const { courseTitle, lectureTitle, description } = req.body;
+
+    const prompt = `You are a professional educational assistant. Provide a highly polished, detailed study summary of the lesson: "${lectureTitle}" in the course: "${courseTitle}".
+    Lesson Details/Description: ${description || "General conceptual guide"}
+
+    Return ONLY a raw JSON object (no markdown, no backticks):
+    {
+      "summary": "Your detailed summary here. Format with bullet points or numbered lists using newlines where appropriate."
+    }`;
+
+    const result = await generateWithFallback(genAI, prompt);
+    let responseText = await result.response.text();
+    let cleanText = responseText.replace(/```json/gi, "").replace(/```/g, "").trim();
+
+    res.status(200).json(JSON.parse(cleanText));
+  } catch (error) {
+    console.error("❌ Generate Summary Error:", error);
+    res.status(500).json({ message: "Failed to generate lesson summary." });
+  }
+};
