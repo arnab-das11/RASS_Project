@@ -8,7 +8,8 @@ import {
   getEnrolledCourses,
   markAsComplete,
   unenrollCourse,
-  passExam
+  passExam,
+  updateSkills
 } from '../controllers/userController.js';
 
 const router = express.Router();
@@ -25,5 +26,6 @@ router.get('/:id/enrolled', getEnrolledCourses); // To fetch courses for the das
 router.put('/progress', markAsComplete); // To save video progress
 router.post('/unenroll', unenrollCourse); // To remove a student from a course
 router.put('/pass-exam', passExam); // To save passed exam status
+router.put('/skills', updateSkills); // To update user skills
 
 export default router;

@@ -50,7 +50,25 @@ const LearnerDashboard = () => {
   const [finalExamSubmitting, setFinalExamSubmitting] = useState(false);
   const [finalExamResult, setFinalExamResult] = useState(null); // { score: number, passed: boolean }
 
+  // --- 💡 SKILLS & RECOMMENDATIONS STATE ---
+  const [userSkills, setUserSkills] = useState([]);
+  const [recommendations, setRecommendations] = useState([]);
+  const [recsLoading, setRecsLoading] = useState(false);
+  const [newSkillInput, setNewSkillInput] = useState("");
+
   // --- DATA FETCHING ---
+  const fetchRecommendations = async (userId) => {
+    setRecsLoading(true);
+    try {
+      const { data } = await axios.post('http://localhost:5000/api/ai/recommendations', { userId });
+      setRecommendations(data);
+    } catch (error) {
+      console.error("Failed to fetch recommendations", error);
+    } finally {
+      setRecsLoading(false);
+    }
+  };
+
   useEffect(() => {
     const fetchMyCourses = async () => {
       try {
@@ -72,6 +90,10 @@ const LearnerDashboard = () => {
             if (currentUser.passedExams) {
                 setPassedExams(currentUser.passedExams);
             }
+            if (currentUser.skills) {
+                setUserSkills(currentUser.skills);
+            }
+            fetchRecommendations(user._id);
         }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -81,6 +103,40 @@ const LearnerDashboard = () => {
     };
     fetchMyCourses();
   }, [navigate]);
+
+  const handleAddSkill = async (e) => {
+    e.preventDefault();
+    if (!newSkillInput.trim() || userSkills.includes(newSkillInput.trim())) return;
+    
+    const updatedSkills = [...userSkills, newSkillInput.trim()];
+    setUserSkills(updatedSkills);
+    setNewSkillInput("");
+    
+    try {
+      await axios.put('http://localhost:5000/api/users/skills', {
+        userId: userInfo._id,
+        skills: updatedSkills
+      });
+      fetchRecommendations(userInfo._id);
+    } catch (error) {
+      console.error("Failed to update skills", error);
+    }
+  };
+
+  const handleRemoveSkill = async (skillToRemove) => {
+    const updatedSkills = userSkills.filter(s => s !== skillToRemove);
+    setUserSkills(updatedSkills);
+    
+    try {
+      await axios.put('http://localhost:5000/api/users/skills', {
+        userId: userInfo._id,
+        skills: updatedSkills
+      });
+      fetchRecommendations(userInfo._id);
+    } catch (error) {
+      console.error("Failed to update skills", error);
+    }
+  };
 
   // --- HELPER FUNCTIONS ---
   const getCourseItems = (course) => {
@@ -1067,73 +1123,160 @@ const LearnerDashboard = () => {
           </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-8 -mt-8 relative z-10">
-          {enrolledCourses.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 bg-slate-900 rounded-3xl border border-slate-800 shadow-2xl">
-              <div className="bg-blue-500/10 p-6 rounded-full mb-6 border border-blue-500/20"><BookOpen className="w-16 h-16 text-blue-500" /></div>
-              <h2 className="text-3xl font-black mb-3 text-white">Your journey has not yet begun</h2>
-              <p className="text-slate-400 mb-8 text-center max-w-md font-medium text-lg">The Lands Between await. Discover new skills and begin your training.</p>
-              <Link to="/courses" className="px-10 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-xl font-black text-lg shadow-xl shadow-blue-900/30 transform hover:-translate-y-1 transition-all">Browse Courses</Link>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {enrolledCourses.map((course) => {
-                const prog = calculateProgress(course);
-                return (
-                <div key={course._id} className="bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 hover:border-blue-500/50 transition-all shadow-xl group flex flex-col">
-                  <div className="h-52 relative overflow-hidden bg-slate-950">
-                      <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-700 opacity-90 group-hover:opacity-100" />
-                      <button onClick={(e) => handleUnenroll(course._id, e)} className="absolute top-4 right-4 bg-slate-900/80 backdrop-blur-sm text-slate-300 hover:text-red-400 p-2.5 rounded-xl opacity-0 group-hover:opacity-100 transition-all border border-slate-700 hover:border-red-500/50" title="Drop Course">
-                         <Trash2 size={18}/>
-                      </button>
-                  </div>
-                  <div className="p-6 flex-1 flex flex-col">
-                      <h3 className="text-xl font-black text-white mb-2 line-clamp-2 leading-tight">{course.title}</h3>
-                      <div className="mb-6 mt-auto pt-6">
-                          <div className="flex justify-between text-xs text-slate-400 mb-2 font-bold uppercase tracking-wider">
-                              <span>Progress</span>
-                              <span className={prog === 100 ? "text-yellow-400" : "text-blue-400"}>{prog}%</span>
-                          </div>
-                          <div className="w-full bg-slate-800 rounded-full h-2 shadow-inner">
-                              <div className={`h-2 rounded-full transition-all duration-700 ${prog === 100 ? "bg-gradient-to-r from-yellow-500 to-amber-400 shadow-[0_0_10px_rgba(234,179,8,0.5)]" : "bg-gradient-to-r from-blue-600 to-sky-400"}`} style={{ width: `${prog}%` }}></div>
-                          </div>
+      <div className="max-w-7xl mx-auto px-8 -mt-8 relative z-10 flex flex-col lg:flex-row gap-8">
+          {/* Left Column: Enrolled Courses */}
+          <div className="flex-grow">
+              {enrolledCourses.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-24 bg-slate-900 rounded-3xl border border-slate-800 shadow-2xl">
+                  <div className="bg-blue-500/10 p-6 rounded-full mb-6 border border-blue-500/20"><BookOpen className="w-16 h-16 text-blue-500" /></div>
+                  <h2 className="text-3xl font-black mb-3 text-white">Your journey has not yet begun</h2>
+                  <p className="text-slate-400 mb-8 text-center max-w-md font-medium text-lg">The Lands Between await. Discover new skills and begin your training.</p>
+                  <Link to="/courses" className="px-10 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-xl font-black text-lg shadow-xl shadow-blue-900/30 transform hover:-translate-y-1 transition-all">Browse Courses</Link>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {enrolledCourses.map((course) => {
+                    const prog = calculateProgress(course);
+                    return (
+                    <div key={course._id} className="bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 hover:border-blue-500/50 transition-all shadow-xl group flex flex-col">
+                      <div className="h-52 relative overflow-hidden bg-slate-950">
+                          <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-700 opacity-90 group-hover:opacity-100" />
+                          <button onClick={(e) => handleUnenroll(course._id, e)} className="absolute top-4 right-4 bg-slate-900/80 backdrop-blur-sm text-slate-300 hover:text-red-400 p-2.5 rounded-xl opacity-0 group-hover:opacity-100 transition-all border border-slate-700 hover:border-red-500/50" title="Drop Course">
+                             <Trash2 size={18}/>
+                          </button>
                       </div>
-                      {prog === 100 ? (
-                        passedExams.includes(course._id) ? (
-                          <button 
-                            onClick={() => {
-                              setSelectedCourse(course);
-                              setCompletedCourseName(course.title);
-                              setShowTrophy(true);
-                            }} 
-                            className="w-full py-4 rounded-xl font-black transition-all flex items-center justify-center gap-2 shadow-lg transform hover:-translate-y-0.5 bg-gradient-to-r from-yellow-600 to-amber-500 hover:from-yellow-500 hover:to-amber-400 text-slate-900 font-bold"
-                          >
-                            <Trophy size={20}/> Claim Certificate
-                          </button>
-                        ) : (
-                          <button 
-                            onClick={() => {
-                              setSelectedCourse(course);
-                              fetchFinalExam(course);
-                            }} 
-                            className="w-full py-4 rounded-xl font-black transition-all flex items-center justify-center gap-2 shadow-lg transform hover:-translate-y-0.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold"
-                          >
-                            <Brain size={20}/> Take Final Exam
-                          </button>
-                        )
+                      <div className="p-6 flex-1 flex flex-col">
+                          <h3 className="text-xl font-black text-white mb-2 line-clamp-2 leading-tight">{course.title}</h3>
+                          <div className="mb-6 mt-auto pt-6">
+                              <div className="flex justify-between text-xs text-slate-400 mb-2 font-bold uppercase tracking-wider">
+                                  <span>Progress</span>
+                                  <span className={prog === 100 ? "text-yellow-400" : "text-blue-400"}>{prog}%</span>
+                              </div>
+                              <div className="w-full bg-slate-800 rounded-full h-2 shadow-inner">
+                                  <div className={`h-2 rounded-full transition-all duration-700 ${prog === 100 ? "bg-gradient-to-r from-yellow-500 to-amber-400 shadow-[0_0_10px_rgba(234,179,8,0.5)]" : "bg-gradient-to-r from-blue-600 to-sky-400"}`} style={{ width: `${prog}%` }}></div>
+                              </div>
+                          </div>
+                          {prog === 100 ? (
+                            passedExams.includes(course._id) ? (
+                              <button 
+                                onClick={() => {
+                                  setSelectedCourse(course);
+                                  setCompletedCourseName(course.title);
+                                  setShowTrophy(true);
+                                }} 
+                                className="w-full py-4 rounded-xl font-black transition-all flex items-center justify-center gap-2 shadow-lg transform hover:-translate-y-0.5 bg-gradient-to-r from-yellow-600 to-amber-500 hover:from-yellow-500 hover:to-amber-400 text-slate-900 font-bold"
+                              >
+                                <Trophy size={20}/> Claim Certificate
+                              </button>
+                            ) : (
+                              <button 
+                                onClick={() => {
+                                  setSelectedCourse(course);
+                                  fetchFinalExam(course);
+                                }} 
+                                className="w-full py-4 rounded-xl font-black transition-all flex items-center justify-center gap-2 shadow-lg transform hover:-translate-y-0.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold"
+                              >
+                                <Brain size={20}/> Take Final Exam
+                              </button>
+                            )
+                          ) : (
+                            <button 
+                              onClick={() => handleStartCourse(course)} 
+                              className="w-full py-4 rounded-xl font-black transition-all flex items-center justify-center gap-2 shadow-lg transform hover:-translate-y-0.5 bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/30"
+                            >
+                              <PlayCircle size={20} /> Resume Training
+                            </button>
+                          )}
+                      </div>
+                    </div>
+                  )})}
+                </div>
+              )}
+          </div>
+
+          {/* Right Column: Skills & AI Suggestions */}
+          <div className="w-full lg:w-80 shrink-0 space-y-8">
+              {/* Skills Card */}
+              <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 shadow-xl space-y-4">
+                  <h3 className="text-lg font-black text-white flex items-center gap-2">
+                     <Sparkles className="text-green-400 w-5 h-5"/>
+                     My Skills
+                  </h3>
+                  <p className="text-xs text-slate-400 font-medium">Add your expertise to get tailored course suggestions.</p>
+                  
+                  <form onSubmit={handleAddSkill} className="flex gap-2">
+                      <input 
+                          type="text" 
+                          placeholder="e.g. HTML"
+                          value={newSkillInput}
+                          onChange={(e) => setNewSkillInput(e.target.value)}
+                          className="flex-grow p-2 text-sm bg-slate-950 border border-slate-800 focus:border-green-500 rounded-lg outline-none text-slate-200"
+                      />
+                      <button type="submit" className="px-4 py-2 bg-green-500 hover:bg-green-400 text-slate-950 font-black rounded-lg text-sm transition">
+                          Add
+                      </button>
+                  </form>
+
+                  <div className="flex flex-wrap gap-2 pt-2">
+                      {userSkills.length === 0 ? (
+                          <span className="text-xs text-slate-500 italic">No skills added yet.</span>
                       ) : (
-                        <button 
-                          onClick={() => handleStartCourse(course)} 
-                          className="w-full py-4 rounded-xl font-black transition-all flex items-center justify-center gap-2 shadow-lg transform hover:-translate-y-0.5 bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/30"
-                        >
-                          <PlayCircle size={20} /> Resume Training
-                        </button>
+                          userSkills.map((skill, idx) => (
+                              <span key={idx} className="flex items-center gap-1 bg-slate-800 text-slate-300 text-xs font-bold px-2.5 py-1 rounded-full border border-slate-700">
+                                  {skill}
+                                  <button type="button" onClick={() => handleRemoveSkill(skill)} className="text-slate-500 hover:text-red-400 font-black">
+                                      ✕
+                                  </button>
+                              </span>
+                          ))
                       )}
                   </div>
-                </div>
-              )})}
-            </div>
-          )}
+              </div>
+
+              {/* AI Recommendations Card */}
+              <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 shadow-xl space-y-4">
+                  <h3 className="text-lg font-black text-white flex items-center gap-2">
+                     <Brain className="text-blue-400 w-5 h-5 animate-pulse"/>
+                     AI Suggestions
+                  </h3>
+                  
+                  {recsLoading ? (
+                      <div className="flex flex-col items-center justify-center py-8">
+                          <Loader className="animate-spin text-blue-500 w-8 h-8 mb-2"/>
+                          <p className="text-xs text-slate-500 font-medium">Consulting AI Advisor...</p>
+                      </div>
+                  ) : recommendations.length === 0 ? (
+                      <div className="text-center py-6 text-slate-500 text-xs italic">
+                          No recommendations available. Try adding more skills or enrolling in courses!
+                      </div>
+                  ) : (
+                      <div className="space-y-4">
+                          {recommendations.map((rec, idx) => (
+                              <div key={idx} className="bg-slate-950 p-4 rounded-2xl border border-slate-800/80 space-y-3 shadow-inner hover:border-blue-500/30 transition duration-300">
+                                  <div className="flex gap-3">
+                                      <img src={rec.course.thumbnail} alt={rec.course.title} className="w-12 h-12 object-cover rounded-lg border border-slate-800" />
+                                      <div className="flex-1 min-w-0">
+                                          <h4 className="text-xs font-black text-white truncate leading-snug">{rec.course.title}</h4>
+                                          <span className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded-full font-bold inline-block mt-1">
+                                              {rec.course.category}
+                                          </span>
+                                      </div>
+                                  </div>
+                                  <p className="text-[11px] text-slate-400 leading-relaxed bg-slate-900/50 p-2.5 rounded-xl border border-slate-800/50">
+                                      <strong>AI Reason:</strong> {rec.reason}
+                                  </p>
+                                  <button 
+                                      onClick={() => navigate(`/courses`)}
+                                      className="w-full py-2 bg-blue-600/10 hover:bg-blue-600 border border-blue-500/20 hover:border-transparent text-blue-400 hover:text-white font-bold rounded-lg text-xs transition"
+                                  >
+                                      View Course
+                                  </button>
+                              </div>
+                          ))}
+                      </div>
+                  )}
+              </div>
+          </div>
       </div>
     </div>
   );

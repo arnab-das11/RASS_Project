@@ -29,6 +29,7 @@ const userSchema = new mongoose.Schema({
     default: null 
   },
   passedExams: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Course' }],
+  skills: [{ type: String }],
   enrolledCourses: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Course' }]
 }, { timestamps: true });
 
