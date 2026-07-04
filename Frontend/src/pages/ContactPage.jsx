@@ -1,10 +1,59 @@
-import { Mail, Phone, MapPin } from "lucide-react";
+import { useState } from "react";
+import { Mail, Phone, MapPin, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import axios from "axios";
 import Footer from "../components/Footer";
 import Navbar from "../components/Navbar";
 
 const ContactPage = () => {
   const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    subject: "",
+    message: ""
+  });
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState(null); // { type: 'success' | 'error', text: '' }
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setStatus(null);
+
+    try {
+      const response = await axios.post("http://localhost:5000/api/contact", formData);
+      if (response.data.success) {
+        setStatus({
+          type: "success",
+          text: response.data.message || "Your message was sent successfully!"
+        });
+        setFormData({
+          name: "",
+          email: "",
+          subject: "",
+          message: ""
+        });
+      } else {
+        setStatus({
+          type: "error",
+          text: response.data.message || "Something went wrong. Please try again."
+        });
+      }
+    } catch (error) {
+      setStatus({
+        type: "error",
+        text: error.response?.data?.message || "Failed to send message. Please connect to the backend server."
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 relative">
@@ -29,31 +78,77 @@ const ContactPage = () => {
             <h2 className="text-2xl font-semibold mb-6 text-gray-800">
               Send a Message
             </h2>
-            <form className="flex flex-col gap-4">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <AnimatePresence>
+                {status && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className={`p-4 rounded-xl flex items-start gap-3 border ${
+                      status.type === "success"
+                        ? "bg-green-50/80 border-green-200 text-green-800 backdrop-blur-sm"
+                        : "bg-red-50/80 border-red-200 text-red-800 backdrop-blur-sm"
+                    }`}
+                  >
+                    {status.type === "success" ? (
+                      <CheckCircle className="text-green-600 mt-0.5 shrink-0" size={18} />
+                    ) : (
+                      <AlertCircle className="text-red-600 mt-0.5 shrink-0" size={18} />
+                    )}
+                    <div className="text-sm font-medium">{status.text}</div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <input
                 type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
                 placeholder="Full Name"
                 required
-                className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"/>
+                disabled={loading}
+                className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-55"/>
               <input
                 type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
                 placeholder="Email Address"
                 required
-                className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"/>
+                disabled={loading}
+                className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-55"/>
               <input
                 type="text"
+                name="subject"
+                value={formData.subject}
+                onChange={handleChange}
                 placeholder="Subject"
-                className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"/>
+                disabled={loading}
+                className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-55"/>
               <textarea
+                name="message"
+                value={formData.message}
+                onChange={handleChange}
                 placeholder="Your Message"
                 rows="5"
                 required
-                className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none">
+                disabled={loading}
+                className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none disabled:bg-gray-55">
               </textarea>
               <button
                 type="submit"
-                className="bg-blue-500 text-white py-2 rounded-full hover:bg-blue-600 transition-all">
-                Send Message
+                disabled={loading}
+                className="bg-blue-500 text-white py-2 rounded-full hover:bg-blue-600 transition-all font-medium flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed">
+                {loading ? (
+                  <>
+                    <Loader2 className="animate-spin" size={18} />
+                    Sending...
+                  </>
+                ) : (
+                  "Send Message"
+                )}
               </button>
             </form>
           </div>
@@ -68,7 +163,12 @@ const ContactPage = () => {
                 <Mail className="text-blue-600 mt-1" />
                 <div>
                   <h3 className="font-medium text-gray-700">Email</h3>
-                  <p className="text-gray-600">support@learnx.com</p>
+                  <a 
+                    href="mailto:jeetdasx23@gmail.com" 
+                    className="text-blue-600 hover:text-blue-800 hover:underline font-medium transition-all"
+                  >
+                    jeetdasx23@gmail.com
+                  </a>
                 </div>
               </div>
 
@@ -76,7 +176,12 @@ const ContactPage = () => {
                 <Phone className="text-blue-600 mt-1" />
                 <div>
                   <h3 className="font-medium text-gray-700">Phone</h3>
-                  <p className="text-gray-600">+91 1234567890</p>
+                  <a 
+                    href="tel:7479106468" 
+                    className="text-blue-600 hover:text-blue-800 hover:underline font-medium transition-all"
+                  >
+                    +91 7479106468
+                  </a>
                 </div>
               </div>
 
