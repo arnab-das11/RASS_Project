@@ -1,5 +1,5 @@
 import express from 'express';
-import { generateQuiz, generateFinalExam, getRecommendations } from '../controllers/aiController.js';
+import { generateQuiz, generateFinalExam, getRecommendations, generateVoiceQuestion, verifyVoiceAnswer } from '../controllers/aiController.js';
 
 const router = express.Router();
 
@@ -7,5 +7,7 @@ const router = express.Router();
 router.post('/generate-quiz', generateQuiz);
 router.post('/generate-final-exam', generateFinalExam);
 router.post('/recommendations', getRecommendations);
+router.post('/generate-voice-question', generateVoiceQuestion);
+router.post('/verify-voice-answer', verifyVoiceAnswer);
 
 export default router;

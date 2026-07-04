@@ -173,3 +173,61 @@ export const getRecommendations = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch AI course recommendations." });
   }
 };
+
+export const generateVoiceQuestion = async (req, res) => {
+  try {
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const { courseTitle, lectureTitle, courseDescription } = req.body;
+
+    const prompt = `You are a university professor. We are checking the mastery of a student for the lesson: "${lectureTitle}" in the course: "${courseTitle}".
+    Course Description: ${courseDescription}
+
+    Create exactly one (1) open-ended conceptual question to test if they understood this lesson. 
+    The question should require a short explanatory answer (1-3 sentences) rather than a simple yes/no.
+    
+    Return ONLY a raw JSON object (no markdown, no backticks):
+    {
+      "question": "The question text"
+    }`;
+
+    const result = await generateWithFallback(genAI, prompt);
+    let responseText = await result.response.text();
+    let cleanText = responseText.replace(/```json/gi, "").replace(/```/g, "").trim();
+
+    res.status(200).json(JSON.parse(cleanText));
+  } catch (error) {
+    console.error("❌ Generate Voice Question Error:", error);
+    res.status(500).json({ message: "Failed to generate conceptual question." });
+  }
+};
+
+export const verifyVoiceAnswer = async (req, res) => {
+  try {
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const { question, answer, courseTitle, lectureTitle } = req.body;
+
+    const prompt = `You are a university professor grading an oral exam answer.
+    Lesson Context: "${lectureTitle}" in course "${courseTitle}".
+    Question: "${question}"
+    Student's Answer: "${answer}"
+
+    Grade the student's answer. It must be conceptually correct and demonstrate a basic understanding of the question. 
+    It doesn't need to be perfect, but must contain key elements.
+    If the response is empty or nonsensical, it must fail.
+
+    Return ONLY a raw JSON object (no markdown, no backticks):
+    {
+      "passed": true or false,
+      "feedback": "A short (1-2 sentences) constructive message explaining why they passed or what key information they missed."
+    }`;
+
+    const result = await generateWithFallback(genAI, prompt);
+    let responseText = await result.response.text();
+    let cleanText = responseText.replace(/```json/gi, "").replace(/```/g, "").trim();
+
+    res.status(200).json(JSON.parse(cleanText));
+  } catch (error) {
+    console.error("❌ Verify Voice Answer Error:", error);
+    res.status(500).json({ message: "Failed to evaluate answer." });
+  }
+};

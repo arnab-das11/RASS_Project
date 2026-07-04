@@ -31,12 +31,14 @@ const LearnerDashboard = () => {
   const [completedCourseName, setCompletedCourseName] = useState("");
   const [isGeneratingCert, setIsGeneratingCert] = useState(false);
 
-  // --- 🧠 AI QUIZ STATE ---
-  const [showQuizModal, setShowQuizModal] = useState(false);
-  const [quizData, setQuizData] = useState(null);
-  const [quizLoading, setQuizLoading] = useState(false);
-  const [quizSelectedOption, setQuizSelectedOption] = useState("");
-  const [quizResult, setQuizResult] = useState(null); // 'correct', 'incorrect', null
+  // --- 🎙️ AI VOICE ORAL ASSESSMENT STATE ---
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [voiceQuestion, setVoiceQuestion] = useState("");
+  const [voiceAnswer, setVoiceAnswer] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const [voiceFeedback, setVoiceFeedback] = useState("");
+  const [voicePassed, setVoicePassed] = useState(null); // true, false, null
+  const [voiceLoading, setVoiceLoading] = useState(false);
   const [pendingCompletionId, setPendingCompletionId] = useState(null);
 
   // --- 🎓 FINAL EXAM STATE ---
@@ -138,6 +140,54 @@ const LearnerDashboard = () => {
     }
   };
 
+  // --- 🎙️ SPEECH RECOGNITION API INTEGRATION ---
+  const recognitionRef = React.useRef(null);
+
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const rec = new SpeechRecognition();
+      rec.continuous = true;
+      rec.interimResults = false;
+      rec.lang = 'en-US';
+
+      rec.onresult = (event) => {
+        const transcript = event.results[event.results.length - 1][0].transcript;
+        setVoiceAnswer(prev => prev ? prev + " " + transcript : transcript);
+      };
+
+      rec.onend = () => {
+        setIsListening(false);
+      };
+
+      rec.onerror = (e) => {
+        console.error("Speech Recognition Error:", e);
+        setIsListening(false);
+      };
+
+      recognitionRef.current = rec;
+    }
+  }, []);
+
+  const handleToggleListening = () => {
+    if (!recognitionRef.current) {
+      alert("Speech recognition is not supported in this browser. Please type your response instead.");
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+      } catch (err) {
+        console.error("Failed to start Speech Recognition:", err);
+      }
+    }
+  };
+
   // --- HELPER FUNCTIONS ---
   const getCourseItems = (course) => {
     const items = [];
@@ -236,14 +286,14 @@ const LearnerDashboard = () => {
     return totalItems === 0 ? 0 : Math.round((finishedItems / totalItems) * 100);
   };
 
-  // --- 🧠 AI QUIZ LOGIC INTERCEPTOR ---
+  // --- 🎙️ AI VOICE ORAL ASSESSMENT LOGIC ---
   const handleToggleComplete = async () => {
     if (!activeContent || !activeContent.data._id) return;
     
     const contentId = activeContent.data._id;
     const isCurrentlyDone = completedItems.includes(contentId);
     
-    // IF UNMARKING: Do it directly without a quiz
+    // IF UNMARKING: Do it directly without a quiz/assessment
     if (isCurrentlyDone) {
         setProgressLoading(true);
         const newCompletedList = completedItems.filter(id => id !== contentId);
@@ -258,27 +308,59 @@ const LearnerDashboard = () => {
         return;
     }
 
-    // IF MARKING DONE: Trigger the AI Quiz
+    // IF MARKING DONE: Trigger the AI Voice Assessment
     setPendingCompletionId(contentId);
-    setShowQuizModal(true);
-    setQuizLoading(true);
-    setQuizData(null);
-    setQuizResult(null);
-    setQuizSelectedOption("");
+    setShowVoiceModal(true);
+    setVoiceLoading(true);
+    setVoiceQuestion("");
+    setVoiceAnswer("");
+    setVoiceFeedback("");
+    setVoicePassed(null);
 
     try {
-        const response = await axios.post('http://localhost:5000/api/ai/generate-quiz', {
+        const response = await axios.post('http://localhost:5000/api/ai/generate-voice-question', {
             courseTitle: selectedCourse.title,
-            lectureTitle: activeContent.data.title
+            lectureTitle: activeContent.data.title,
+            courseDescription: selectedCourse.description
         });
-        setQuizData(response.data);
+        setVoiceQuestion(response.data.question);
     } catch (error) {
-        console.error("AI Quiz failed to load, skipping...", error);
+        console.error("AI voice question failed to load, skipping...", error);
         // Fallback: If AI fails, let them complete the video anyway so they don't get stuck
         executeCompletion(contentId);
-        setShowQuizModal(false);
+        setShowVoiceModal(false);
     } finally {
-        setQuizLoading(false);
+        setVoiceLoading(false);
+    }
+  };
+
+  const handleVerifyVoiceAnswer = async () => {
+    if (!voiceAnswer.trim()) {
+      alert("Please record or type an answer first.");
+      return;
+    }
+
+    setVoiceLoading(true);
+    try {
+      const response = await axios.post('http://localhost:5000/api/ai/verify-voice-answer', {
+        question: voiceQuestion,
+        answer: voiceAnswer,
+        courseTitle: selectedCourse.title,
+        lectureTitle: activeContent.data.title
+      });
+
+      const result = response.data;
+      setVoiceFeedback(result.feedback);
+      setVoicePassed(result.passed);
+
+      if (result.passed) {
+        executeCompletion(pendingCompletionId);
+      }
+    } catch (error) {
+      console.error("Grading failed", error);
+      alert("Failed to grade response. Please try again.");
+    } finally {
+      setVoiceLoading(false);
     }
   };
 
@@ -593,88 +675,112 @@ const LearnerDashboard = () => {
     return (
       <div className="flex flex-col lg:flex-row min-h-screen bg-slate-950 text-slate-200 relative">
         
-        {/* 🧠 NEW: AI QUIZ MODAL */}
-        {showQuizModal && (
+        {/* 🎙️ NEW: AI VOICE ORAL ASSESSMENT MODAL */}
+        {showVoiceModal && (
             <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
                 <div className="bg-gradient-to-b from-slate-900 to-slate-950 p-8 rounded-3xl border border-blue-500/30 shadow-2xl shadow-blue-500/20 max-w-xl w-full">
                     
-                    {quizLoading ? (
+                    {voiceLoading ? (
                         <div className="flex flex-col items-center justify-center py-12">
                             <div className="relative mb-6">
                                 <Brain className="w-16 h-16 text-blue-500 animate-pulse" />
                                 <Sparkles className="w-6 h-6 text-yellow-400 absolute -top-2 -right-2 animate-spin-slow" />
                             </div>
-                            <h3 className="text-xl font-bold text-white mb-2">Gemini is analyzing the lecture...</h3>
-                            <p className="text-slate-400 text-sm">Generating a custom knowledge check.</p>
+                            <h3 className="text-xl font-bold text-white mb-2">Gemini is processing...</h3>
+                            <p className="text-slate-400 text-sm">Formulating check or grading your oral response.</p>
                         </div>
-                    ) : quizData ? (
-                        <div className="animate-fade-in">
-                            <div className="flex items-center gap-3 mb-6 border-b border-slate-800 pb-4">
+                    ) : voiceQuestion ? (
+                        <div className="animate-fade-in space-y-6">
+                            <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
                                 <div className="p-2 bg-blue-500/10 rounded-xl border border-blue-500/30">
                                     <Brain className="text-blue-400 w-6 h-6" />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-black text-white">AI Knowledge Check</h3>
-                                    <p className="text-xs text-blue-400 font-bold uppercase tracking-wider">Pass to Complete Lesson</p>
+                                    <h3 className="text-xl font-black text-white">Oral Concept Check</h3>
+                                    <p className="text-xs text-blue-400 font-bold uppercase tracking-wider">Explain verbally or type your answer</p>
                                 </div>
                             </div>
 
-                            <p className="text-lg font-medium text-slate-200 mb-6 leading-relaxed">
-                                {quizData.question}
-                            </p>
-
-                            <div className="space-y-3 mb-6">
-                                {quizData.options.map((option, idx) => (
-                                    <button
-                                        key={idx}
-                                        onClick={() => {
-                                            setQuizSelectedOption(option);
-                                            setQuizResult(null); // Reset result if they change answer
-                                        }}
-                                        disabled={quizResult === 'correct'}
-                                        className={`w-full text-left p-4 rounded-xl border transition-all ${
-                                            quizSelectedOption === option 
-                                                ? 'bg-blue-600/20 border-blue-500 text-blue-100' 
-                                                : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-slate-500'
-                                        } ${
-                                            quizResult === 'correct' && option === quizData.correctAnswer ? 'bg-green-500/20 border-green-500 text-green-100' : ''
-                                        }`}
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <span>{option}</span>
-                                            {quizSelectedOption === option && quizResult !== 'correct' && <div className="w-3 h-3 bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.8)]"></div>}
-                                            {quizResult === 'correct' && option === quizData.correctAnswer && <CheckCircle className="text-green-500 w-5 h-5" />}
-                                        </div>
-                                    </button>
-                                ))}
+                            <div className="bg-slate-950/60 p-5 rounded-2xl border border-slate-800 shadow-inner">
+                                <span className="text-[10px] text-blue-400 font-bold uppercase tracking-wider block mb-1">Conceptual Question</span>
+                                <p className="text-base font-semibold text-slate-200 leading-relaxed">
+                                    {voiceQuestion}
+                                </p>
                             </div>
 
-                            {quizResult === 'incorrect' && (
-                                <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex items-start gap-3 animate-fade-in">
-                                    <XCircle className="text-red-400 w-5 h-5 mt-0.5 flex-shrink-0" />
+                            {/* Speech Input & Textarea */}
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs text-slate-400 font-bold uppercase tracking-wider pl-1">Your Explanation</span>
+                                    <button 
+                                        type="button"
+                                        onClick={handleToggleListening}
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all ${
+                                            isListening 
+                                                ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse shadow-lg shadow-red-500/30' 
+                                                : 'bg-blue-600/10 hover:bg-blue-600 border border-blue-500/20 text-blue-400 hover:text-white'
+                                        }`}
+                                    >
+                                        <span className={`w-2 h-2 rounded-full ${isListening ? 'bg-white animate-ping' : 'bg-blue-400'}`}></span>
+                                        {isListening ? "Listening... (Click to stop)" : "Speak Answer (Mic)"}
+                                    </button>
+                                </div>
+
+                                <textarea 
+                                    value={voiceAnswer}
+                                    onChange={(e) => setVoiceAnswer(e.target.value)}
+                                    placeholder="Type your answer here or click 'Speak Answer' to describe it verbally..."
+                                    rows={4}
+                                    disabled={voicePassed === true}
+                                    className="w-full p-4 text-sm bg-slate-950 border border-slate-800 focus:border-blue-500 rounded-xl outline-none text-slate-200 resize-none"
+                                />
+                            </div>
+
+                            {/* Feedback Box */}
+                            {voicePassed !== null && (
+                                <div className={`p-4 border rounded-xl flex items-start gap-3 animate-fade-in ${
+                                    voicePassed 
+                                        ? 'bg-green-500/10 border-green-500/30' 
+                                        : 'bg-red-500/10 border-red-500/30'
+                                }`}>
+                                    {voicePassed ? (
+                                        <CheckCircle className="text-green-400 w-5 h-5 mt-0.5 flex-shrink-0" />
+                                    ) : (
+                                        <XCircle className="text-red-400 w-5 h-5 mt-0.5 flex-shrink-0" />
+                                    )}
                                     <div>
-                                        <p className="text-sm font-bold text-red-400 mb-1">Incorrect. Try again!</p>
-                                        <p className="text-sm text-slate-300"><strong>Hint:</strong> {quizData.hint}</p>
+                                        <p className={`text-sm font-bold mb-1 ${voicePassed ? 'text-green-400' : 'text-red-400'}`}>
+                                            {voicePassed ? 'Passed! Excellent Explanation.' : 'Review Suggestion & Try Again'}
+                                        </p>
+                                        <p className="text-xs text-slate-300 leading-relaxed font-medium">{voiceFeedback}</p>
                                     </div>
                                 </div>
                             )}
 
                             <div className="flex gap-3">
-                                <button onClick={() => setShowQuizModal(false)} className="px-6 py-3 rounded-xl font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition flex-1">
-                                    Cancel
+                                <button 
+                                    onClick={() => {
+                                        if (isListening && recognitionRef.current) {
+                                            recognitionRef.current.stop();
+                                        }
+                                        setShowVoiceModal(false);
+                                    }} 
+                                    className="px-6 py-3.5 rounded-xl font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition flex-1 border border-transparent hover:border-slate-700"
+                                >
+                                    Close
                                 </button>
                                 <button 
-                                    onClick={handleQuizSubmit}
-                                    disabled={!quizSelectedOption || quizResult === 'correct'}
-                                    className={`px-6 py-3 rounded-xl font-black transition shadow-lg flex-1 ${
-                                        quizResult === 'correct' 
-                                            ? 'bg-green-600 text-white shadow-green-900/50' 
-                                            : !quizSelectedOption 
+                                    onClick={voicePassed ? () => setShowVoiceModal(false) : handleVerifyVoiceAnswer}
+                                    disabled={!voiceAnswer.trim()}
+                                    className={`px-6 py-3.5 rounded-xl font-black transition shadow-lg flex-1 ${
+                                        voicePassed 
+                                            ? 'bg-green-600 hover:bg-green-500 text-white shadow-green-900/50' 
+                                            : !voiceAnswer.trim()
                                                 ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
                                                 : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/30'
                                     }`}
                                 >
-                                    {quizResult === 'correct' ? 'Lesson Completed!' : 'Submit Answer'}
+                                    {voicePassed ? 'Close & Continue' : 'Evaluate Answer'}
                                 </button>
                             </div>
                         </div>
