@@ -30,12 +30,21 @@ const InstructorCoursePage = () => {
   // --- Step 2: Section Content State ---
   const [sectionTitle, setSectionTitle] = useState("");
   const [videoFiles, setVideoFiles] = useState([]); 
+  const [videoDescs, setVideoDescs] = useState({}); // New description state mapping idx -> string
   const [resourceFiles, setResourceFiles] = useState([]); 
+  const [resourceDescs, setResourceDescs] = useState({}); // New description state mapping idx -> string
   const [links, setLinks] = useState([]); 
   
   // Temp Link Input State
   const [tempLinkTitle, setTempLinkTitle] = useState("");
   const [tempLinkUrl, setTempLinkUrl] = useState("");
+  const [tempLinkDesc, setTempLinkDesc] = useState("");
+
+  // Temp YouTube Video State
+  const [youtubeVideos, setYoutubeVideos] = useState([]);
+  const [tempYtTitle, setTempYtTitle] = useState("");
+  const [tempYtUrl, setTempYtUrl] = useState("");
+  const [tempYtDesc, setTempYtDesc] = useState("");
 
   // Upload & UI State
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -113,16 +122,26 @@ const InstructorCoursePage = () => {
   
   const addLink = () => {
     if (tempLinkTitle && tempLinkUrl) {
-      setLinks([...links, { title: tempLinkTitle, url: tempLinkUrl }]);
-      setTempLinkTitle(""); setTempLinkUrl("");
+      setLinks([...links, { title: tempLinkTitle, url: tempLinkUrl, description: tempLinkDesc }]);
+      setTempLinkTitle(""); setTempLinkUrl(""); setTempLinkDesc("");
     }
   };
   const removeLink = (index) => setLinks(links.filter((_, i) => i !== index));
 
+  const addYoutubeVideo = () => {
+    if (tempYtTitle && tempYtUrl) {
+      setYoutubeVideos([...youtubeVideos, { title: tempYtTitle, url: tempYtUrl, description: tempYtDesc }]);
+      setTempYtTitle(""); setTempYtUrl(""); setTempYtDesc("");
+    }
+  };
+  const removeYoutubeVideo = (index) => setYoutubeVideos(youtubeVideos.filter((_, i) => i !== index));
+
   const handleAddSection = async (e) => {
     e.preventDefault();
     if (!createdCourseId) return alert("Course ID missing.");
-    if (videoFiles.length === 0 && resourceFiles.length === 0 && links.length === 0) return alert("Add content first.");
+    if (videoFiles.length === 0 && resourceFiles.length === 0 && links.length === 0 && youtubeVideos.length === 0) {
+      return alert("Add content first.");
+    }
 
     setIsUploading(true);
     setUploadProgress(0); 
@@ -132,6 +151,13 @@ const InstructorCoursePage = () => {
     videoFiles.forEach((file) => formData.append("videos", file));
     resourceFiles.forEach((file) => formData.append("resources", file));
     formData.append("links", JSON.stringify(links));
+    formData.append("youtubeVideos", JSON.stringify(youtubeVideos));
+
+    // Map description objects to match files indexes
+    const videoDescArray = videoFiles.map((_, idx) => videoDescs[idx] || "");
+    const resourceDescArray = resourceFiles.map((_, idx) => resourceDescs[idx] || "");
+    formData.append("videoDescriptions", JSON.stringify(videoDescArray));
+    formData.append("resourceDescriptions", JSON.stringify(resourceDescArray));
 
     try {
       await axios.post(`http://localhost:5000/api/courses/${createdCourseId}/lectures`, formData, {
@@ -145,13 +171,23 @@ const InstructorCoursePage = () => {
       // Update local syllabus preview
       setAddedSections([...addedSections, { 
           title: sectionTitle, 
-          videos: videoFiles.length, 
+          videos: videoFiles.length + youtubeVideos.length, 
           resources: resourceFiles.length, 
           links: links.length 
       }]);
 
       // Reset form
-      setSectionTitle(""); setVideoFiles([]); setResourceFiles([]); setLinks([]);
+      setSectionTitle(""); 
+      setVideoFiles([]); 
+      setResourceFiles([]); 
+      setLinks([]);
+      setVideoDescs({});
+      setResourceDescs({});
+      setTempLinkDesc("");
+      setYoutubeVideos([]);
+      setTempYtTitle("");
+      setTempYtUrl("");
+      setTempYtDesc("");
     } catch (error) {
       console.error(error);
       alert("Failed to upload. Check file sizes or connection.");
@@ -385,13 +421,72 @@ const InstructorCoursePage = () => {
                                 <p className="text-sm text-slate-400 font-bold">Select Video Files</p>
                                 <input type="file" accept="video/*" multiple onChange={handleVideoSelect} className="absolute inset-0 opacity-0 cursor-pointer"/>
                             </div>
-                            <div className="mt-4 space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+                            <div className="mt-4 space-y-3 max-h-56 overflow-y-auto custom-scrollbar pr-2">
                                 {videoFiles.map((file, i) => (
-                                    <div key={i} className="flex justify-between items-center bg-[#112240] p-3 rounded-lg border border-blue-900/30 shadow-sm">
-                                        <span className="text-xs font-bold text-sky-300 truncate max-w-[80%] flex items-center gap-2"><Check size={12}/> {file.name}</span>
-                                        <button type="button" onClick={() => removeVideo(i)} className="text-red-400 hover:text-red-300 bg-red-400/10 p-1.5 rounded"><Trash2 size={14}/></button>
+                                    <div key={i} className="flex flex-col bg-[#112240] p-3 rounded-lg border border-blue-900/30 shadow-sm gap-2">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-xs font-bold text-sky-300 truncate max-w-[80%] flex items-center gap-2"><Check size={12}/> {file.name}</span>
+                                            <button type="button" onClick={() => removeVideo(i)} className="text-red-400 hover:text-red-300 bg-red-400/10 p-1.5 rounded"><Trash2 size={14}/></button>
+                                        </div>
+                                        <input 
+                                            type="text" 
+                                            placeholder="Video description / lesson notes..." 
+                                            value={videoDescs[i] || ""} 
+                                            onChange={(e) => setVideoDescs({...videoDescs, [i]: e.target.value})}
+                                            className="w-full p-2 bg-[#0a192f] border border-blue-800/40 rounded text-xs text-white placeholder-slate-600 outline-none"
+                                        />
                                     </div>
                                 ))}
+                                {youtubeVideos.map((yt, i) => (
+                                    <div key={`yt-${i}`} className="flex flex-col bg-red-950/20 border border-red-900/30 p-3 rounded-lg shadow-sm gap-2 animate-fade-in">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-xs font-bold text-red-400 truncate max-w-[80%] flex items-center gap-2">
+                                                🔴 [YouTube] {yt.title}
+                                            </span>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => removeYoutubeVideo(i)} 
+                                                className="text-red-400 hover:text-red-300 bg-red-400/10 p-1.5 rounded"
+                                            >
+                                                <Trash2 size={14}/>
+                                            </button>
+                                        </div>
+                                        <span className="text-[10px] text-slate-500 italic truncate block">{yt.url}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="mt-4 pt-4 border-t border-blue-900/50 space-y-3">
+                                <span className="text-xs font-bold text-slate-400 block">Or Embed YouTube Video</span>
+                                <div className="flex flex-col gap-2">
+                                    <input 
+                                        type="text" 
+                                        placeholder="YouTube Video Title" 
+                                        value={tempYtTitle} 
+                                        onChange={(e) => setTempYtTitle(e.target.value)}
+                                        className="w-full p-2 text-xs bg-[#112240] border border-blue-800/40 rounded text-white outline-none"
+                                    />
+                                    <input 
+                                        type="url" 
+                                        placeholder="YouTube Video URL (watch or share link)" 
+                                        value={tempYtUrl} 
+                                        onChange={(e) => setTempYtUrl(e.target.value)}
+                                        className="w-full p-2 text-xs bg-[#112240] border border-blue-800/40 rounded text-white outline-none"
+                                    />
+                                    <input 
+                                        type="text" 
+                                        placeholder="Description / notes..." 
+                                        value={tempYtDesc} 
+                                        onChange={(e) => setTempYtDesc(e.target.value)}
+                                        className="w-full p-2 text-xs bg-[#112240] border border-blue-800/40 rounded text-white outline-none"
+                                    />
+                                    <button 
+                                        type="button" 
+                                        onClick={addYoutubeVideo}
+                                        className="w-full py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-lg transition"
+                                    >
+                                        Add YouTube Video
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -404,11 +499,20 @@ const InstructorCoursePage = () => {
                                 {/* NEW: Expanded Accept attribute to handle Excel, PPT, etc. */}
                                 <input type="file" accept=".pdf,.doc,.docx,.bib,.txt,.xls,.xlsx,.csv,.ppt,.pptx,.zip" multiple onChange={handleResourceSelect} className="absolute inset-0 opacity-0 cursor-pointer"/>
                             </div>
-                            <div className="mt-4 space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+                            <div className="mt-4 space-y-3 max-h-56 overflow-y-auto custom-scrollbar pr-2">
                                 {resourceFiles.map((file, i) => (
-                                    <div key={i} className="flex justify-between items-center bg-[#112240] p-3 rounded-lg border border-blue-900/30 shadow-sm">
-                                        <span className="text-xs font-bold text-emerald-400 truncate max-w-[80%] flex items-center gap-2"><Check size={12}/> {file.name}</span>
-                                        <button type="button" onClick={() => removeResource(i)} className="text-red-400 hover:text-red-300 bg-red-400/10 p-1.5 rounded"><Trash2 size={14}/></button>
+                                    <div key={i} className="flex flex-col bg-[#112240] p-3 rounded-lg border border-blue-900/30 shadow-sm gap-2">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-xs font-bold text-emerald-400 truncate max-w-[80%] flex items-center gap-2"><Check size={12}/> {file.name}</span>
+                                            <button type="button" onClick={() => removeResource(i)} className="text-red-400 hover:text-red-300 bg-red-400/10 p-1.5 rounded"><Trash2 size={14}/></button>
+                                        </div>
+                                        <input 
+                                            type="text" 
+                                            placeholder="Document description / reading guide..." 
+                                            value={resourceDescs[i] || ""} 
+                                            onChange={(e) => setResourceDescs({...resourceDescs, [i]: e.target.value})}
+                                            className="w-full p-2 bg-[#0a192f] border border-blue-800/40 rounded text-xs text-white placeholder-slate-600 outline-none"
+                                        />
                                     </div>
                                 ))}
                             </div>
@@ -418,12 +522,18 @@ const InstructorCoursePage = () => {
                     {/* --- LINKS --- */}
                     <div className="border border-blue-800/40 rounded-2xl p-5 bg-[#0a192f]/60">
                         <h3 className="text-sm font-black text-purple-300 mb-4 flex items-center gap-2 uppercase tracking-wide"><LinkIcon size={16}/> Web Links & References</h3>
-                        <div className="flex flex-col sm:flex-row gap-3 mb-4">
-                            <input type="text" placeholder="Title (e.g. Official React Docs)" value={tempLinkTitle} onChange={(e)=>setTempLinkTitle(e.target.value)} 
-                                className="w-full sm:w-1/3 p-3 rounded-xl bg-[#112240] border border-blue-800/60 text-sm text-white focus:border-purple-500 outline-none font-medium"/>
-                            <input type="url" placeholder="https://..." value={tempLinkUrl} onChange={(e)=>setTempLinkUrl(e.target.value)} 
-                                className="flex-1 p-3 rounded-xl bg-[#112240] border border-blue-800/60 text-sm text-white focus:border-purple-500 outline-none font-medium"/>
-                            <button type="button" onClick={addLink} className="bg-purple-600 hover:bg-purple-500 px-6 py-3 rounded-xl text-white text-sm font-bold shadow-lg shadow-purple-900/30 transition">Add Link</button>
+                        <div className="flex flex-col gap-3 mb-4">
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                <input type="text" placeholder="Title (e.g. Official React Docs)" value={tempLinkTitle} onChange={(e)=>setTempLinkTitle(e.target.value)} 
+                                    className="w-full sm:w-1/3 p-3 rounded-xl bg-[#112240] border border-blue-800/60 text-sm text-white focus:border-purple-500 outline-none font-medium"/>
+                                <input type="url" placeholder="https://..." value={tempLinkUrl} onChange={(e)=>setTempLinkUrl(e.target.value)} 
+                                    className="flex-1 p-3 rounded-xl bg-[#112240] border border-blue-800/60 text-sm text-white focus:border-purple-500 outline-none font-medium"/>
+                            </div>
+                            <div className="flex gap-3">
+                                <input type="text" placeholder="Link description / article summary snippet..." value={tempLinkDesc} onChange={(e)=>setTempLinkDesc(e.target.value)} 
+                                    className="flex-1 p-3 rounded-xl bg-[#112240] border border-blue-800/60 text-sm text-white focus:border-purple-500 outline-none font-medium"/>
+                                <button type="button" onClick={addLink} className="bg-purple-600 hover:bg-purple-500 px-6 py-3 rounded-xl text-white text-sm font-bold shadow-lg shadow-purple-900/30 transition whitespace-nowrap">Add Link</button>
+                            </div>
                         </div>
                         <div className="space-y-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {links.map((link, i) => (

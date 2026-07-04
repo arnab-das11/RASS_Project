@@ -14,7 +14,7 @@ const generateToken = (id) => {
 
 export const registerUser = async (req, res) => {
   try {
-    const { name, email, password, role, iid } = req.body;
+    const { name, email, password, role, iid, skills } = req.body;
 
     if (!password) {
       return res.status(400).json({ message: 'Password is required for manual registration' });
@@ -37,7 +37,8 @@ export const registerUser = async (req, res) => {
       password: hashedPassword,
       role, 
       instructorId: iid || null,
-      profilePicture: dynamicAvatar // Saved to DB
+      profilePicture: dynamicAvatar,
+      skills: skills || []
     });
 
     if (user) {
@@ -189,6 +190,39 @@ export const unenrollCourse = async (req, res) => {
     user.enrolledCourses = user.enrolledCourses.filter(id => id.toString() !== courseId);
     await user.save();
     res.status(200).json({ message: 'User unenrolled successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const passExam = async (req, res) => {
+  try {
+    const { userId, courseId } = req.body;
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (!user.passedExams) {
+      user.passedExams = [];
+    }
+    if (!user.passedExams.includes(courseId)) {
+      user.passedExams.push(courseId);
+      await user.save();
+    }
+    res.status(200).json({ message: 'Exam passed successfully', passedExams: user.passedExams });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const updateSkills = async (req, res) => {
+  try {
+    const { userId, skills } = req.body;
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.skills = skills || [];
+    await user.save();
+    res.status(200).json({ message: 'Skills updated successfully', skills: user.skills });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
