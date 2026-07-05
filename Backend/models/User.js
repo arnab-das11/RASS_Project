@@ -30,7 +30,13 @@ const userSchema = new mongoose.Schema({
   },
   passedExams: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Course' }],
   skills: [{ type: String }],
-  enrolledCourses: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Course' }]
+  enrolledCourses: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Course' }],
+  
+  // --- GAMIFICATION FIELDS ---
+  xp: { type: Number, default: 0 },
+  streak: { type: Number, default: 0 },
+  lastActiveDate: { type: String, default: "" },
+  badges: [{ type: String }]
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);

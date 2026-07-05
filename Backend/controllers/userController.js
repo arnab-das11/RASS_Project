@@ -12,6 +12,50 @@ const generateToken = (id) => {
   });
 };
 
+const updateGamification = async (user, xpEarned, source = "") => {
+  if (!user) return;
+
+  user.xp = (user.xp || 0) + xpEarned;
+
+  const today = new Date().toISOString().split('T')[0];
+  if (user.lastActiveDate !== today) {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+    if (user.lastActiveDate === yesterdayStr) {
+      user.streak = (user.streak || 0) + 1;
+    } else {
+      user.streak = 1;
+    }
+    user.lastActiveDate = today;
+  }
+
+  if (!user.badges) user.badges = [];
+
+  if (user.xp > 0 && !user.badges.includes('first_step')) {
+    user.badges.push('first_step');
+  }
+
+  if (user.streak >= 3 && !user.badges.includes('streak_maker')) {
+    user.badges.push('streak_maker');
+  }
+
+  if (source === 'voice' && !user.badges.includes('voice_master')) {
+    user.badges.push('voice_master');
+  }
+
+  if (source === 'exam_10' && !user.badges.includes('exam_champion')) {
+    user.badges.push('exam_champion');
+  }
+
+  if (source === 'exam_pass' && !user.badges.includes('graduate')) {
+    user.badges.push('graduate');
+  }
+
+  await user.save();
+};
+
 export const registerUser = async (req, res) => {
   try {
     const { name, email, password, role, iid, skills } = req.body;
@@ -49,6 +93,9 @@ export const registerUser = async (req, res) => {
         role: user.role,
         profilePicture: user.profilePicture, // Sent to frontend
         token: generateToken(user._id),
+        xp: user.xp || 0,
+        streak: user.streak || 0,
+        badges: user.badges || []
       });
     }
   } catch (error) {
@@ -69,6 +116,9 @@ export const loginUser = async (req, res) => {
         role: user.role,
         profilePicture: user.profilePicture, // Sent to frontend
         token: generateToken(user._id),
+        xp: user.xp || 0,
+        streak: user.streak || 0,
+        badges: user.badges || []
       });
     } else {
       res.status(401).json({ message: 'Invalid email or password' });
@@ -120,6 +170,9 @@ export const googleLogin = async (req, res) => {
       role: user.role,
       profilePicture: user.profilePicture, // Sent to frontend
       token: generateToken(user._id),
+      xp: user.xp || 0,
+      streak: user.streak || 0,
+      badges: user.badges || []
     });
 
   } catch (error) {
@@ -169,13 +222,27 @@ export const markAsComplete = async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
+    let xpGained = 0;
     if (user.completedContent.includes(contentId)) {
       user.completedContent = user.completedContent.filter(id => id !== contentId);
     } else {
       user.completedContent.push(contentId);
+      xpGained = 100;
     }
-    await user.save();
-    res.status(200).json({ message: 'Progress updated', completedContent: user.completedContent });
+    
+    if (xpGained > 0) {
+      await updateGamification(user, xpGained);
+    } else {
+      await user.save();
+    }
+
+    res.status(200).json({ 
+      message: 'Progress updated', 
+      completedContent: user.completedContent,
+      xp: user.xp || 0,
+      streak: user.streak || 0,
+      badges: user.badges || []
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -197,18 +264,33 @@ export const unenrollCourse = async (req, res) => {
 
 export const passExam = async (req, res) => {
   try {
-    const { userId, courseId } = req.body;
+    const { userId, courseId, score } = req.body;
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     if (!user.passedExams) {
       user.passedExams = [];
     }
+    
+    let source = "exam_pass";
+    if (score === 10) {
+      source = "exam_10";
+    }
+
     if (!user.passedExams.includes(courseId)) {
       user.passedExams.push(courseId);
-      await user.save();
     }
-    res.status(200).json({ message: 'Exam passed successfully', passedExams: user.passedExams });
+    
+    // Award 500 XP and check badges
+    await updateGamification(user, 500, source);
+
+    res.status(200).json({ 
+      message: 'Exam passed successfully', 
+      passedExams: user.passedExams,
+      xp: user.xp || 0,
+      streak: user.streak || 0,
+      badges: user.badges || []
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -223,6 +305,25 @@ export const updateSkills = async (req, res) => {
     user.skills = skills || [];
     await user.save();
     res.status(200).json({ message: 'Skills updated successfully', skills: user.skills });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const addXP = async (req, res) => {
+  try {
+    const { userId, xpAmount, source } = req.body;
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    await updateGamification(user, xpAmount, source);
+
+    res.status(200).json({ 
+      message: 'XP updated successfully', 
+      xp: user.xp || 0,
+      streak: user.streak || 0,
+      badges: user.badges || []
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
