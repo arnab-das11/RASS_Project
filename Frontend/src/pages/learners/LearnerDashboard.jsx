@@ -3,11 +3,20 @@ import { Link, useNavigate } from 'react-router-dom';
 import { 
   BookOpen, PlayCircle, MonitorPlay, ChevronDown, CheckCircle, 
   ArrowLeft, Loader, FileText, Link as LinkIcon, ExternalLink, 
-  Award, Home, Download, Trash2, Trophy, Undo, Sparkles, Brain, XCircle
+  Award, Home, Download, Trash2, Trophy, Undo, Sparkles, Brain, XCircle,
+  Lock, LogOut, Flame, Compass, Mic
 } from 'lucide-react';
 import axios from 'axios';
 import { jsPDF } from "jspdf";
 import { CERT_TEMPLATE_BASE64 } from '../../assets/certificateTemplate';
+
+const badgeNames = {
+  first_step: "First Milestone 🧭",
+  voice_master: "Orator 🎙️",
+  streak_maker: "Committed 🔥",
+  exam_champion: "Scholar 🎓",
+  graduate: "Graduate 🏆"
+};
 
 const LearnerDashboard = () => {
   const navigate = useNavigate();
@@ -30,15 +39,91 @@ const LearnerDashboard = () => {
   const [completedCourseName, setCompletedCourseName] = useState("");
   const [isGeneratingCert, setIsGeneratingCert] = useState(false);
 
-  // --- 🧠 AI QUIZ STATE ---
-  const [showQuizModal, setShowQuizModal] = useState(false);
-  const [quizData, setQuizData] = useState(null);
-  const [quizLoading, setQuizLoading] = useState(false);
-  const [quizSelectedOption, setQuizSelectedOption] = useState("");
-  const [quizResult, setQuizResult] = useState(null); // 'correct', 'incorrect', null
+  // --- 🎙️ AI VOICE ORAL ASSESSMENT STATE ---
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [voiceQuestion, setVoiceQuestion] = useState("");
+  const [voiceAnswer, setVoiceAnswer] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const [voiceFeedback, setVoiceFeedback] = useState("");
+  const [voicePassed, setVoicePassed] = useState(null); // true, false, null
+  const [voiceLoading, setVoiceLoading] = useState(false);
   const [pendingCompletionId, setPendingCompletionId] = useState(null);
 
+  // --- 🎓 FINAL EXAM STATE ---
+  const [passedExams, setPassedExams] = useState([]);
+  const [showExamUnlockedModal, setShowExamUnlockedModal] = useState(false);
+  const [showFinalExamModal, setShowFinalExamModal] = useState(false);
+  const [finalExamQuestions, setFinalExamQuestions] = useState([]);
+  const [finalExamLoading, setFinalExamLoading] = useState(false);
+  const [finalExamCurrentIndex, setFinalExamCurrentIndex] = useState(0);
+  const [finalExamAnswers, setFinalExamAnswers] = useState({});
+  const [finalExamSubmitting, setFinalExamSubmitting] = useState(false);
+  const [finalExamResult, setFinalExamResult] = useState(null); // { score: number, passed: boolean }
+  const [examTimer, setExamTimer] = useState(45);
+
+  // --- 💡 SKILLS & RECOMMENDATIONS STATE ---
+  const [userSkills, setUserSkills] = useState([]);
+  const [recommendations, setRecommendations] = useState([]);
+  const [recsLoading, setRecsLoading] = useState(false);
+  const [newSkillInput, setNewSkillInput] = useState("");
+
+  // --- 📝 AI STUDY HUB & NOTES STATE ---
+  const [aiSummary, setAiSummary] = useState("");
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState("curriculum");
+  const [studyNotes, setStudyNotes] = useState("");
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [xpAlert, setXpAlert] = useState({ show: false, amount: 0, badge: "" });
+
+  const handleLogout = () => {
+    if (!window.confirm("Are you sure you want to log out?")) return;
+    localStorage.removeItem("userInfo");
+    navigate("/");
+  };
+
+  const updateLocalUserInfo = (updatedFields) => {
+    if (!userInfo) return;
+    
+    // Check if XP grew
+    const oldXp = userInfo.xp || 0;
+    const newXp = updatedFields.xp || 0;
+    const xpDiff = newXp - oldXp;
+
+    // Check if a new badge was unlocked
+    const oldBadges = userInfo.badges || [];
+    const newBadges = updatedFields.badges || [];
+    const newUnlockedBadge = newBadges.find(b => !oldBadges.includes(b));
+
+    const newUser = { ...userInfo, ...updatedFields };
+    setUserInfo(newUser);
+    localStorage.setItem("userInfo", JSON.stringify(newUser));
+
+    if (xpDiff > 0 || newUnlockedBadge) {
+      setXpAlert({
+        show: true,
+        amount: xpDiff > 0 ? xpDiff : 0,
+        badge: newUnlockedBadge ? badgeNames[newUnlockedBadge] || newUnlockedBadge : ""
+      });
+      // Clear alert after 4 seconds
+      setTimeout(() => {
+        setXpAlert({ show: false, amount: 0, badge: "" });
+      }, 4000);
+    }
+  };
+
   // --- DATA FETCHING ---
+  const fetchRecommendations = async (userId) => {
+    setRecsLoading(true);
+    try {
+      const { data } = await axios.post('http://localhost:5000/api/ai/recommendations', { userId });
+      setRecommendations(data);
+    } catch (error) {
+      console.error("Failed to fetch recommendations", error);
+    } finally {
+      setRecsLoading(false);
+    }
+  };
+
   useEffect(() => {
     const fetchMyCourses = async () => {
       try {
@@ -53,8 +138,17 @@ const LearnerDashboard = () => {
         const currentUser = userRes.data.find(u => u._id === user._id);
         
         setEnrolledCourses(data);
-        if (currentUser && currentUser.completedContent) {
-            setCompletedItems(currentUser.completedContent);
+        if (currentUser) {
+            if (currentUser.completedContent) {
+                setCompletedItems(currentUser.completedContent);
+            }
+            if (currentUser.passedExams) {
+                setPassedExams(currentUser.passedExams);
+            }
+            if (currentUser.skills) {
+                setUserSkills(currentUser.skills);
+            }
+            fetchRecommendations(user._id);
         }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -65,15 +159,176 @@ const LearnerDashboard = () => {
     fetchMyCourses();
   }, [navigate]);
 
+  useEffect(() => {
+    if (activeContent && activeContent.data && userInfo) {
+      setAiSummary("");
+      setVoiceAnswer("");
+      setVoiceFeedback("");
+      setVoicePassed(null);
+      
+      const key = `notes_${userInfo._id}_${selectedCourse?._id || 'course'}_${activeContent.data._id}`;
+      const savedNotes = localStorage.getItem(key);
+      setStudyNotes(savedNotes || "");
+    }
+  }, [activeContent, userInfo, selectedCourse]);
+
+  const handleNotesChange = (text) => {
+    setStudyNotes(text);
+    if (activeContent && activeContent.data && userInfo) {
+      const key = `notes_${userInfo._id}_${selectedCourse?._id || 'course'}_${activeContent.data._id}`;
+      localStorage.setItem(key, text);
+    }
+  };
+
+  const handleAddSkill = async (e) => {
+    e.preventDefault();
+    if (!newSkillInput.trim() || userSkills.includes(newSkillInput.trim())) return;
+    
+    const updatedSkills = [...userSkills, newSkillInput.trim()];
+    setUserSkills(updatedSkills);
+    setNewSkillInput("");
+    
+    try {
+      await axios.put('http://localhost:5000/api/users/skills', {
+        userId: userInfo._id,
+        skills: updatedSkills
+      });
+      fetchRecommendations(userInfo._id);
+    } catch (error) {
+      console.error("Failed to update skills", error);
+    }
+  };
+
+  const handleRemoveSkill = async (skillToRemove) => {
+    const updatedSkills = userSkills.filter(s => s !== skillToRemove);
+    setUserSkills(updatedSkills);
+    
+    try {
+      await axios.put('http://localhost:5000/api/users/skills', {
+        userId: userInfo._id,
+        skills: updatedSkills
+      });
+      fetchRecommendations(userInfo._id);
+    } catch (error) {
+      console.error("Failed to update skills", error);
+    }
+  };
+
+  // --- 🎙️ SPEECH RECOGNITION API INTEGRATION ---
+  const recognitionRef = React.useRef(null);
+
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const rec = new SpeechRecognition();
+      rec.continuous = true;
+      rec.interimResults = false;
+      rec.lang = 'en-US';
+
+      rec.onresult = (event) => {
+        const transcript = event.results[event.results.length - 1][0].transcript;
+        setVoiceAnswer(prev => prev ? prev + " " + transcript : transcript);
+      };
+
+      rec.onend = () => {
+        setIsListening(false);
+      };
+
+      rec.onerror = (e) => {
+        console.error("Speech Recognition Error:", e);
+        setIsListening(false);
+      };
+
+      recognitionRef.current = rec;
+    }
+  }, []);
+
+  const handleToggleListening = () => {
+    if (!recognitionRef.current) {
+      alert("Speech recognition is not supported in this browser. Please type your response instead.");
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+      } catch (err) {
+        console.error("Failed to start Speech Recognition:", err);
+      }
+    }
+  };
+
+  const fetchAiSummary = async () => {
+    if (aiSummary || !activeContent || !activeContent.data) return;
+    setSummaryLoading(true);
+    try {
+      const response = await axios.post('http://localhost:5000/api/ai/generate-summary', {
+        courseTitle: selectedCourse.title,
+        lectureTitle: activeContent.data.title,
+        description: activeContent.data.description || ""
+      });
+      setAiSummary(response.data.summary);
+    } catch (error) {
+      console.error("Failed to generate summary", error);
+      setAiSummary("Failed to generate AI summary. Try again later!");
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
+  const getYouTubeEmbedUrl = (url) => {
+    if (!url) return null;
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    if (match && match[2].length === 11) {
+      return `https://www.youtube.com/embed/${match[2]}`;
+    }
+    return null;
+  };
+
   // --- HELPER FUNCTIONS ---
+  const getCourseItems = (course) => {
+    const items = [];
+    if (!course || !course.lectures) return items;
+    course.lectures.forEach((section, sIdx) => {
+      section.videos?.forEach(vid => items.push({ id: vid._id, type: 'video', data: vid, sectionIndex: sIdx }));
+      section.resources?.forEach(res => items.push({ id: res._id, type: 'resource', data: res, sectionIndex: sIdx }));
+      section.links?.forEach(link => items.push({ id: link._id, type: 'link', data: link, sectionIndex: sIdx }));
+    });
+    return items;
+  };
+
+  const isItemLocked = (itemId, course, completedList) => {
+    const items = getCourseItems(course);
+    const index = items.findIndex(item => item.id === itemId);
+    if (index <= 0) return false; // First item is never locked
+    
+    // Check if any previous item is not completed
+    for (let i = 0; i < index; i++) {
+      if (!completedList.includes(items[i].id)) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   const handleStartCourse = (course) => {
     setSelectedCourse(course);
-    if (course.lectures && course.lectures.length > 0) {
-        setExpandedSections({ 0: true });
-        const firstSec = course.lectures[0];
-        if (firstSec.videos?.length > 0) setActiveContent({ type: 'video', data: firstSec.videos[0] });
-        else if (firstSec.resources?.length > 0) setActiveContent({ type: 'resource', data: firstSec.resources[0] });
-        else if (firstSec.links?.length > 0) setActiveContent({ type: 'link', data: firstSec.links[0] });
+    const items = getCourseItems(course);
+    
+    // Find the first uncompleted item
+    const firstUncompleted = items.find(item => !completedItems.includes(item.id));
+    if (firstUncompleted) {
+      setActiveContent({ type: firstUncompleted.type, data: firstUncompleted.data });
+      setExpandedSections({ [firstUncompleted.sectionIndex]: true });
+    } else if (items.length > 0) {
+      // If all completed, open the final exam screen (by setting activeContent to null)
+      setActiveContent(null);
+      setExpandedSections({ 0: true });
     }
   };
 
@@ -133,14 +388,14 @@ const LearnerDashboard = () => {
     return totalItems === 0 ? 0 : Math.round((finishedItems / totalItems) * 100);
   };
 
-  // --- 🧠 AI QUIZ LOGIC INTERCEPTOR ---
+  // --- 🎙️ AI VOICE ORAL ASSESSMENT LOGIC ---
   const handleToggleComplete = async () => {
     if (!activeContent || !activeContent.data._id) return;
     
     const contentId = activeContent.data._id;
     const isCurrentlyDone = completedItems.includes(contentId);
     
-    // IF UNMARKING: Do it directly without a quiz
+    // IF UNMARKING: Do it directly without a quiz/assessment
     if (isCurrentlyDone) {
         setProgressLoading(true);
         const newCompletedList = completedItems.filter(id => id !== contentId);
@@ -150,32 +405,77 @@ const LearnerDashboard = () => {
                 userId: userInfo._id, contentId: contentId
             });
             setCompletedItems(data.completedContent);
+            updateLocalUserInfo(data);
         } catch (error) { console.error("Failed to update progress", error); } 
         finally { setProgressLoading(false); }
         return;
     }
 
-    // IF MARKING DONE: Trigger the AI Quiz
+    // IF MARKING DONE: Trigger the AI Voice Assessment
     setPendingCompletionId(contentId);
-    setShowQuizModal(true);
-    setQuizLoading(true);
-    setQuizData(null);
-    setQuizResult(null);
-    setQuizSelectedOption("");
+    setShowVoiceModal(true);
+    setVoiceLoading(true);
+    setVoiceQuestion("");
+    setVoiceAnswer("");
+    setVoiceFeedback("");
+    setVoicePassed(null);
 
     try {
-        const response = await axios.post('http://localhost:5000/api/ai/generate-quiz', {
+        const response = await axios.post('http://localhost:5000/api/ai/generate-voice-question', {
             courseTitle: selectedCourse.title,
-            lectureTitle: activeContent.data.title
+            lectureTitle: activeContent.data.title,
+            courseDescription: selectedCourse.description
         });
-        setQuizData(response.data);
+        setVoiceQuestion(response.data.question);
     } catch (error) {
-        console.error("AI Quiz failed to load, skipping...", error);
+        console.error("AI voice question failed to load, skipping...", error);
         // Fallback: If AI fails, let them complete the video anyway so they don't get stuck
         executeCompletion(contentId);
-        setShowQuizModal(false);
+        setShowVoiceModal(false);
     } finally {
-        setQuizLoading(false);
+        setVoiceLoading(false);
+    }
+  };
+
+  const handleVerifyVoiceAnswer = async () => {
+    if (!voiceAnswer.trim()) {
+      alert("Please record or type an answer first.");
+      return;
+    }
+
+    setVoiceLoading(true);
+    try {
+      const response = await axios.post('http://localhost:5000/api/ai/verify-voice-answer', {
+        question: voiceQuestion,
+        answer: voiceAnswer,
+        courseTitle: selectedCourse.title,
+        lectureTitle: activeContent.data.title
+      });
+
+      const result = response.data;
+      setVoiceFeedback(result.feedback);
+      setVoicePassed(result.passed);
+
+      if (result.passed) {
+        executeCompletion(pendingCompletionId);
+        
+        // Award XP for oral check
+        try {
+          const { data } = await axios.put('http://localhost:5000/api/users/add-xp', {
+            userId: userInfo._id,
+            xpAmount: 150,
+            source: 'voice'
+          });
+          updateLocalUserInfo(data);
+        } catch (err) {
+          console.error("Failed to save voice check XP", err);
+        }
+      }
+    } catch (error) {
+      console.error("Grading failed", error);
+      alert("Failed to grade response. Please try again.");
+    } finally {
+      setVoiceLoading(false);
     }
   };
 
@@ -185,10 +485,20 @@ const LearnerDashboard = () => {
     const newCompletedList = [...completedItems, contentId];
     setCompletedItems(newCompletedList);
 
+    const items = getCourseItems(selectedCourse);
+    const currentIndex = items.findIndex(item => item.id === contentId);
+    const nextItem = currentIndex !== -1 && currentIndex + 1 < items.length ? items[currentIndex + 1] : null;
+
     const newProgress = calculateProgress(selectedCourse, newCompletedList);
     if (newProgress === 100) {
         setCompletedCourseName(selectedCourse.title);
-        setShowTrophy(true);
+        setShowExamUnlockedModal(true);
+        setActiveContent(null);
+    } else if (nextItem) {
+        setTimeout(() => {
+            setActiveContent({ type: nextItem.type, data: nextItem.data });
+            setExpandedSections(prev => ({ ...prev, [nextItem.sectionIndex]: true }));
+        }, 1000);
     }
 
     try {
@@ -196,6 +506,7 @@ const LearnerDashboard = () => {
             userId: userInfo._id, contentId: contentId
         });
         setCompletedItems(data.completedContent);
+        updateLocalUserInfo(data);
     } catch (error) { console.error("Failed to update progress", error); } 
     finally { setProgressLoading(false); }
   };
@@ -214,9 +525,117 @@ const LearnerDashboard = () => {
       }
   };
 
+  // --- 🎓 FINAL EXAM LOGIC ---
+  const fetchFinalExam = async (courseToUse = selectedCourse) => {
+    if (!courseToUse) return;
+    setFinalExamLoading(true);
+    setFinalExamQuestions([]);
+    setFinalExamAnswers({});
+    setFinalExamCurrentIndex(0);
+    setFinalExamResult(null);
+    try {
+      const lectureTitles = [];
+      courseToUse.lectures?.forEach(sec => lectureTitles.push(sec.title));
+      
+      const { data } = await axios.post('http://localhost:5000/api/ai/generate-final-exam', {
+        courseTitle: courseToUse.title,
+        courseDescription: courseToUse.description,
+        lectureTitles: lectureTitles
+      });
+      setFinalExamQuestions(data);
+      setShowFinalExamModal(true);
+    } catch (error) {
+      alert("Failed to load final exam: " + (error.response?.data?.message || error.message));
+    } finally {
+      setFinalExamLoading(false);
+    }
+  };
+
+  const handleFinalExamSubmit = async (overrideAnswers = null) => {
+    const answersToUse = overrideAnswers || finalExamAnswers;
+    if (Object.keys(answersToUse).length < 10) {
+      alert("Please answer all 10 questions before submitting.");
+      return;
+    }
+
+    setFinalExamSubmitting(true);
+    try {
+      let correctCount = 0;
+      finalExamQuestions.forEach((q, idx) => {
+        if (answersToUse[idx] === q.correctAnswer) {
+          correctCount++;
+        }
+      });
+
+      const passed = correctCount >= 7;
+
+      if (passed) {
+        const targetCourseId = courseToUse => courseToUse?._id || selectedCourse?._id || enrolledCourses.find(c => c.title === completedCourseName)?._id;
+        const { data } = await axios.put('http://localhost:5000/api/users/pass-exam', {
+          userId: userInfo._id,
+          courseId: targetCourseId(),
+          score: correctCount
+        });
+        setPassedExams(data.passedExams);
+        updateLocalUserInfo(data);
+      }
+
+      setFinalExamResult({
+        score: correctCount,
+        passed: passed
+      });
+    } catch (error) {
+      alert("Failed to submit exam: " + (error.response?.data?.message || error.message));
+    } finally {
+      setFinalExamSubmitting(false);
+    }
+  };
+
+  // --- ⏱️ FINAL EXAM COUNTDOWN TIMER ---
+  useEffect(() => {
+    if (!showFinalExamModal || finalExamResult || finalExamQuestions.length === 0) return;
+
+    setExamTimer(45);
+
+    const interval = setInterval(() => {
+      setExamTimer(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          handleNextOrSkipQuestion();
+          return 45;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [showFinalExamModal, finalExamCurrentIndex, finalExamResult, finalExamQuestions]);
+
+  const handleNextOrSkipQuestion = () => {
+    setFinalExamAnswers(prev => {
+      const updated = { ...prev };
+      if (updated[finalExamCurrentIndex] === undefined) {
+        updated[finalExamCurrentIndex] = "skipped";
+      }
+      
+      if (finalExamCurrentIndex < 9) {
+        setFinalExamCurrentIndex(prevIdx => prevIdx + 1);
+      } else {
+        setTimeout(() => {
+          handleFinalExamSubmit(updated);
+        }, 100);
+      }
+      return updated;
+    });
+  };
+
+  const handleFinalExamRetake = () => {
+    fetchFinalExam();
+  };
+
 
   // --- 🌟 CUSTOM NATIVE CERTIFICATE GENERATOR 🌟 ---
-  const generateCertificatePDF = () => {
+  const generateCertificatePDF = (courseName = selectedCourse?.title || completedCourseName) => {
     setIsGeneratingCert(true);
     try {
         const doc = new jsPDF('landscape', 'mm', 'a4');
@@ -243,7 +662,7 @@ const LearnerDashboard = () => {
         doc.setFontSize(12);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(50, 50, 50);
-        const paragraph = `has successfully completed a professional training program in "${completedCourseName}".\nTheir dedication and commitment to the learning process are truly commendable.`;
+        const paragraph = `has successfully completed a professional training program in "${courseName}".\nTheir dedication and commitment to the learning process are truly commendable.`;
         doc.text(paragraph, 148.5, 115, { align: "center", lineHeightFactor: 1.5 });
 
         doc.setFontSize(12);
@@ -280,7 +699,7 @@ const LearnerDashboard = () => {
             doc.text(signatory.title, signatory.x, 189, { align: "center" });
         });
 
-        doc.save(`${completedCourseName.replace(/\s+/g, '_')}_Certificate.pdf`);
+        doc.save(`${courseName.replace(/\s+/g, '_')}_Certificate.pdf`);
         setShowTrophy(false);
     } catch (error) {
         console.error("Certificate Generation Error:", error);
@@ -290,19 +709,76 @@ const LearnerDashboard = () => {
     }
   };
 
+
   // --- DYNAMIC CONTENT WINDOW ---
   const renderActiveContent = () => {
     if (!activeContent) {
+        const prog = calculateProgress(selectedCourse);
+        if (prog === 100) {
+            const isPassed = passedExams.includes(selectedCourse._id);
+            if (isPassed) {
+                return (
+                  <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-slate-50 border border-slate-100 rounded-2xl">
+                    <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mb-6 border border-amber-250">
+                      <Trophy className="text-amber-500 w-12 h-12 animate-bounce" />
+                    </div>
+                    <h3 className="text-2xl font-black text-slate-800 mb-4">Course Mastered! 🏆</h3>
+                    <p className="text-slate-500 mb-8 max-w-md">Congratulations! You have completed all lessons and passed the final exam. Download your certificate below.</p>
+                    <button 
+                       onClick={() => { setCompletedCourseName(selectedCourse.title); generateCertificatePDF(selectedCourse.title); }}
+                       className="px-8 py-4 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-xl flex items-center gap-2 transition-all shadow-sm transform hover:-translate-y-0.5"
+                    >
+                       {isGeneratingCert ? <Loader className="animate-spin"/> : <Award size={18} />}
+                       Download Certificate (PDF)
+                    </button>
+                  </div>
+                );
+            } else {
+                return (
+                  <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-slate-50 border border-slate-100 rounded-2xl">
+                    <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mb-6 border border-indigo-200">
+                      <Brain className="text-indigo-600 w-10 h-10 animate-pulse" />
+                    </div>
+                    <h3 className="text-2xl font-black text-slate-800 mb-4">All Lessons Completed! 🧠</h3>
+                    <p className="text-slate-500 mb-8 max-w-md">You are now eligible to take the Final Exam. Pass it with a score of 70% (7/10) or more to earn your digital certificate.</p>
+                    <button 
+                       onClick={() => fetchFinalExam()}
+                       disabled={finalExamLoading}
+                       className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-xl flex items-center gap-2 transition-all shadow-sm transform hover:-translate-y-0.5"
+                    >
+                       {finalExamLoading ? <Loader className="animate-spin"/> : <Brain size={18} />}
+                       Start Final Exam (10 MCQs)
+                    </button>
+                  </div>
+                );
+            }
+        }
         return (
-            <div className="flex flex-col items-center justify-center h-full text-gray-500">
-                <BookOpen className="w-16 h-16 mb-4 opacity-20" />
-                <p>Select a lesson from the curriculum to begin.</p>
+            <div className="flex flex-col items-center justify-center h-full text-slate-400 bg-slate-50 rounded-2xl border border-slate-100">
+                <BookOpen className="w-16 h-16 mb-4 opacity-30" />
+                <p className="font-medium text-sm">Select a lesson from the curriculum to begin.</p>
             </div>
         );
     }
 
     if (activeContent.type === 'video') {
-        return <video src={activeContent.data.videoUrl} controls autoPlay className="w-full h-full object-contain" />;
+        const ytEmbed = getYouTubeEmbedUrl(activeContent.data.videoUrl);
+        return (
+          <div className="w-full h-full relative bg-slate-950 rounded-2xl overflow-hidden">
+              {ytEmbed ? (
+                  <iframe 
+                      src={ytEmbed} 
+                      frameBorder="0" 
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                      allowFullScreen
+                      className="w-full h-full"
+                      title={activeContent.data.title}
+                  />
+              ) : (
+                  <video src={activeContent.data.videoUrl} controls autoPlay className="w-full h-full object-contain" />
+              )}
+          </div>
+        );
     }
 
     if (activeContent.type === 'resource') {
@@ -314,13 +790,13 @@ const LearnerDashboard = () => {
 
         if (isUnsupported) {
             return (
-                <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-slate-900">
-                    <FileText className="w-20 h-20 text-emerald-500 mb-6" />
-                    <h3 className="text-2xl font-bold text-white mb-4">{activeContent.data.title}</h3>
-                    <p className="text-gray-400 mb-8 max-w-md">This file format (<strong>.{ext.toUpperCase()}</strong>) cannot be viewed directly in the browser.</p>
+                <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-slate-50 border border-slate-150 rounded-2xl w-full">
+                    <FileText className="w-20 h-20 text-emerald-600 mb-6" />
+                    <h3 className="text-2xl font-bold text-slate-800 mb-4">{activeContent.data.title}</h3>
+                    <p className="text-slate-500 mb-8 max-w-md">This file format (<strong>.{ext.toUpperCase()}</strong>) cannot be viewed directly in the browser.</p>
                     <button 
                        onClick={() => handleResourceDownload(url, activeContent.data.title, activeContent.data._id)}
-                       className="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl flex items-center gap-2 transition shadow-lg shadow-emerald-900/30"
+                       className="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center gap-2 transition shadow-sm"
                     >
                        {downloadingFileId === activeContent.data._id ? <Loader className="animate-spin"/> : <Download size={18} />}
                        Download File
@@ -331,13 +807,13 @@ const LearnerDashboard = () => {
 
         const docUrl = encodeURIComponent(url.replace("/image/upload/", "/raw/upload/"));
         return (
-            <div className="w-full h-full flex flex-col bg-slate-900">
-                <div className="p-3 flex justify-end bg-slate-950 border-b border-slate-800">
+            <div className="w-full h-full flex flex-col bg-slate-50 rounded-2xl overflow-hidden border border-slate-200">
+                <div className="p-3 flex justify-end bg-slate-100 border-b border-slate-200">
                     <button 
                         onClick={() => handleResourceDownload(url, activeContent.data.title, activeContent.data._id)}
-                        className="flex items-center gap-2 text-sm font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-400/10 px-4 py-2 rounded-lg transition"
+                        className="flex items-center gap-2 text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 border border-emerald-250 px-3 py-1.5 rounded transition animate-fade-in"
                     >
-                        {downloadingFileId === activeContent.data._id ? <Loader className="animate-spin" size={16}/> : <Download size={16}/>}
+                        {downloadingFileId === activeContent.data._id ? <Loader className="animate-spin" size={14}/> : <Download size={14}/>}
                         Download Document
                     </button>
                 </div>
@@ -348,20 +824,29 @@ const LearnerDashboard = () => {
 
     if (activeContent.type === 'link') {
         return (
-            <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-slate-900">
-                <LinkIcon className="w-20 h-20 text-purple-500 mb-6" />
-                <h3 className="text-2xl font-bold text-white mb-4">{activeContent.data.title}</h3>
-                <p className="text-gray-400 mb-8 max-w-md">External resource securely linked.</p>
-                <a href={activeContent.data.url} target="_blank" rel="noopener noreferrer"
-                   className="px-8 py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl flex items-center gap-2 transition shadow-lg shadow-purple-900/30">
-                   Open Resource <ExternalLink size={18} />
-                </a>
+            <div className="w-full h-full flex flex-col bg-slate-50 rounded-2xl overflow-hidden border border-slate-200">
+                <div className="p-3 flex justify-between items-center bg-slate-100 border-b border-slate-200">
+                    <span className="text-xs text-slate-500 font-bold pl-2 truncate max-w-[60%]">Viewing Curated Web Resource</span>
+                    <a 
+                        href={activeContent.data.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-xs font-bold text-purple-750 hover:text-purple-800 bg-purple-50 border border-purple-250 px-3 py-1.5 rounded transition animate-fade-in"
+                    >
+                        <ExternalLink size={12}/> Open in New Tab
+                    </a>
+                </div>
+                <iframe 
+                    src={activeContent.data.url} 
+                    className="w-full flex-1 bg-white border-0" 
+                    title={activeContent.data.title} 
+                />
             </div>
         );
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white"><Loader className="w-8 h-8 animate-spin text-blue-500 mr-3" /></div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#F8F9FA] text-slate-800"><Loader className="w-8 h-8 animate-spin text-indigo-600 mr-3" /></div>;
 
   // =====================================================================
   // VIEW B: THE PLAYER MODE (Active Learning)
@@ -371,90 +856,117 @@ const LearnerDashboard = () => {
     const isCurrentItemDone = activeContent && completedItems.includes(activeContent.data._id);
 
     return (
-      <div className="flex flex-col lg:flex-row min-h-screen bg-slate-950 text-slate-200 relative">
+      <div className="flex flex-col lg:flex-row lg:h-screen lg:overflow-hidden bg-[#F8F9FA] text-slate-800 relative font-sans">
         
-        {/* 🧠 NEW: AI QUIZ MODAL */}
-        {showQuizModal && (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
-                <div className="bg-gradient-to-b from-slate-900 to-slate-950 p-8 rounded-3xl border border-blue-500/30 shadow-2xl shadow-blue-500/20 max-w-xl w-full">
+        {/* 🎙️ NEW: AI VOICE ORAL ASSESSMENT MODAL */}
+        {showVoiceModal && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fade-in">
+                <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-[0_10px_30px_rgba(0,0,0,0.08)] max-w-xl w-full">
                     
-                    {quizLoading ? (
+                    {voiceLoading ? (
                         <div className="flex flex-col items-center justify-center py-12">
                             <div className="relative mb-6">
-                                <Brain className="w-16 h-16 text-blue-500 animate-pulse" />
-                                <Sparkles className="w-6 h-6 text-yellow-400 absolute -top-2 -right-2 animate-spin-slow" />
+                                <Brain className="w-16 h-16 text-indigo-600 animate-pulse" />
+                                <Sparkles className="w-6 h-6 text-amber-500 absolute -top-2 -right-2 animate-spin-slow" />
                             </div>
-                            <h3 className="text-xl font-bold text-white mb-2">Gemini is analyzing the lecture...</h3>
-                            <p className="text-slate-400 text-sm">Generating a custom knowledge check.</p>
+                            <h3 className="text-xl font-bold text-slate-800 mb-2">Gemini is processing...</h3>
+                            <p className="text-slate-500 text-sm">Formulating check or grading your oral response.</p>
                         </div>
-                    ) : quizData ? (
-                        <div className="animate-fade-in">
-                            <div className="flex items-center gap-3 mb-6 border-b border-slate-800 pb-4">
-                                <div className="p-2 bg-blue-500/10 rounded-xl border border-blue-500/30">
-                                    <Brain className="text-blue-400 w-6 h-6" />
+                    ) : voiceQuestion ? (
+                        <div className="animate-fade-in space-y-6">
+                            <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                                <div className="p-2 bg-indigo-50 rounded-xl border border-indigo-100">
+                                    <Brain className="text-indigo-600 w-6 h-6" />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-black text-white">AI Knowledge Check</h3>
-                                    <p className="text-xs text-blue-400 font-bold uppercase tracking-wider">Pass to Complete Lesson</p>
+                                    <h3 className="text-xl font-black text-slate-800">Oral Concept Check</h3>
+                                    <p className="text-xs text-indigo-600 font-bold uppercase tracking-wider">Explain verbally or type your answer</p>
                                 </div>
                             </div>
 
-                            <p className="text-lg font-medium text-slate-200 mb-6 leading-relaxed">
-                                {quizData.question}
-                            </p>
-
-                            <div className="space-y-3 mb-6">
-                                {quizData.options.map((option, idx) => (
-                                    <button
-                                        key={idx}
-                                        onClick={() => {
-                                            setQuizSelectedOption(option);
-                                            setQuizResult(null); // Reset result if they change answer
-                                        }}
-                                        disabled={quizResult === 'correct'}
-                                        className={`w-full text-left p-4 rounded-xl border transition-all ${
-                                            quizSelectedOption === option 
-                                                ? 'bg-blue-600/20 border-blue-500 text-blue-100' 
-                                                : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-slate-500'
-                                        } ${
-                                            quizResult === 'correct' && option === quizData.correctAnswer ? 'bg-green-500/20 border-green-500 text-green-100' : ''
-                                        }`}
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <span>{option}</span>
-                                            {quizSelectedOption === option && quizResult !== 'correct' && <div className="w-3 h-3 bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.8)]"></div>}
-                                            {quizResult === 'correct' && option === quizData.correctAnswer && <CheckCircle className="text-green-500 w-5 h-5" />}
-                                        </div>
-                                    </button>
-                                ))}
+                            <div className="bg-slate-50 p-5 rounded-xl border border-slate-150 shadow-inner">
+                                <span className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider block mb-1">Conceptual Question</span>
+                                <p className="text-base font-semibold text-slate-800 leading-relaxed">
+                                    {voiceQuestion}
+                                </p>
                             </div>
 
-                            {quizResult === 'incorrect' && (
-                                <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex items-start gap-3 animate-fade-in">
-                                    <XCircle className="text-red-400 w-5 h-5 mt-0.5 flex-shrink-0" />
+                            {/* Speech Input & Textarea */}
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs text-slate-500 font-bold uppercase tracking-wider pl-1">Your Explanation</span>
+                                    <button 
+                                        type="button"
+                                        onClick={handleToggleListening}
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all ${
+                                            isListening 
+                                                ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse shadow-sm' 
+                                                : 'bg-indigo-55 bg-indigo-50 hover:bg-indigo-600 border border-indigo-100 text-indigo-600 hover:text-white'
+                                        }`}
+                                    >
+                                        <span className={`w-2 h-2 rounded-full ${isListening ? 'bg-white animate-ping' : 'bg-indigo-650'}`}></span>
+                                        {isListening ? "Listening... (Click to stop)" : "Speak Answer (Mic)"}
+                                    </button>
+                                </div>
+
+                                <textarea 
+                                    value={voiceAnswer}
+                                    onChange={(e) => setVoiceAnswer(e.target.value)}
+                                    placeholder="Describe in 1 short sentence (e.g. 5-15 words). Click 'Speak Answer' to speak verbally..."
+                                    rows={3}
+                                    disabled={voicePassed === true}
+                                    className="w-full p-4 text-sm bg-white border border-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl outline-none text-slate-800 resize-none animate-fade-in"
+                                />
+                                <span className="text-[10px] text-slate-400 pl-1 block">
+                                    💡 Tip: Keep it under 2 sentences for instant presentation evaluation.
+                                </span>
+                            </div>
+
+                            {/* Feedback Box */}
+                            {voicePassed !== null && (
+                                <div className={`p-4 border rounded-xl flex items-start gap-3 animate-fade-in ${
+                                    voicePassed 
+                                        ? 'bg-emerald-50 border-emerald-250 text-emerald-800' 
+                                        : 'bg-rose-50 border-rose-250 text-rose-800'
+                                }}`}>
+                                    {voicePassed ? (
+                                        <CheckCircle className="text-emerald-600 w-5 h-5 mt-0.5 flex-shrink-0" />
+                                    ) : (
+                                        <XCircle className="text-rose-600 w-5 h-5 mt-0.5 flex-shrink-0" />
+                                    )}
                                     <div>
-                                        <p className="text-sm font-bold text-red-400 mb-1">Incorrect. Try again!</p>
-                                        <p className="text-sm text-slate-300"><strong>Hint:</strong> {quizData.hint}</p>
+                                        <p className={`text-sm font-bold mb-1 ${voicePassed ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                            {voicePassed ? 'Passed! Excellent Explanation.' : 'Review Suggestion & Try Again'}
+                                        </p>
+                                        <p className="text-xs text-slate-600 leading-relaxed font-medium">{voiceFeedback}</p>
                                     </div>
                                 </div>
                             )}
 
                             <div className="flex gap-3">
-                                <button onClick={() => setShowQuizModal(false)} className="px-6 py-3 rounded-xl font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition flex-1">
-                                    Cancel
+                                <button 
+                                    onClick={() => {
+                                        if (isListening && recognitionRef.current) {
+                                            recognitionRef.current.stop();
+                                        }
+                                        setShowVoiceModal(false);
+                                    }} 
+                                    className="px-6 py-3.5 rounded-xl font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition flex-1 border border-slate-200"
+                                >
+                                    Close
                                 </button>
                                 <button 
-                                    onClick={handleQuizSubmit}
-                                    disabled={!quizSelectedOption || quizResult === 'correct'}
-                                    className={`px-6 py-3 rounded-xl font-black transition shadow-lg flex-1 ${
-                                        quizResult === 'correct' 
-                                            ? 'bg-green-600 text-white shadow-green-900/50' 
-                                            : !quizSelectedOption 
-                                                ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
-                                                : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/30'
+                                    onClick={voicePassed ? () => setShowVoiceModal(false) : handleVerifyVoiceAnswer}
+                                    disabled={!voiceAnswer.trim()}
+                                    className={`px-6 py-3.5 rounded-xl font-black transition shadow-sm flex-1 ${
+                                        voicePassed 
+                                            ? 'bg-emerald-650 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm' 
+                                            : !voiceAnswer.trim()
+                                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                                                : 'bg-indigo-650 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm'
                                     }`}
                                 >
-                                    {quizResult === 'correct' ? 'Lesson Completed!' : 'Submit Answer'}
+                                    {voicePassed ? 'Close & Continue' : 'Evaluate Answer'}
                                 </button>
                             </div>
                         </div>
@@ -463,26 +975,230 @@ const LearnerDashboard = () => {
             </div>
         )}
 
-        {/* CELEBRATION & CERTIFICATE MODAL */}
-        {showTrophy && (
-            <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
-                <div className="bg-gradient-to-b from-slate-900 to-slate-950 p-10 rounded-3xl border border-yellow-500/30 shadow-2xl shadow-yellow-500/20 max-w-md w-full text-center transform scale-105 transition-all">
-                    <div className="w-24 h-24 bg-yellow-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <Trophy className="text-yellow-400 w-12 h-12" />
+        {/* 🎓 EXAM UNLOCKED MODAL */}
+        {showExamUnlockedModal && (
+            <div className="fixed inset-0 z-[55] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fade-in">
+                <div className="bg-white p-10 rounded-2xl border border-slate-200 shadow-[0_10px_30px_rgba(0,0,0,0.08)] max-w-md w-full text-center">
+                    <div className="w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <Brain className="text-indigo-600 w-12 h-12 animate-pulse" />
                     </div>
-                    <h2 className="text-3xl font-black text-white mb-2">Congratulations, {userInfo?.name}!</h2>
-                    <p className="text-slate-300 font-medium mb-6">You have successfully mastered <span className="text-yellow-400">"{completedCourseName}"</span>.</p>
+                    <h2 className="text-3xl font-black text-slate-800 mb-2">Lessons Complete! 🎓</h2>
+                    <p className="text-slate-600 font-medium mb-6">You've successfully finished all lectures and lessons in this course. You are now ready to attempt the Final Exam.</p>
                     
                     <button 
-                        onClick={generateCertificatePDF} 
+                        onClick={() => {
+                            setShowExamUnlockedModal(false);
+                            fetchFinalExam();
+                        }}
+                        className="w-full flex items-center justify-center gap-3 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-xl shadow-sm transition-all mb-3"
+                    >
+                        <Brain size={20} />
+                        Start Final Exam (10 MCQs)
+                    </button>
+
+                    <button onClick={() => setShowExamUnlockedModal(false)} className="text-sm font-bold text-slate-500 hover:text-slate-700 transition">
+                        Review materials first
+                    </button>
+                </div>
+            </div>
+        )}
+
+        {/* 🎓 FINAL EXAM MODAL */}
+        {showFinalExamModal && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 overflow-y-auto">
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-[0_10px_30px_rgba(0,0,0,0.08)] max-w-2xl w-full overflow-hidden my-8 animate-fade-in">
+                    
+                    {/* Header */}
+                    <div className="p-6 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <Brain className="text-indigo-600 w-6 h-6" />
+                            <div>
+                                <h3 className="text-xl font-black text-slate-800">Final Master Exam</h3>
+                                <p className="text-xs text-indigo-600 font-bold uppercase tracking-wider">Course Mastery Verification</p>
+                            </div>
+                        </div>
+                        {(!finalExamResult || !finalExamResult.passed) && (
+                            <button 
+                                onClick={() => setShowFinalExamModal(false)}
+                                className="text-slate-400 hover:text-slate-600 p-2 rounded-lg hover:bg-slate-100 transition"
+                            >
+                                <XCircle size={20} />
+                            </button>
+                        )}
+                    </div>
+
+                    {finalExamSubmitting ? (
+                        <div className="p-12 flex flex-col items-center justify-center">
+                            <Loader className="animate-spin text-indigo-600 w-12 h-12 mb-4" />
+                            <h4 className="text-lg font-bold text-slate-800 mb-2">Grading your Exam...</h4>
+                            <p className="text-slate-500 text-sm">Evaluating your responses for final mastery.</p>
+                        </div>
+                    ) : finalExamResult ? (
+                        /* Result view */
+                        <div className="p-8 text-center animate-fade-in">
+                            {finalExamResult.passed ? (
+                                <>
+                                    <div className="w-24 h-24 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-amber-250 animate-bounce">
+                                        <Trophy className="text-amber-500 w-12 h-12" />
+                                    </div>
+                                    <h3 className="text-3xl font-black text-slate-800 mb-2">Victory Achieved! 🏆</h3>
+                                    <p className="text-slate-650 font-medium mb-8 max-w-md mx-auto">Sensational job! You passed the exam with a score of <span className="text-amber-600 font-black">{finalExamResult.score}/10</span>. You are certified!</p>
+                                    <button 
+                                        onClick={() => { setShowFinalExamModal(false); setShowTrophy(true); }}
+                                        className="px-10 py-4 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-xl shadow-sm transition-all"
+                                    >
+                                        Claim Certificate
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="w-24 h-24 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-rose-200">
+                                        <XCircle className="text-rose-500 w-12 h-12 animate-pulse" />
+                                    </div>
+                                    <h3 className="text-3xl font-black text-slate-800 mb-2">Exam Unsuccessful</h3>
+                                    <p className="text-slate-650 font-medium mb-4 max-w-md mx-auto">You scored <span className="text-rose-600 font-black">{finalExamResult.score}/10</span>. A minimum score of 7/10 is required to pass.</p>
+                                    
+                                    {finalExamResult.suggestions && (
+                                        <div className="bg-slate-55 bg-slate-50 p-5 rounded-2xl border border-slate-200 text-left max-w-md mx-auto mb-8">
+                                            <span className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider block mb-1">Study Advice</span>
+                                            <p className="text-xs text-slate-500 leading-relaxed font-medium">{finalExamResult.suggestions}</p>
+                                        </div>
+                                    )}
+
+                                    <div className="flex gap-4 max-w-sm mx-auto">
+                                        <button 
+                                            onClick={() => setShowFinalExamModal(false)}
+                                            className="px-6 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl flex-1 transition border border-slate-200"
+                                        >
+                                            Review Syllabus
+                                        </button>
+                                        <button 
+                                            onClick={() => { setFinalExamAnswers({}); setFinalExamCurrentIndex(0); setFinalExamResult(null); fetchFinalExam(); }}
+                                            className="px-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-xl flex-1 shadow-sm transition"
+                                        >
+                                            Try Again
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    ) : (
+                        /* Questionnaire view */
+                        <div className="p-8 animate-fade-in">
+                            {finalExamQuestions.length > 0 && (
+                                <>
+                                    {/* Progress info */}
+                                    <div className="mb-4">
+                                        <div className="flex justify-between items-center text-sm font-bold text-slate-500 mb-2">
+                                            <span className="uppercase tracking-wider">Question {finalExamCurrentIndex + 1} of 10</span>
+                                            <span>{Math.round(((finalExamCurrentIndex) / 10) * 100)}% Complete</span>
+                                        </div>
+                                        <div className="w-full bg-slate-100 rounded-full h-2">
+                                            <div className="bg-indigo-650 bg-indigo-600 h-2 rounded-full transition-all duration-300" style={{ width: `${((finalExamCurrentIndex + 1) / 10) * 100}%` }}></div>
+                                        </div>
+                                    </div>
+
+                                    {/* Timer Countdown Bar */}
+                                    <div className="mb-6 bg-slate-50 p-3.5 rounded-xl border border-slate-150 flex items-center justify-between">
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <div className={`w-2.5 h-2.5 rounded-full ${examTimer <= 10 ? 'bg-rose-500 animate-ping' : 'bg-indigo-500'}`}></div>
+                                            <span className="text-xs font-black text-slate-600 uppercase tracking-wider">Question Timer</span>
+                                        </div>
+                                        <div className="flex items-center gap-4 flex-grow max-w-xs mx-4">
+                                            <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                                                <div 
+                                                    className={`h-1.5 rounded-full transition-all duration-1000 ${examTimer <= 15 ? 'bg-rose-500' : examTimer <= 30 ? 'bg-amber-500' : 'bg-emerald-500'}`} 
+                                                    style={{ width: `${(examTimer / 45) * 100}%` }}
+                                                ></div>
+                                            </div>
+                                        </div>
+                                        <span className={`text-xs font-black shrink-0 uppercase tracking-wider tabular-nums ${examTimer <= 10 ? 'text-rose-600 animate-pulse' : 'text-slate-500'}`}>{examTimer}s left</span>
+                                    </div>
+
+                                    {/* Question Text */}
+                                    <p className="text-xl font-bold text-slate-800 mb-6 leading-relaxed">
+                                        {finalExamQuestions[finalExamCurrentIndex].question}
+                                    </p>
+
+                                    {/* Options */}
+                                    <div className="space-y-3 mb-8">
+                                        {finalExamQuestions[finalExamCurrentIndex].options.map((option, idx) => {
+                                            const isSelected = finalExamAnswers[finalExamCurrentIndex] === option;
+                                            return (
+                                                <button
+                                                    key={idx}
+                                                    onClick={() => setFinalExamAnswers(prev => ({ ...prev, [finalExamCurrentIndex]: option }))}
+                                                    className={`w-full text-left p-4 rounded-xl border transition-all ${
+                                                        isSelected 
+                                                            ? 'bg-indigo-50 border-indigo-600 text-indigo-900 font-semibold shadow-sm' 
+                                                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <span>{option}</span>
+                                                        {isSelected && <div className="w-3 h-3 bg-indigo-600 rounded-full"></div>}
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Navigation */}
+                                    <div className="flex justify-between items-center border-t border-slate-100 pt-6">
+                                        <button 
+                                            disabled={finalExamCurrentIndex === 0}
+                                            onClick={() => setFinalExamCurrentIndex(prev => prev - 1)}
+                                            className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition border border-slate-200"
+                                        >
+                                            Previous
+                                        </button>
+                                        
+                                        {finalExamCurrentIndex < 9 ? (
+                                            <button 
+                                                disabled={!finalExamAnswers[finalExamCurrentIndex]}
+                                                onClick={() => setFinalExamCurrentIndex(prev => prev + 1)}
+                                                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                            >
+                                                Next Question
+                                            </button>
+                                        ) : (
+                                            <button 
+                                                disabled={Object.keys(finalExamAnswers).length < 10}
+                                                onClick={handleFinalExamSubmit}
+                                                className="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                Submit Exam
+                                            </button>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+        )}
+
+        {/* CELEBRATION & CERTIFICATE MODAL */}
+        {showTrophy && (
+            <div className="fixed inset-0 z-[55] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fade-in">
+                <div className="bg-white p-10 rounded-2xl border border-slate-200 shadow-[0_10px_30px_rgba(0,0,0,0.08)] max-w-md w-full text-center transform scale-105 transition-all">
+                    <div className="w-24 h-24 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-amber-200">
+                        <Trophy className="text-amber-500 w-12 h-12" />
+                    </div>
+                    <h2 className="text-3xl font-black text-slate-800 mb-2">Congratulations, {userInfo?.name}!</h2>
+                    <p className="text-slate-650 font-medium mb-6">You have successfully mastered <span className="text-amber-600 font-bold">"{completedCourseName}"</span>.</p>
+                    
+                    <button 
+                        onClick={() => generateCertificatePDF(completedCourseName)} 
                         disabled={isGeneratingCert}
-                        className="w-full flex items-center justify-center gap-3 py-4 bg-gradient-to-r from-yellow-600 to-amber-500 hover:from-yellow-500 hover:to-amber-400 text-slate-900 font-black rounded-xl shadow-lg shadow-yellow-600/30 transition-all disabled:opacity-70 disabled:cursor-not-allowed mb-3"
+                        className="w-full flex items-center justify-center gap-3 py-4 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-xl shadow-sm transition-all disabled:opacity-70 disabled:cursor-not-allowed mb-3"
                     >
                         {isGeneratingCert ? <Loader className="animate-spin"/> : <Award size={20} />}
                         {isGeneratingCert ? "Forging Certificate..." : "Claim Victory & Download Certificate"}
                     </button>
 
-                    <button onClick={() => setShowTrophy(false)} className="text-sm font-bold text-slate-500 hover:text-slate-300 transition">
+                    <button onClick={() => setShowTrophy(false)} className="text-sm font-bold text-slate-500 hover:text-slate-700 transition">
                         Close and return to course
                     </button>
                 </div>
@@ -490,25 +1206,42 @@ const LearnerDashboard = () => {
         )}
 
         {/* LEFT COLUMN: Dynamic Player & Controls */}
-        <div className="w-full lg:w-2/3 flex flex-col border-r border-slate-800">
-          <div className="p-4 bg-slate-900 flex items-center justify-between border-b border-slate-800 shadow-sm">
-              <button onClick={() => setSelectedCourse(null)} className="text-sm font-bold text-slate-400 hover:text-white flex items-center gap-2 transition px-3 py-1.5 rounded-lg hover:bg-slate-800">
+        <div className="w-full lg:w-2/3 lg:h-full flex flex-col border-r border-slate-200 lg:overflow-hidden bg-slate-50">
+          <div className="p-4 bg-white flex items-center justify-between border-b border-slate-200 shadow-sm shrink-0 gap-4">
+              <button onClick={() => setSelectedCourse(null)} className="text-sm font-bold text-slate-400 hover:text-slate-800 flex items-center gap-2 transition px-3 py-1.5 rounded-lg hover:bg-slate-100 shrink-0">
                 <ArrowLeft size={16} /> Dashboard
               </button>
-              <h2 className="font-bold text-slate-200 truncate max-w-md">{selectedCourse.title}</h2>
+              
+              <h2 className="font-bold text-slate-800 truncate max-w-[40%] text-center hidden md:block">{selectedCourse.title}</h2>
+
+              <div className="flex items-center gap-3 shrink-0">
+                  {/* Streak Flame */}
+                  <div className="flex items-center gap-1 bg-orange-50 text-orange-600 px-2.5 py-1 rounded-full border border-orange-100 text-[10px] font-black" title="Daily Streak">
+                      <Flame size={12} className="fill-orange-500" />
+                      <span>{userInfo?.streak || 0}D</span>
+                  </div>
+
+                  {/* Level Badge */}
+                  <div className="flex items-center gap-1.5 bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full border border-indigo-100 text-[10px] font-black">
+                      <span>Lvl {Math.floor((userInfo?.xp || 0) / 1000) + 1}</span>
+                      <div className="w-10 bg-indigo-150 rounded-full h-1 overflow-hidden">
+                          <div className="bg-indigo-600 h-1 rounded-full" style={{ width: `${((userInfo?.xp || 0) % 1000) / 10}%` }}></div>
+                      </div>
+                  </div>
+              </div>
           </div>
           
-          <div className="aspect-video bg-black flex items-center justify-center relative shadow-2xl">
+          <div className="flex-1 min-h-[350px] lg:min-h-0 bg-black flex items-center justify-center relative shadow-2xl overflow-hidden">
              {renderActiveContent()}
           </div>
           
-          <div className="p-6 md:p-8 flex-1 bg-slate-900">
-            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+          <div className="p-6 md:p-8 bg-white space-y-4 overflow-y-auto custom-scrollbar shrink-0 max-h-[35%] lg:max-h-[35%] border-t border-slate-200">
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 border-b border-slate-100 pb-4">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-black text-white mb-3">
+                    <h1 className="text-2xl md:text-3xl font-black text-slate-800 mb-2 leading-tight">
                         {activeContent ? activeContent.data.title : "Course Overview"}
                     </h1>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${activeContent?.type === 'video' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : activeContent?.type === 'resource' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'}`}>
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${activeContent?.type === 'video' ? 'bg-blue-50 text-blue-700 border border-blue-200' : activeContent?.type === 'resource' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-purple-50 text-purple-700 border border-purple-200'}`}>
                         {activeContent?.type || "Information"}
                     </span>
                 </div>
@@ -517,157 +1250,629 @@ const LearnerDashboard = () => {
                     <button 
                         onClick={handleToggleComplete}
                         disabled={progressLoading}
-                        className={`px-6 py-3 font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg ${isCurrentItemDone ? 'bg-slate-800 text-slate-300 hover:bg-red-500/10 hover:text-red-400 border border-slate-700 hover:border-red-500/30' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/30'}`}
+                        className={`px-6 py-3 font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm ${isCurrentItemDone ? 'bg-white text-slate-700 hover:bg-red-50 hover:text-red-600 border border-slate-200 hover:border-red-200' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
                     >
                         {progressLoading ? <Loader className="animate-spin" size={20}/> : isCurrentItemDone ? <Undo size={20} /> : <><Sparkles size={18}/> Verify Mastery</>}
                     </button>
                 )}
             </div>
+
+            {/* General Lesson Description Area */}
+            {activeContent && activeContent.data.description && (
+                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-inner animate-fade-in">
+                    <span className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider block mb-1">
+                        {activeContent.type === 'video' ? 'Lecture Notes' : activeContent.type === 'resource' ? 'Study Guidelines' : 'Reference Notes'}
+                    </span>
+                    <p className="text-xs md:text-sm text-slate-700 font-medium leading-relaxed">
+                        {activeContent.data.description}
+                    </p>
+                </div>
+            )}
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Curriculum Sidebar */}
-        <div className="w-full lg:w-1/3 bg-slate-950 h-screen lg:sticky top-0 overflow-hidden flex flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.2)] z-10">
-          <div className="p-6 bg-slate-900 border-b border-slate-800 z-10">
-             <h3 className="text-xl font-black text-white flex items-center gap-2"><Award className="text-yellow-500"/> Curriculum</h3>
-             <div className="mt-5">
-                 <div className="flex justify-between text-xs font-bold text-slate-400 mb-2">
-                     <span className="uppercase tracking-wider">Progress</span>
-                     <span className={currentProgress === 100 ? "text-yellow-400" : "text-blue-400"}>{currentProgress}%</span>
-                 </div>
-                 <div className="w-full bg-slate-800 rounded-full h-2.5 shadow-inner">
-                     <div className={`h-2.5 rounded-full transition-all duration-700 ease-out shadow-lg ${currentProgress === 100 ? "bg-gradient-to-r from-yellow-500 to-amber-400" : "bg-gradient-to-r from-blue-600 to-sky-400"}`} style={{ width: `${currentProgress}%` }}></div>
-                 </div>
+        {/* RIGHT COLUMN: Tabbed Sidebar */}
+        <div className="w-full lg:w-1/3 bg-white h-full lg:h-full overflow-hidden flex flex-col border-l border-slate-200 shadow-2xl z-10 animate-fade-in">
+          
+          {/* Header & Progress Info */}
+          <div className="p-6 bg-slate-50 border-b border-slate-200">
+             <div className="flex justify-between items-center mb-4">
+                 <h3 className="text-lg font-black text-slate-800 flex items-center gap-2"><Award className="text-amber-500 w-5 h-5"/> Learning Engine</h3>
+                 <span className={`text-xs font-black px-2.5 py-1 rounded-full ${currentProgress === 100 ? 'bg-amber-100 text-amber-800' : 'bg-indigo-50 text-indigo-700'}`}>
+                     {currentProgress}% Done
+                 </span>
+             </div>
+             <div className="w-full bg-slate-200 rounded-full h-2">
+                 <div className={`h-2 rounded-full transition-all duration-700 ease-out ${currentProgress === 100 ? "bg-amber-500" : "bg-indigo-600"}`} style={{ width: `${currentProgress}%` }}></div>
              </div>
           </div>
-          
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
-             {selectedCourse.lectures?.map((section, index) => (
-                  <div key={index} className="bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shadow-sm">
-                    <button onClick={() => toggleSection(index)} className="w-full flex items-center justify-between p-4 hover:bg-slate-800 transition text-left">
-                      <span className="font-bold text-slate-200 text-sm line-clamp-1 pr-4">{section.title}</span>
-                      <ChevronDown size={18} className={`text-slate-500 transition-transform duration-300 ${expandedSections[index] ? "rotate-180" : ""}`} />
-                    </button>
 
-                    {expandedSections[index] && (
-                      <div className="bg-slate-950/50 pb-2">
-                        {section.videos?.map((vid, vIdx) => (
-                          <div key={vIdx} onClick={() => setActiveContent({type: 'video', data: vid})} className={`p-3 pl-6 flex items-center justify-between cursor-pointer transition border-l-2 ${activeContent?.data._id === vid._id ? "border-l-blue-500 bg-slate-800/80" : "border-l-transparent hover:bg-slate-800/50"}`}>
-                             <div className="flex items-center gap-3">
-                                 <MonitorPlay size={16} className={activeContent?.data._id === vid._id ? "text-blue-400" : "text-slate-500"}/>
-                                 <span className={`text-sm ${activeContent?.data._id === vid._id ? "text-blue-100 font-bold" : "text-slate-400 font-medium"}`}>{vid.title}</span>
-                             </div>
-                             {completedItems.includes(vid._id) && <CheckCircle size={14} className="text-green-500 drop-shadow-md"/>}
+          {/* Tab Navigation Headers */}
+          <div className="flex border-b border-slate-200 bg-slate-50">
+            <button 
+              onClick={() => setSidebarTab("curriculum")}
+              className={`flex-1 py-3.5 text-xs font-bold uppercase tracking-wider text-center border-b-2 transition flex items-center justify-center gap-1.5 ${
+                sidebarTab === "curriculum" 
+                  ? 'border-indigo-600 text-indigo-650 bg-white font-black' 
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              📁 Syllabus
+            </button>
+            <button 
+              onClick={() => { setSidebarTab("summary"); fetchAiSummary(); }}
+              className={`flex-1 py-3.5 text-xs font-bold uppercase tracking-wider text-center border-b-2 transition flex items-center justify-center gap-1.5 ${
+                sidebarTab === "summary" 
+                  ? 'border-indigo-600 text-indigo-650 bg-white font-black' 
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              🧠 AI Notes
+            </button>
+            <button 
+              onClick={() => setSidebarTab("notes")}
+              className={`flex-1 py-3.5 text-xs font-bold uppercase tracking-wider text-center border-b-2 transition flex items-center justify-center gap-1.5 ${
+                sidebarTab === "notes" 
+                  ? 'border-indigo-600 text-indigo-650 bg-white font-black' 
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              📝 Notepad
+            </button>
+          </div>
+
+          {/* Tab Contents */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-4 bg-white">
+             {sidebarTab === "curriculum" && (
+                <div className="space-y-3">
+                   {selectedCourse.lectures?.map((section, index) => (
+                      <div key={index} className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
+                        <button onClick={() => toggleSection(index)} className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition text-left">
+                          <span className="font-bold text-slate-800 text-sm line-clamp-1 pr-4">{section.title}</span>
+                          <ChevronDown size={18} className={`text-slate-500 transition-transform duration-300 ${expandedSections[index] ? "rotate-180" : ""}`} />
+                        </button>
+
+                        {expandedSections[index] && (
+                          <div className="bg-slate-50/50 pb-2 border-t border-slate-100">
+                            {section.videos?.map((vid, vIdx) => {
+                              const locked = isItemLocked(vid._id, selectedCourse, completedItems);
+                              return (
+                                <div key={vIdx} 
+                                     onClick={() => !locked && setActiveContent({type: 'video', data: vid})} 
+                                     className={`p-3 pl-6 flex items-center justify-between transition border-l-2 ${
+                                       locked 
+                                         ? "border-l-transparent cursor-not-allowed opacity-50 bg-slate-100/50" 
+                                         : activeContent?.data._id === vid._id 
+                                           ? "border-l-indigo-600 bg-indigo-50/60 cursor-pointer" 
+                                           : "border-l-transparent hover:bg-slate-100 cursor-pointer"
+                                     }`}
+                                >
+                                   <div className="flex items-center gap-3">
+                                       {locked ? (
+                                         <Lock size={16} className="text-slate-400"/>
+                                       ) : (
+                                         <MonitorPlay size={16} className={activeContent?.data._id === vid._id ? "text-indigo-600" : "text-slate-500"}/>
+                                       )}
+                                       <span className={`text-sm ${
+                                         locked 
+                                           ? "text-slate-400 font-medium" 
+                                           : activeContent?.data._id === vid._id 
+                                             ? "text-indigo-900 font-bold" 
+                                             : "text-slate-650 font-medium"
+                                       }`}>{vid.title}</span>
+                                   </div>
+                                   {!locked && completedItems.includes(vid._id) && <CheckCircle size={14} className="text-green-500 drop-shadow-sm"/>}
+                                </div>
+                              );
+                            })}
+                            {section.resources?.map((res, rIdx) => {
+                              const locked = isItemLocked(res._id, selectedCourse, completedItems);
+                              return (
+                                <div key={rIdx} 
+                                     onClick={() => !locked && setActiveContent({type: 'resource', data: res})} 
+                                     className={`p-3 pl-6 flex items-center justify-between transition border-l-2 ${
+                                       locked 
+                                         ? "border-l-transparent cursor-not-allowed opacity-50 bg-slate-100/50" 
+                                         : activeContent?.data._id === res._id 
+                                           ? "border-l-emerald-600 bg-emerald-50/60 cursor-pointer" 
+                                           : "border-l-transparent hover:bg-slate-100 cursor-pointer"
+                                     }`}
+                                >
+                                   <div className="flex items-center gap-3">
+                                       {locked ? (
+                                         <Lock size={16} className="text-slate-400"/>
+                                       ) : (
+                                         <FileText size={16} className={activeContent?.data._id === res._id ? "text-emerald-650" : "text-slate-500"}/>
+                                       )}
+                                       <span className={`text-sm ${
+                                         locked 
+                                           ? "text-slate-400 font-medium" 
+                                           : activeContent?.data._id === res._id 
+                                             ? "text-emerald-900 font-bold" 
+                                             : "text-slate-650 font-medium"
+                                       }`}>{res.title}</span>
+                                   </div>
+                                   {!locked && completedItems.includes(res._id) && <CheckCircle size={14} className="text-green-500 drop-shadow-sm"/>}
+                                </div>
+                              );
+                            })}
+                            {section.links?.map((link, lIdx) => {
+                              const locked = isItemLocked(link._id, selectedCourse, completedItems);
+                              return (
+                                <div key={lIdx} 
+                                     onClick={() => !locked && setActiveContent({type: 'link', data: link})} 
+                                     className={`p-3 pl-6 flex items-center justify-between transition border-l-2 ${
+                                       locked 
+                                         ? "border-l-transparent cursor-not-allowed opacity-50 bg-slate-100/50" 
+                                         : activeContent?.data._id === link._id 
+                                           ? "border-l-purple-600 bg-purple-50/60 cursor-pointer" 
+                                           : "border-l-transparent hover:bg-slate-100 cursor-pointer"
+                                     }`}
+                                >
+                                   <div className="flex items-center gap-3">
+                                       {locked ? (
+                                         <Lock size={16} className="text-slate-400"/>
+                                       ) : (
+                                         <LinkIcon size={16} className={activeContent?.data._id === link._id ? "text-purple-650" : "text-slate-500"}/>
+                                       )}
+                                       <span className={`text-sm ${
+                                         locked 
+                                           ? "text-slate-400 font-medium" 
+                                           : activeContent?.data._id === link._id 
+                                             ? "text-purple-900 font-bold" 
+                                             : "text-slate-650 font-medium"
+                                       }`}>{link.title}</span>
+                                   </div>
+                                   {!locked && completedItems.includes(link._id) && <CheckCircle size={14} className="text-green-500 drop-shadow-sm"/>}
+                                </div>
+                              );
+                            })}
                           </div>
-                        ))}
-                        {section.resources?.map((res, rIdx) => (
-                          <div key={rIdx} onClick={() => setActiveContent({type: 'resource', data: res})} className={`p-3 pl-6 flex items-center justify-between cursor-pointer transition border-l-2 ${activeContent?.data._id === res._id ? "border-l-emerald-500 bg-slate-800/80" : "border-l-transparent hover:bg-slate-800/50"}`}>
-                             <div className="flex items-center gap-3">
-                                 <FileText size={16} className={activeContent?.data._id === res._id ? "text-emerald-400" : "text-slate-500"}/>
-                                 <span className={`text-sm ${activeContent?.data._id === res._id ? "text-emerald-100 font-bold" : "text-slate-400 font-medium"}`}>{res.title}</span>
-                             </div>
-                             {completedItems.includes(res._id) && <CheckCircle size={14} className="text-green-500 drop-shadow-md"/>}
-                          </div>
-                        ))}
-                        {section.links?.map((link, lIdx) => (
-                          <div key={lIdx} onClick={() => setActiveContent({type: 'link', data: link})} className={`p-3 pl-6 flex items-center justify-between cursor-pointer transition border-l-2 ${activeContent?.data._id === link._id ? "border-l-purple-500 bg-slate-800/80" : "border-l-transparent hover:bg-slate-800/50"}`}>
-                             <div className="flex items-center gap-3">
-                                 <LinkIcon size={16} className={activeContent?.data._id === link._id ? "text-purple-400" : "text-slate-500"}/>
-                                 <span className={`text-sm ${activeContent?.data._id === link._id ? "text-purple-100 font-bold" : "text-slate-400 font-medium"}`}>{link.title}</span>
-                             </div>
-                             {completedItems.includes(link._id) && <CheckCircle size={14} className="text-green-500 drop-shadow-md"/>}
-                          </div>
-                        ))}
+                        )}
                       </div>
-                    )}
-                  </div>
-                ))}
+                   ))}
+                   {currentProgress === 100 && (
+                      <div className="bg-amber-50/50 rounded-2xl overflow-hidden border border-amber-250 shadow-sm mt-4 shrink-0 animate-fade-in">
+                        <button onClick={() => setActiveContent(null)} className={`w-full flex items-center justify-between p-4 hover:bg-amber-50 transition text-left ${!activeContent ? "bg-amber-50" : ""}`}>
+                          <div className="flex items-center gap-3">
+                              <Trophy className="text-amber-500 w-5 h-5 animate-pulse"/>
+                              <span className="font-bold text-amber-800 text-sm">Final Exam & Certificate</span>
+                          </div>
+                        </button>
+                      </div>
+                   )}
+                </div>
+             )}
+
+             {sidebarTab === "summary" && (
+                <div className="space-y-4 h-full bg-white">
+                   {activeContent ? (
+                      summaryLoading ? (
+                        <div className="flex flex-col items-center justify-center py-20 text-center">
+                          <Loader className="animate-spin text-indigo-650 w-8 h-8 mb-3" />
+                          <p className="text-xs text-slate-500">Gemini is drafting study notes...</p>
+                        </div>
+                      ) : aiSummary ? (
+                        <div className="bg-slate-55 bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-inner animate-fade-in space-y-3">
+                          <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                             <span className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider">AI Study Guide</span>
+                             <span className="text-[10px] text-slate-500 font-semibold truncate max-w-[50%]">{activeContent.data.title}</span>
+                          </div>
+                          <div className="text-xs text-slate-700 whitespace-pre-line leading-relaxed font-medium">
+                            {aiSummary}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-16">
+                          <Brain className="w-12 h-12 text-slate-400 mx-auto mb-3 opacity-30 animate-pulse" />
+                          <p className="text-xs text-slate-500 mb-4 font-medium">Draft a conceptual study guide for this lesson.</p>
+                          <button 
+                            onClick={fetchAiSummary}
+                            className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition shadow-sm"
+                          >
+                            Generate AI Summary
+                          </button>
+                        </div>
+                      )
+                   ) : (
+                      <div className="text-center py-16 text-slate-400 text-xs bg-white">
+                         Select a lesson to generate its study guide.
+                      </div>
+                   )}
+                </div>
+             )}
+
+             {sidebarTab === "notes" && (
+                <div className="h-full flex flex-col gap-3 animate-fade-in bg-white">
+                   {activeContent ? (
+                      <>
+                         <div className="flex justify-between items-center pl-1">
+                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider truncate max-w-[90%]">Lesson Notes ({activeContent.data.title})</span>
+                         </div>
+                         <textarea 
+                            value={studyNotes}
+                            onChange={(e) => handleNotesChange(e.target.value)}
+                            placeholder="Type notes for this lesson... Saved instantly."
+                            className="w-full flex-1 p-4 text-xs bg-slate-55 bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white rounded-2xl outline-none text-slate-705 text-slate-700 resize-none font-medium h-[calc(100vh-320px)] lg:h-full min-h-[250px]"
+                         />
+                      </>
+                   ) : (
+                      <div className="text-center py-16 text-slate-400 text-xs bg-white">
+                         Select a lesson to record your study notes.
+                      </div>
+                   )}
+                </div>
+             )}
           </div>
         </div>
+
+        {/* 🌟 GAMIFICATION XP/BADGE ALERT TOAST */}
+        {xpAlert.show && (
+            <div className="fixed bottom-8 left-8 z-[100] flex flex-col gap-3 max-w-sm animate-fade-in text-white">
+                {xpAlert.amount > 0 && (
+                    <div className="bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-5 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border border-indigo-500/30">
+                        <div className="bg-white/20 p-2 rounded-xl text-white">
+                            <Sparkles size={16} className="animate-spin-slow" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-black">+{xpAlert.amount} XP Gained!</p>
+                            <p className="text-[10px] text-indigo-100 font-bold uppercase tracking-wider">Level progression updated</p>
+                        </div>
+                    </div>
+                )}
+                {xpAlert.badge && (
+                    <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-5 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border border-emerald-500/30">
+                        <div className="bg-white/20 p-2 rounded-xl text-white">
+                            <Award size={16} />
+                        </div>
+                        <div>
+                            <p className="text-sm font-black">New Medallion Unlocked! 🏆</p>
+                            <p className="text-xs font-bold text-emerald-100">{xpAlert.badge}</p>
+                        </div>
+                    </div>
+                )}
+            </div>
+        )}
       </div>
     );
   }
-
   // =====================================================================
   // VIEW A: THE DASHBOARD GRID
-  // =====================================================================
   return (
-    <div className="min-h-screen bg-slate-950 text-white pb-20 font-sans relative overflow-x-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-[#F3F4F6] via-[#F9FAFB] to-[#EEF2F6] text-slate-800 pb-20 font-sans relative overflow-x-hidden">
       
-      <div className="bg-slate-900 border-b border-slate-800 pt-8 pb-16 px-8 relative shadow-sm">
+      <div className="bg-gradient-to-r from-indigo-100/60 via-white to-violet-50/60 border-b border-indigo-100/80 pt-8 pb-16 px-8 relative shadow-sm">
           <div className="max-w-7xl mx-auto">
               <div className="flex items-center justify-between mb-8">
-                  <button onClick={() => navigate('/')} className="text-sm font-bold text-slate-300 hover:text-white flex items-center gap-2 transition bg-slate-800 hover:bg-slate-700 px-5 py-2.5 rounded-xl border border-slate-700 shadow-sm">
+                  <button onClick={() => navigate('/')} className="text-sm font-bold text-indigo-700 hover:text-indigo-800 flex items-center gap-2 transition-all duration-300 hover:scale-105 active:scale-95 bg-indigo-50 hover:bg-indigo-100/80 px-5 py-2.5 rounded-xl border border-indigo-100 shadow-sm">
                       <Home size={16} /> Back to Catalog
                   </button>
 
-                  <div className="flex items-center gap-4">
-                      <div className="text-right hidden sm:block">
-                          <p className="text-sm font-bold text-slate-200">{userInfo?.name}</p>
-                          <p className="text-xs text-blue-400 font-bold uppercase tracking-wider">Learner</p>
+                  <div className="flex items-center gap-6 relative">
+                      {/* Streak Flame */}
+                      <div className="flex items-center gap-1.5 bg-orange-50 text-orange-600 px-3 py-1.5 rounded-full border border-orange-100 text-xs font-black shadow-sm" title="Daily Streak">
+                          <Flame size={14} className="fill-orange-500 animate-pulse" />
+                          <span>{userInfo?.streak || 0}-Day Streak</span>
                       </div>
-                      {userInfo?.profilePicture ? (
-                          <img 
-                              src={userInfo.profilePicture} 
-                              alt={userInfo.name} 
-                              className="w-12 h-12 rounded-full object-cover border-2 border-blue-500/50 shadow-lg"
-                              onError={(e) => {
-                                  e.target.onerror = null; 
-                                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(userInfo.name || 'Learner')}&background=random&color=fff`;
-                              }}
-                          />
-                      ) : (
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-lg uppercase">
-                              {userInfo?.name?.charAt(0) || "L"}
+
+                      {/* Level and XP indicator */}
+                      <div className="flex flex-col items-end">
+                          <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-indigo-600 font-black tracking-wider uppercase bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                                  Lvl {Math.floor((userInfo?.xp || 0) / 1000) + 1}
+                              </span>
+                              <span className="text-xs font-bold text-slate-500">{(userInfo?.xp || 0) % 1000}/1000 XP</span>
                           </div>
-                      )}
+                          <div className="w-24 bg-slate-100 rounded-full h-1.5 mt-1 border border-slate-200 overflow-hidden">
+                              <div className="bg-indigo-600 h-1.5 rounded-full" style={{ width: `${((userInfo?.xp || 0) % 1000) / 10}%` }}></div>
+                          </div>
+                      </div>
+
+                      <div className="text-right hidden sm:block">
+                          <p className="text-sm font-bold text-slate-805">{userInfo?.name}</p>
+                          <p className="text-xs text-indigo-650 font-bold uppercase tracking-wider">Learner</p>
+                      </div>
+                      <div className="relative">
+                          <button 
+                              onClick={() => setShowUserDropdown(!showUserDropdown)} 
+                              className="focus:outline-none flex items-center"
+                          >
+                              {userInfo?.profilePicture ? (
+                                  <img 
+                                      src={userInfo.profilePicture} 
+                                      alt={userInfo.name} 
+                                      className="w-12 h-12 rounded-full object-cover border-2 border-indigo-200 shadow-sm hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer"
+                                      onError={(e) => {
+                                          e.target.onerror = null; 
+                                          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(userInfo.name || 'Learner')}&background=random&color=fff`;
+                                      }}
+                                  />
+                              ) : (
+                                  <div className="w-12 h-12 rounded-full bg-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-sm uppercase hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer">
+                                      {userInfo?.name?.charAt(0) || "L"}
+                                  </div>
+                              )}
+                          </button>
+
+                          {showUserDropdown && (
+                              <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 animate-fade-in">
+                                  <button 
+                                      onClick={() => {
+                                          setShowUserDropdown(false);
+                                          navigate('/');
+                                      }}
+                                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-750 font-bold transition flex items-center gap-2"
+                                  >
+                                      <Home size={14} /> Catalog Home
+                                  </button>
+                                  <button 
+                                      onClick={() => {
+                                          setShowUserDropdown(false);
+                                          handleLogout();
+                                      }}
+                                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-bold transition flex items-center gap-2"
+                                  >
+                                      <LogOut size={14} /> Logout
+                                  </button>
+                              </div>
+                          )}
+                      </div>
                   </div>
               </div>
-              <h1 className="text-3xl md:text-5xl font-black mb-3 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">My Learning Arena</h1>
-              <p className="text-slate-400 font-medium text-lg">Your active quests and ongoing training.</p>
+              <h1 className="text-3xl md:text-5xl font-black mb-3 text-transparent bg-clip-text bg-gradient-to-r from-indigo-800 via-violet-750 to-violet-750 to-indigo-900">My Learning Arena</h1>
+              <p className="text-slate-650 font-medium text-lg">Your active quests and ongoing training.</p>
           </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-8 -mt-8 relative z-10">
-          {enrolledCourses.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 bg-slate-900 rounded-3xl border border-slate-800 shadow-2xl">
-              <div className="bg-blue-500/10 p-6 rounded-full mb-6 border border-blue-500/20"><BookOpen className="w-16 h-16 text-blue-500" /></div>
-              <h2 className="text-3xl font-black mb-3 text-white">Your journey has not yet begun</h2>
-              <p className="text-slate-400 mb-8 text-center max-w-md font-medium text-lg">The Lands Between await. Discover new skills and begin your training.</p>
-              <Link to="/courses" className="px-10 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-xl font-black text-lg shadow-xl shadow-blue-900/30 transform hover:-translate-y-1 transition-all">Browse Courses</Link>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {enrolledCourses.map((course) => {
-                const prog = calculateProgress(course);
-                return (
-                <div key={course._id} className="bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 hover:border-blue-500/50 transition-all shadow-xl group flex flex-col">
-                  <div className="h-52 relative overflow-hidden bg-slate-950">
-                      <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-700 opacity-90 group-hover:opacity-100" />
-                      <button onClick={(e) => handleUnenroll(course._id, e)} className="absolute top-4 right-4 bg-slate-900/80 backdrop-blur-sm text-slate-300 hover:text-red-400 p-2.5 rounded-xl opacity-0 group-hover:opacity-100 transition-all border border-slate-700 hover:border-red-500/50" title="Drop Course">
-                         <Trash2 size={18}/>
-                      </button>
-                  </div>
-                  <div className="p-6 flex-1 flex flex-col">
-                      <h3 className="text-xl font-black text-white mb-2 line-clamp-2 leading-tight">{course.title}</h3>
-                      <div className="mb-6 mt-auto pt-6">
-                          <div className="flex justify-between text-xs text-slate-400 mb-2 font-bold uppercase tracking-wider">
-                              <span>Progress</span>
-                              <span className={prog === 100 ? "text-yellow-400" : "text-blue-400"}>{prog}%</span>
+      <div className="max-w-7xl mx-auto px-8 mt-8 relative z-10 flex flex-col lg:flex-row gap-8">
+          {/* Left Column: Enrolled Courses */}
+          <div className="flex-grow">
+              {enrolledCourses.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-24 bg-white rounded-3xl border border-slate-200 shadow-sm transition-all duration-300 hover:shadow-md">
+                  <div className="bg-indigo-50 p-6 rounded-full mb-6 border border-indigo-100"><BookOpen className="w-16 h-16 text-indigo-600" /></div>
+                  <h2 className="text-3xl font-black mb-3 text-slate-850">Your journey has not yet begun</h2>
+                  <p className="text-slate-500 mb-8 text-center max-w-md font-medium text-lg">The Lands Between await. Discover new skills and begin your training.</p>
+                  <Link to="/courses" className="px-10 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-lg shadow-sm transform hover:-translate-y-1 transition-all duration-300">Browse Courses</Link>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {enrolledCourses.map((course) => {
+                    const prog = calculateProgress(course);
+                    return (
+                    <div key={course._id} className="bg-gradient-to-br from-white via-indigo-50/5 to-slate-50 rounded-3xl overflow-hidden border border-slate-200/80 hover:border-indigo-400 hover:shadow-[0_12px_40px_rgba(99,102,241,0.08)] transform hover:-translate-y-1.5 hover:scale-[1.01] transition-all duration-300 shadow-sm group flex flex-col animate-fade-in">
+                      <div className="h-52 relative overflow-hidden bg-slate-100">
+                          <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-700 opacity-90 group-hover:opacity-100" />
+                          <button onClick={(e) => handleUnenroll(course._id, e)} className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm text-slate-550 hover:text-red-650 p-2.5 rounded-xl opacity-0 group-hover:opacity-100 transition-all border border-slate-200 hover:border-red-200 hover:scale-105 active:scale-95" title="Drop Course">
+                             <Trash2 size={18}/>
+                          </button>
+                      </div>
+                      <div className="p-6 flex-1 flex flex-col">
+                          <h3 className="text-xl font-black text-slate-800 mb-2 line-clamp-2 leading-tight group-hover:text-indigo-850 transition duration-300">{course.title}</h3>
+                          <div className="mb-6 mt-auto pt-6">
+                              <div className="flex justify-between text-xs text-slate-500 mb-2 font-bold uppercase tracking-wider">
+                                  <span>Progress</span>
+                                  <span className={prog === 100 ? "text-amber-600 font-black" : "text-indigo-650 font-black"}>{prog}%</span>
+                              </div>
+                              <div className="w-full bg-slate-100 rounded-full h-2 shadow-inner">
+                                  <div className={`h-2 rounded-full transition-all duration-700 ${prog === 100 ? "bg-amber-500" : "bg-indigo-600"}`} style={{ width: `${prog}%` }}></div>
+                              </div>
                           </div>
-                          <div className="w-full bg-slate-800 rounded-full h-2 shadow-inner">
-                              <div className={`h-2 rounded-full transition-all duration-700 ${prog === 100 ? "bg-gradient-to-r from-yellow-500 to-amber-400 shadow-[0_0_10px_rgba(234,179,8,0.5)]" : "bg-gradient-to-r from-blue-600 to-sky-400"}`} style={{ width: `${prog}%` }}></div>
+                          {prog === 100 ? (
+                            passedExams.includes(course._id) ? (
+                              <button 
+                                onClick={() => {
+                                  setSelectedCourse(course);
+                                  setCompletedCourseName(course.title);
+                                  setShowTrophy(true);
+                                }} 
+                                className="w-full py-4 rounded-xl font-black transition-all duration-300 flex items-center justify-center gap-2 shadow-md hover:shadow-lg transform hover:-translate-y-1 hover:scale-[1.02] active:scale-95 bg-amber-500 hover:bg-amber-600 text-white font-bold"
+                              >
+                                <Trophy size={20}/> Claim Certificate
+                              </button>
+                            ) : (
+                              <button 
+                                onClick={() => {
+                                  setSelectedCourse(course);
+                                  fetchFinalExam(course);
+                                }} 
+                                className="w-full py-4 rounded-xl font-black transition-all duration-300 flex items-center justify-center gap-2 shadow-md hover:shadow-lg transform hover:-translate-y-1 hover:scale-[1.02] active:scale-95 bg-indigo-650 hover:bg-indigo-750 text-white font-bold"
+                              >
+                                <Brain size={20}/> Take Final Exam
+                              </button>
+                            )
+                          ) : (
+                            <button 
+                              onClick={() => handleStartCourse(course)} 
+                              className="w-full py-4 rounded-xl font-black transition-all duration-300 flex items-center justify-center gap-2 shadow-md hover:shadow-lg transform hover:-translate-y-1 hover:scale-[1.02] active:scale-95 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white"
+                            >
+                              <PlayCircle size={20} /> Resume Training
+                            </button>
+                          )}
+                      </div>
+                    </div>
+                  )})}
+                </div>
+              )}
+          </div>
+
+          {/* Right Column: Skills & AI Suggestions */}
+          <div className="w-full lg:w-80 shrink-0 space-y-8">
+              {/* Achievements & Badges Card */}
+              <div className="bg-gradient-to-br from-white to-violet-50/30 p-6 rounded-3xl border border-violet-100 shadow-sm space-y-4 transition-all duration-300 hover:shadow-md">
+                  <h3 className="text-lg font-black text-slate-805 flex items-center gap-2">
+                     <Award className="text-violet-600 w-5 h-5"/>
+                     My Medallions
+                  </h3>
+                  <p className="text-xs text-slate-505 font-medium">Unlock badges by completing training milestones.</p>
+                  
+                  <div className="space-y-3.5 pt-2">
+                      {/* Badge 1: First Step */}
+                      <div className={`flex items-center gap-3.5 p-3 rounded-2xl border transition-all duration-300 ${userInfo?.badges?.includes('first_step') ? 'bg-white border-indigo-100 hover:shadow-sm' : 'bg-slate-50/50 border-slate-200/80 opacity-60'}`} title="Complete 1 lesson">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center border shrink-0 ${userInfo?.badges?.includes('first_step') ? 'bg-indigo-50 border-indigo-100 text-indigo-600' : 'bg-slate-100 border-slate-200 text-slate-400'}`}>
+                              <Compass size={18} />
+                          </div>
+                          <div>
+                              <p className="text-xs font-black text-slate-800">First Milestone</p>
+                              <p className="text-[10px] text-slate-550 font-bold uppercase tracking-wider">Completed 1st Lecture</p>
                           </div>
                       </div>
-                      <button onClick={() => handleStartCourse(course)} className={`w-full py-4 rounded-xl font-black transition-all flex items-center justify-center gap-2 shadow-lg transform hover:-translate-y-0.5 ${prog === 100 ? 'bg-slate-800 text-yellow-500 hover:bg-slate-700 border border-yellow-500/30' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/30'}`}>
-                        {prog === 100 ? <><Trophy size={20}/> Revisit Victory</> : <><PlayCircle size={20} /> Resume Training</>}
-                      </button>
+
+                      {/* Badge 2: Voice Master */}
+                      <div className={`flex items-center gap-3.5 p-3 rounded-2xl border transition-all duration-300 ${userInfo?.badges?.includes('voice_master') ? 'bg-white border-blue-100 hover:shadow-sm' : 'bg-slate-50/50 border-slate-200/80 opacity-60'}`} title="Speak answers to AI Voice check">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center border shrink-0 ${userInfo?.badges?.includes('voice_master') ? 'bg-blue-50 border-blue-100 text-blue-600' : 'bg-slate-100 border-slate-200 text-slate-400'}`}>
+                              <Mic size={18} />
+                          </div>
+                          <div>
+                              <p className="text-xs font-black text-slate-800">Orator</p>
+                              <p className="text-[10px] text-slate-550 font-bold uppercase tracking-wider">Passed AI Voice Check</p>
+                          </div>
+                      </div>
+
+                      {/* Badge 3: Streak Maker */}
+                      <div className={`flex items-center gap-3.5 p-3 rounded-2xl border transition-all duration-300 ${userInfo?.badges?.includes('streak_maker') ? 'bg-white border-orange-100 hover:shadow-sm' : 'bg-slate-50/50 border-slate-200/80 opacity-60'}`} title="Achieve a 3-day active learning streak">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center border shrink-0 ${userInfo?.badges?.includes('streak_maker') ? 'bg-orange-50 border-orange-100 text-orange-600' : 'bg-slate-100 border-slate-200 text-slate-400'}`}>
+                              <Flame size={18} className={userInfo?.badges?.includes('streak_maker') ? 'fill-orange-500' : ''} />
+                          </div>
+                          <div>
+                              <p className="text-xs font-black text-slate-800">Committed</p>
+                              <p className="text-[10px] text-slate-555 font-bold uppercase tracking-wider">3-Day Daily Streak</p>
+                          </div>
+                      </div>
+
+                      {/* Badge 4: Exam Champion */}
+                      <div className={`flex items-center gap-3.5 p-3 rounded-2xl border transition-all duration-300 ${userInfo?.badges?.includes('exam_champion') ? 'bg-white border-purple-100 hover:shadow-sm' : 'bg-slate-50/50 border-slate-200/80 opacity-60'}`} title="Score 10/10 on the Final Exam">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center border shrink-0 ${userInfo?.badges?.includes('exam_champion') ? 'bg-purple-50 border-purple-100 text-purple-600' : 'bg-slate-100 border-slate-200 text-slate-400'}`}>
+                              <Award size={18} />
+                          </div>
+                          <div>
+                              <p className="text-xs font-black text-slate-800">Scholar</p>
+                              <p className="text-[10px] text-slate-550 font-bold uppercase tracking-wider">Perfect 10/10 Exam Score</p>
+                          </div>
+                      </div>
+
+                      {/* Badge 5: Graduate */}
+                      <div className={`flex items-center gap-3.5 p-3 rounded-2xl border transition-all duration-300 ${userInfo?.badges?.includes('graduate') ? 'bg-white border-amber-100 hover:shadow-sm' : 'bg-slate-50/50 border-slate-200/80 opacity-60'}`} title="Unlock a Master Certificate">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center border shrink-0 ${userInfo?.badges?.includes('graduate') ? 'bg-amber-50 border-amber-100 text-amber-600' : 'bg-slate-100 border-slate-200 text-slate-400'}`}>
+                              <Trophy size={18} />
+                          </div>
+                          <div>
+                              <p className="text-xs font-black text-slate-800">Graduate</p>
+                              <p className="text-[10px] text-slate-550 font-bold uppercase tracking-wider">Earned Course Certificate</p>
+                          </div>
+                      </div>
                   </div>
-                </div>
-              )})}
-            </div>
-          )}
+              </div>
+
+              {/* Skills Card */}
+              <div className="bg-gradient-to-br from-white to-emerald-50/30 p-6 rounded-3xl border border-emerald-100 shadow-sm space-y-4 transition-all duration-300 hover:shadow-md">
+                  <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                     <Sparkles className="text-emerald-600 w-5 h-5"/>
+                     My Skills
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">Add your expertise to get tailored course suggestions.</p>
+                  
+                  <form onSubmit={handleAddSkill} className="flex gap-2">
+                      <input 
+                          type="text" 
+                          placeholder="e.g. HTML"
+                          value={newSkillInput}
+                          onChange={(e) => setNewSkillInput(e.target.value)}
+                          className="flex-grow p-2 text-sm bg-white border border-slate-205 focus:border-emerald-500 rounded-lg outline-none text-slate-800 shadow-inner"
+                      />
+                      <button type="submit" className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-lg text-sm transition-all duration-300 hover:scale-105 active:scale-95 shadow-sm">
+                          Add
+                      </button>
+                  </form>
+
+                  <div className="flex flex-wrap gap-2 pt-2">
+                      {userSkills.length === 0 ? (
+                          <span className="text-xs text-slate-500 italic">No skills added yet.</span>
+                      ) : (
+                          userSkills.map((skill, idx) => (
+                              <span key={idx} className="flex items-center gap-1 bg-white text-emerald-850 text-xs font-bold px-2.5 py-1 rounded-full border border-emerald-150 shadow-sm hover:scale-105 hover:border-emerald-300 transition-all duration-200">
+                                  {skill}
+                                  <button type="button" onClick={() => handleRemoveSkill(skill)} className="text-slate-400 hover:text-red-655 font-black">
+                                      ✕
+                                  </button>
+                              </span>
+                          ))
+                      )}
+                  </div>
+              </div>
+
+              {/* AI Recommendations Card */}
+              <div className="bg-gradient-to-br from-white to-indigo-50/30 p-6 rounded-3xl border border-indigo-100 shadow-sm space-y-4 transition-all duration-300 hover:shadow-md">
+                  <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                     <Brain className="text-indigo-655 w-5 h-5 animate-pulse"/>
+                     AI Suggestions
+                  </h3>
+                  
+                  {recsLoading ? (
+                      <div className="flex flex-col items-center justify-center py-8">
+                          <Loader className="animate-spin text-indigo-600 w-8 h-8 mb-2"/>
+                          <p className="text-xs text-slate-500 font-medium">Consulting AI Advisor...</p>
+                      </div>
+                  ) : recommendations.length === 0 ? (
+                      <div className="text-center py-6 text-slate-500 text-xs italic">
+                          No recommendations available. Try adding more skills or enrolling in courses!
+                      </div>
+                  ) : (
+                      <div className="space-y-4">
+                          {recommendations.map((rec, idx) => (
+                              <div key={idx} className="bg-white p-4 rounded-2xl border border-indigo-100/60 space-y-3 shadow-sm hover:border-indigo-300 hover:shadow-md transform hover:-translate-y-1 transition duration-300">
+                                  <div className="flex gap-3">
+                                      <img src={rec.course.thumbnail} alt={rec.course.title} className="w-12 h-12 object-cover rounded-lg border border-slate-200" />
+                                      <div className="flex-1 min-w-0">
+                                          <h4 className="text-xs font-black text-slate-800 truncate leading-snug">{rec.course.title}</h4>
+                                          <span className="text-[10px] bg-indigo-55 bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-full font-bold inline-block mt-1">
+                                              {rec.course.category}
+                                          </span>
+                                      </div>
+                                  </div>
+                                  <p className="text-[11px] text-slate-655 leading-relaxed bg-indigo-50/20 p-2.5 rounded-xl border border-indigo-100/30">
+                                      <strong>AI Reason:</strong> {rec.reason}
+                                  </p>
+                                  <button 
+                                      onClick={() => navigate(`/courses`)}
+                                      className="w-full py-2 bg-indigo-50 hover:bg-indigo-600 border border-indigo-100 hover:border-transparent text-indigo-750 hover:text-white font-bold rounded-lg text-xs transition-all duration-300 hover:-translate-y-0.5 active:scale-95 shadow-sm"
+                                  >
+                                      View Course
+                                  </button>
+                              </div>
+                          ))}
+                      </div>
+                  )}
+              </div>
+          </div>
       </div>
+
+      {/* 🌟 GAMIFICATION XP/BADGE ALERT TOAST */}
+      {xpAlert.show && (
+          <div className="fixed bottom-8 left-8 z-[100] flex flex-col gap-3 max-w-sm animate-fade-in text-white">
+              {xpAlert.amount > 0 && (
+                  <div className="bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-5 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border border-indigo-500/30">
+                      <div className="bg-white/20 p-2 rounded-xl text-white">
+                          <Sparkles size={16} className="animate-spin-slow" />
+                      </div>
+                      <div>
+                          <p className="text-sm font-black">+{xpAlert.amount} XP Gained!</p>
+                          <p className="text-[10px] text-indigo-100 font-bold uppercase tracking-wider">Level progression updated</p>
+                      </div>
+                  </div>
+              )}
+              {xpAlert.badge && (
+                  <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-5 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border border-emerald-500/30">
+                      <div className="bg-white/20 p-2 rounded-xl text-white">
+                          <Award size={16} />
+                      </div>
+                      <div>
+                          <p className="text-sm font-black">New Medallion Unlocked! 🏆</p>
+                          <p className="text-xs font-bold text-emerald-100">{xpAlert.badge}</p>
+                      </div>
+                  </div>
+              )}
+          </div>
+      )}
     </div>
   );
 };

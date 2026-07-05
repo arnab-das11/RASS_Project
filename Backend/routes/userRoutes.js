@@ -7,7 +7,10 @@ import {
   enrollCourse, 
   getEnrolledCourses,
   markAsComplete,
-  unenrollCourse // <--- I ADDED THIS HERE!
+  unenrollCourse,
+  passExam,
+  updateSkills,
+  addXP
 } from '../controllers/userController.js';
 
 const router = express.Router();
@@ -23,5 +26,8 @@ router.post('/enroll', enrollCourse); // To join a course
 router.get('/:id/enrolled', getEnrolledCourses); // To fetch courses for the dashboard
 router.put('/progress', markAsComplete); // To save video progress
 router.post('/unenroll', unenrollCourse); // To remove a student from a course
+router.put('/pass-exam', passExam); // To save passed exam status
+router.put('/skills', updateSkills); // To update user skills
+router.put('/add-xp', addXP); // To manually award XP from oral checks
 
 export default router;

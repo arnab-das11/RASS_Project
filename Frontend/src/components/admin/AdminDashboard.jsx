@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { 
   Menu, X, Users, GraduationCap, LayoutDashboard, 
-  CheckCircle, XCircle, LogOut, BookOpen, Trash2, Edit3, Eye
+  CheckCircle, XCircle, LogOut, BookOpen, Trash2, Edit3, Eye, Mail
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from 'axios';
@@ -28,6 +28,7 @@ const AdminDashboard = () => {
   const [users, setUsers] = useState([]);
   const [pendingList, setPendingList] = useState([]);
   const [allCourses, setAllCourses] = useState([]); 
+  const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Modal States
@@ -38,14 +39,16 @@ const AdminDashboard = () => {
   // --- FETCH DATA ---
   const fetchData = async () => {
     try {
-      const [usersRes, pendingRes, coursesRes] = await Promise.all([
+      const [usersRes, pendingRes, coursesRes, contactsRes] = await Promise.all([
           axios.get('http://localhost:5000/api/users'),
           axios.get('http://localhost:5000/api/courses/pending'),
-          axios.get('http://localhost:5000/api/courses')
+          axios.get('http://localhost:5000/api/courses'),
+          axios.get('http://localhost:5000/api/contact')
       ]);
       setUsers(usersRes.data);
       setPendingList(pendingRes.data);
       setAllCourses(coursesRes.data);
+      setContacts(contactsRes.data);
       setLoading(false);
     } catch (error) {
       console.error("Admin Fetch Error:", error);
@@ -139,6 +142,17 @@ const AdminDashboard = () => {
       } catch (error) { alert("Failed to update course."); }
   };
 
+  const handleDeleteContact = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this message?")) return;
+    try {
+      await axios.delete(`http://localhost:5000/api/contact/${id}`);
+      setContacts(prev => prev.filter(c => c._id !== id));
+      alert("Message deleted successfully.");
+    } catch (error) {
+      alert("Failed to delete message: " + (error.response?.data?.message || error.message));
+    }
+  };
+
   const handleLogout = () => {
     if(!window.confirm("Log out?")) return;
     localStorage.removeItem("userInfo");
@@ -164,7 +178,8 @@ const AdminDashboard = () => {
             { id: 'dashboard', icon: LayoutDashboard, label: 'Overview & Analytics' },
             { id: 'all-courses', icon: BookOpen, label: 'Manage Courses' },
             { id: 'learners', icon: GraduationCap, label: 'Student Roster' },
-            { id: 'instructors', icon: Users, label: 'Instructors' }
+            { id: 'instructors', icon: Users, label: 'Instructors' },
+            { id: 'contacts', icon: Mail, label: 'Contact Queries' }
           ].map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl transition font-semibold ${activeTab === tab.id ? "bg-blue-600 text-white shadow-lg shadow-blue-900/50" : "text-gray-400 hover:bg-gray-800 hover:text-white"}`}>
               <tab.icon size={20} /> {tab.label}
@@ -182,7 +197,7 @@ const AdminDashboard = () => {
           <div className="flex items-center gap-4">
               <button className="md:hidden text-gray-600 hover:text-blue-600 transition" onClick={() => setSidebarOpen(true)}><Menu size={24}/></button>
               <h1 className="text-2xl font-black text-gray-800 tracking-tight capitalize">
-                 {activeTab === 'all-courses' ? 'Manage Courses' : activeTab === 'dashboard' ? 'System Overview' : activeTab}
+                 {activeTab === 'all-courses' ? 'Manage Courses' : activeTab === 'dashboard' ? 'System Overview' : activeTab === 'contacts' ? 'Contact Queries' : activeTab}
               </h1>
           </div>
           <div className="flex items-center gap-3">
@@ -464,6 +479,65 @@ const AdminDashboard = () => {
                       )})}
                     </tbody>
                   </table>
+                </div>
+              )}
+
+              {/* --- CONTACT QUERIES TAB --- */}
+              {activeTab === "contacts" && (
+                <div className="max-w-6xl mx-auto animate-fade-in">
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="p-6 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                      <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        <Mail className="text-blue-600" /> Messages Box ({contacts.length})
+                      </h2>
+                    </div>
+                    {contacts.length === 0 ? (
+                      <div className="text-center py-16 bg-gray-50 rounded-xl m-6 border-2 border-dashed border-gray-200">
+                        <CheckCircle className="mx-auto text-green-400 mb-3" size={48} />
+                        <h3 className="text-lg font-bold text-gray-700">Inbox is empty</h3>
+                        <p className="text-gray-500 font-medium">No contact form submissions at this time.</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-gray-100">
+                        {contacts.map((msg) => (
+                          <div key={msg._id} className="p-6 hover:bg-gray-50/50 transition duration-150 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div className="flex-1 space-y-2">
+                              <div className="flex items-center gap-3">
+                                <span className="font-bold text-gray-900 text-lg">{msg.name}</span>
+                                <a href={`mailto:${msg.email}`} className="text-sm text-blue-600 hover:underline font-semibold flex items-center gap-1">
+                                  &lt;{msg.email}&gt;
+                                </a>
+                              </div>
+                              {msg.subject && (
+                                <p className="text-sm font-semibold text-gray-700">
+                                  Subject: <span className="text-gray-500 font-medium">{msg.subject}</span>
+                                </p>
+                              )}
+                              <p className="text-gray-600 text-sm whitespace-pre-wrap leading-relaxed">{msg.message}</p>
+                              <p className="text-xs text-gray-400">
+                                Submitted on: {new Date(msg.createdAt).toLocaleString()}
+                              </p>
+                            </div>
+                            <div className="flex gap-2">
+                              <a
+                                href={`mailto:${msg.email}?subject=RE: ${encodeURIComponent(msg.subject || 'Your inquiry')}`}
+                                className="px-4 py-2 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg font-bold text-sm transition shadow-sm"
+                              >
+                                Reply via Email
+                              </a>
+                              <button
+                                onClick={() => handleDeleteContact(msg._id)}
+                                className="p-2 text-red-600 hover:text-white hover:bg-red-600 bg-red-50 rounded-lg transition cursor-pointer"
+                                title="Delete message"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </>

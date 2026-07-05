@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, Eye, EyeOff, UserRound, Mail, Lock } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, UserRound, Mail, Lock, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import axios from 'axios'; 
@@ -14,6 +14,7 @@ const LearnerSignUp = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [skills, setSkills] = useState("");
 
   const toggleMode = () => setIsLogin(!isLogin);
   const togglePassword = () => setShowPassword(!showPassword);
@@ -29,7 +30,8 @@ const LearnerSignUp = () => {
       const payload = { email, password };
       if (!isLogin) {
         payload.name = name;
-        payload.role = "learner"; 
+        payload.role = "learner";
+        payload.skills = skills.split(",").map(s => s.trim()).filter(s => s !== "");
       }
 
       const { data } = await axios.post(endpoint, payload);
@@ -104,16 +106,28 @@ const LearnerSignUp = () => {
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             {!isLogin && (
-              <div className="flex items-center border rounded-lg px-3 py-2 bg-gray-50">
-                <UserRound className="text-gray-400 mr-2" size={18} />
-                <input
-                  type="text"
-                  placeholder="Full Name"
-                  className="w-full bg-transparent focus:outline-none"
-                  value={name} 
-                  onChange={(e) => setName(e.target.value)}
-                  required/>
-              </div>
+              <>
+                <div className="flex items-center border rounded-lg px-3 py-2 bg-gray-50">
+                  <UserRound className="text-gray-400 mr-2" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Full Name"
+                    className="w-full bg-transparent focus:outline-none"
+                    value={name} 
+                    onChange={(e) => setName(e.target.value)}
+                    required/>
+                </div>
+                <div className="flex items-center border rounded-lg px-3 py-2 bg-gray-50">
+                  <Sparkles className="text-gray-400 mr-2" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Skills (e.g. React, Node, Python)"
+                    className="w-full bg-transparent focus:outline-none"
+                    value={skills} 
+                    onChange={(e) => setSkills(e.target.value)}
+                  />
+                </div>
+              </>
             )}
 
             <div className="flex items-center border rounded-lg px-3 py-2 bg-gray-50">
