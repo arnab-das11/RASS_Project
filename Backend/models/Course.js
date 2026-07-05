@@ -24,7 +24,8 @@ const courseSchema = mongoose.Schema(
             title: { type: String },
             videoUrl: { type: String },
             videoPublicId: { type: String },
-            freePreview: { type: Boolean, default: false }
+            freePreview: { type: Boolean, default: false },
+            description: { type: String }
           }
         ],
         resources: [
@@ -32,13 +33,15 @@ const courseSchema = mongoose.Schema(
             title: { type: String },
             url: { type: String },
             publicId: { type: String },
-            type: { type: String }
+            type: { type: String },
+            description: { type: String }
           }
         ],
         links: [
           {
             title: { type: String },
-            url: { type: String }
+            url: { type: String },
+            description: { type: String }
           }
         ]
       }
