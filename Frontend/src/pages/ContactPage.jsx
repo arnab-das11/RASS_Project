@@ -64,17 +64,19 @@ const ContactPage = () => {
 
       <main className="flex-grow py-16 px-6 md:px-20">
         <div className="text-center mb-12 mt-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-3">Contact Us</h1>
-          <p className="text-gray-600 max-w-2xl mx-auto">
-            Have questions, feedback, or need assistance? <br />
+          <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-3">
+            Contact Us
+          </h1>
+          <p className="text-gray-600 max-w-2xl mx-auto leading-7">
+            Have questions, feedback, or need assistance?
+            <br />
             We'd love to hear from you. Our team is here to help you make the
             most out of your learning experience.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-10 max-w-5xl mx-auto">
-
-          <div className="bg-white shadow-md rounded-2xl p-8">
+        <div className="grid md:grid-cols-2 gap-10 max-w-6xl mx-auto">
+          <div className="bg-white shadow-lg rounded-3xl p-8 md:p-10">
             <h2 className="text-2xl font-semibold mb-6 text-gray-800">
               Send a Message
             </h2>
@@ -131,7 +133,7 @@ const ContactPage = () => {
                 value={formData.message}
                 onChange={handleChange}
                 placeholder="Your Message"
-                rows="5"
+                rows="6"
                 required
                 disabled={loading}
                 className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none disabled:bg-gray-55">
@@ -152,14 +154,16 @@ const ContactPage = () => {
             </form>
           </div>
 
-          <div className="flex flex-col justify-between bg-white shadow-md rounded-2xl p-8">
+          <div className="flex flex-col justify-between bg-white shadow-lg rounded-3xl p-8 md:p-10">
             <div>
-              <h2 className="text-2xl font-semibold mb-6 text-gray-800">
+              <h2 className="text-2xl font-semibold mb-8 text-gray-800">
                 Get in Touch
               </h2>
 
-              <div className="flex items-start gap-3 mb-4">
-                <Mail className="text-blue-600 mt-1" />
+              <div className="flex items-start gap-4 mb-6">
+                <div className="bg-blue-100 p-3 rounded-full">
+                  <Mail className="text-blue-600" size={22} />
+                </div>
                 <div>
                   <h3 className="font-medium text-gray-700">Email</h3>
                   <a
@@ -171,8 +175,10 @@ const ContactPage = () => {
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 mb-4">
-                <Phone className="text-blue-600 mt-1" />
+              <div className="flex items-start gap-4 mb-6">
+                <div className="bg-blue-100 p-3 rounded-full">
+                  <Phone className="text-blue-600" size={22} />
+                </div>
                 <div>
                   <h3 className="font-medium text-gray-700">Phone</h3>
                   <a
@@ -184,11 +190,13 @@ const ContactPage = () => {
                 </div>
               </div>
 
-              <div className="flex items-start gap-3">
-                <MapPin className="text-blue-600 mt-1" />
+              <div className="flex items-start gap-4">
+                <div className="bg-blue-100 p-3 rounded-full">
+                  <MapPin className="text-blue-600" size={22} />
+                </div>
                 <div>
-                  <h3 className="font-medium text-gray-700">Address</h3>
-                  <p className="text-gray-600">
+                  <h3 className="font-semibold text-gray-700 mb-1">Address</h3>
+                  <p className="text-gray-600 leading-7">
                     LearnX Headquarters, Sonarpur Station Road, Mission Pally,
                     Pin:-700150, Narendrapur, Kolkata, West Bengal, India
                   </p>
@@ -196,17 +204,17 @@ const ContactPage = () => {
               </div>
             </div>
 
-            <div className="mt-8">
+            <div className="mt-10 overflow-hidden rounded-2xl border border-gray-200">
               <iframe
                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d6383.606647773529!2d88.42171217889506!3d22.44187194300862!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a0272166e4cb263%3A0x27f12170efd9ddee!2sFuture%20Institute%20of%20Engineering%20and%20Management!5e0!3m2!1sen!2sin!4v1761891001518!5m2!1sen!2sin"
                 width="100%"
                 height="250"
                 style={{ border: 0 }}
-                allowFullScreen=""
+                allowFullScreen
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
                 title="FIEM Location"
-              ></iframe>
+              />
             </div>
           </div>
         </div>
