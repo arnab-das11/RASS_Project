@@ -59,7 +59,7 @@ const ContactPage = () => {
     <div className="flex flex-col min-h-screen bg-gray-100 relative">
 
       <div className="flex-grow pt-16 md:pt-24 pb-16 px-6 md:px-20">
-        <Navbar/>
+        <Navbar />
       </div>
 
       <main className="flex-grow py-16 px-6 md:px-20">
@@ -85,11 +85,10 @@ const ContactPage = () => {
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className={`p-4 rounded-xl flex items-start gap-3 border ${
-                      status.type === "success"
+                    className={`p-4 rounded-xl flex items-start gap-3 border ${status.type === "success"
                         ? "bg-green-50/80 border-green-200 text-green-800 backdrop-blur-sm"
                         : "bg-red-50/80 border-red-200 text-red-800 backdrop-blur-sm"
-                    }`}
+                      }`}
                   >
                     {status.type === "success" ? (
                       <CheckCircle className="text-green-600 mt-0.5 shrink-0" size={18} />
@@ -109,7 +108,7 @@ const ContactPage = () => {
                 placeholder="Full Name"
                 required
                 disabled={loading}
-                className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-55"/>
+                className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-55" />
               <input
                 type="email"
                 name="email"
@@ -118,7 +117,7 @@ const ContactPage = () => {
                 placeholder="Email Address"
                 required
                 disabled={loading}
-                className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-55"/>
+                className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-55" />
               <input
                 type="text"
                 name="subject"
@@ -126,7 +125,7 @@ const ContactPage = () => {
                 onChange={handleChange}
                 placeholder="Subject"
                 disabled={loading}
-                className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-55"/>
+                className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-55" />
               <textarea
                 name="message"
                 value={formData.message}
@@ -163,8 +162,8 @@ const ContactPage = () => {
                 <Mail className="text-blue-600 mt-1" />
                 <div>
                   <h3 className="font-medium text-gray-700">Email</h3>
-                  <a 
-                    href="mailto:jeetdasx23@gmail.com" 
+                  <a
+                    href="mailto:jeetdasx23@gmail.com"
                     className="text-blue-600 hover:text-blue-800 hover:underline font-medium transition-all"
                   >
                     jeetdasx23@gmail.com
@@ -176,8 +175,8 @@ const ContactPage = () => {
                 <Phone className="text-blue-600 mt-1" />
                 <div>
                   <h3 className="font-medium text-gray-700">Phone</h3>
-                  <a 
-                    href="tel:7479106468" 
+                  <a
+                    href="tel:7479106468"
                     className="text-blue-600 hover:text-blue-800 hover:underline font-medium transition-all"
                   >
                     +91 7479106468
