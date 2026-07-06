@@ -17,7 +17,7 @@ const List = () => {
       try {
         const { data } = await axios.get("http://localhost:5000/api/courses");
         // Slice to show only the first 4 courses for the homepage list
-        setCourses(data.slice(0, 4)); 
+        setCourses(data.slice(0, 4));
         setLoading(false);
       } catch (error) {
         console.error("Error fetching courses:", error);
@@ -89,8 +89,8 @@ const List = () => {
                 alt={course.title}
                 className="w-full h-48 sm:h-52 md:h-56 object-cover object-center rounded-t-2xl"
                 onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = DEFAULT_IMAGE;
+                  e.target.onerror = null;
+                  e.target.src = DEFAULT_IMAGE;
                 }}
               />
 

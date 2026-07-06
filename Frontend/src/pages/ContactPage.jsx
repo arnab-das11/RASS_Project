@@ -88,8 +88,8 @@ const ContactPage = () => {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
                     className={`p-4 rounded-xl flex items-start gap-3 border ${status.type === "success"
-                        ? "bg-green-50/80 border-green-200 text-green-800 backdrop-blur-sm"
-                        : "bg-red-50/80 border-red-200 text-red-800 backdrop-blur-sm"
+                      ? "bg-green-50/80 border-green-200 text-green-800 backdrop-blur-sm"
+                      : "bg-red-50/80 border-red-200 text-red-800 backdrop-blur-sm"
                       }`}
                   >
                     {status.type === "success" ? (

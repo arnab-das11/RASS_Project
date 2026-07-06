@@ -53,9 +53,9 @@ const FeaturesPage = () => {
     <div className="bg-gray-100 min-h-screen flex flex-col relative">
 
       <div className="flex-grow pt-16 md:pt-24 pb-16 px-6 md:px-20">
-        <Navbar/>
+        <Navbar />
       </div>
-      
+
       <div className="text-center pt-20 pb-10 px-6 md:px-20">
         <h1 className="text-4xl font-bold text-gray-800 mb-4">
           Innovative Features That Empower Learning
