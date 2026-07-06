@@ -398,7 +398,7 @@ const AdminDashboard = () => {
 
               {/* --- LEARNERS TAB --- */}
               {activeTab === "learners" && (
-                <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden animate-fade-in">
+                <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-200 overflow-x-auto scrollbar-thin animate-fade-in">
                   <table className="w-full text-left border-collapse">
                     <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 text-xs uppercase font-black tracking-wider">
                       <tr>
@@ -440,7 +440,7 @@ const AdminDashboard = () => {
 
               {/* --- INSTRUCTORS TAB --- */}
               {activeTab === "instructors" && (
-                <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden animate-fade-in">
+                <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-200 overflow-x-auto scrollbar-thin animate-fade-in">
                   <table className="w-full text-left border-collapse">
                     <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 text-xs uppercase font-black tracking-wider">
                       <tr>

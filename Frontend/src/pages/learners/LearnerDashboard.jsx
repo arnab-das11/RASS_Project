@@ -1675,7 +1675,7 @@ const LearnerDashboard = () => {
                                   setSelectedCourse(course);
                                   fetchFinalExam(course);
                                 }} 
-                                className="w-full py-4 rounded-xl font-black transition-all duration-300 flex items-center justify-center gap-2 shadow-md hover:shadow-lg transform hover:-translate-y-1 hover:scale-[1.02] active:scale-95 bg-indigo-650 hover:bg-indigo-750 text-white font-bold"
+                                className="w-full py-4 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2 shadow-md hover:shadow-lg transform hover:-translate-y-1 hover:scale-[1.02] active:scale-95 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
                               >
                                 <Brain size={20}/> Take Final Exam
                               </button>
