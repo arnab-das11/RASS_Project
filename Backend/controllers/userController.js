@@ -183,8 +183,45 @@ export const googleLogin = async (req, res) => {
 
 export const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({}).select('-password').populate('enrolledCourses');
-    res.json(users);
+    const users = await User.find({})
+      .select('-password')
+      .populate('enrolledCourses')
+      .populate('enrolledCourses.courseId');
+
+    const normalizedUsers = users.map(user => {
+      const userObj = user.toObject ? user.toObject() : user;
+      
+      const normalizedCourses = user.enrolledCourses.map(item => {
+        if (!item) return null;
+
+        // New structure: { courseId: populatedCourse, purchaseDetails }
+        if (item.courseId) {
+          const courseObj = item.courseId.toObject ? item.courseId.toObject() : item.courseId;
+          if (courseObj && (courseObj.title || courseObj._id)) {
+            return {
+              ...courseObj,
+              purchaseDetails: item.purchaseDetails
+            };
+          }
+        }
+
+        // Legacy structure: populatedCourse (the item itself)
+        if (item.title || item._id) {
+          const courseObj = item.toObject ? item.toObject() : item;
+          return {
+            ...courseObj,
+            purchaseDetails: null
+          };
+        }
+
+        return null;
+      }).filter(Boolean);
+
+      userObj.enrolledCourses = normalizedCourses;
+      return userObj;
+    });
+
+    res.json(normalizedUsers);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -195,9 +232,18 @@ export const enrollCourse = async (req, res) => {
     const { userId, courseId } = req.body;
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
-    if (user.enrolledCourses.includes(courseId)) return res.status(400).json({ message: 'You are already enrolled in this course.' });
+    
+    const isAlreadyEnrolled = user.enrolledCourses.some(item => {
+      if (!item) return false;
+      const itemId = item.courseId ? item.courseId.toString() : item.toString();
+      return itemId === courseId;
+    });
 
-    user.enrolledCourses.push(courseId);
+    if (isAlreadyEnrolled) {
+      return res.status(400).json({ message: 'You are already enrolled in this course.' });
+    }
+
+    user.enrolledCourses.push({ courseId });
     await user.save();
 
     res.status(200).json({ message: 'Successfully enrolled!', enrolledCourses: user.enrolledCourses });
@@ -208,9 +254,38 @@ export const enrollCourse = async (req, res) => {
 
 export const getEnrolledCourses = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).populate('enrolledCourses');
+    const user = await User.findById(req.params.id)
+      .populate('enrolledCourses')
+      .populate('enrolledCourses.courseId');
     if (!user) return res.status(404).json({ message: 'User not found' });
-    res.status(200).json(user.enrolledCourses);
+
+    const courses = user.enrolledCourses.map(item => {
+      if (!item) return null;
+
+      // New structure: { courseId: populatedCourse, purchaseDetails }
+      if (item.courseId) {
+        const courseObj = item.courseId.toObject ? item.courseId.toObject() : item.courseId;
+        if (courseObj && (courseObj.title || courseObj._id)) {
+          return {
+            ...courseObj,
+            purchaseDetails: item.purchaseDetails
+          };
+        }
+      }
+
+      // Legacy structure: populatedCourse (the item itself)
+      if (item.title || item._id) {
+        const courseObj = item.toObject ? item.toObject() : item;
+        return {
+          ...courseObj,
+          purchaseDetails: null
+        };
+      }
+
+      return null;
+    }).filter(Boolean);
+
+    res.status(200).json(courses);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -254,7 +329,11 @@ export const unenrollCourse = async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    user.enrolledCourses = user.enrolledCourses.filter(id => id.toString() !== courseId);
+    user.enrolledCourses = user.enrolledCourses.filter(item => {
+      if (!item) return false;
+      const itemId = item.courseId ? item.courseId.toString() : item.toString();
+      return itemId !== courseId;
+    });
     await user.save();
     res.status(200).json({ message: 'User unenrolled successfully' });
   } catch (error) {

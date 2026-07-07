@@ -1,7 +1,8 @@
 import express from 'express';
-import { getAdminStats } from '../controllers/adminController.js';
+import { getAdminStats, clearUsers } from '../controllers/adminController.js';
 
 const router = express.Router();
 router.get('/stats', getAdminStats);
+router.delete('/reset-users', clearUsers);
 
 export default router;

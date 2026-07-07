@@ -30,7 +30,20 @@ const userSchema = new mongoose.Schema({
   },
   passedExams: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Course' }],
   skills: [{ type: String }],
-  enrolledCourses: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Course' }],
+  enrolledCourses: [{
+    courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Course', required: true },
+    purchaseDetails: {
+      orderId: { type: String },
+      paymentId: { type: String },
+      amountPaid: { type: Number }, // stored in paise
+      enrollmentDate: { type: Date, default: Date.now },
+      refundStatus: { 
+        type: String, 
+        enum: ['Eligible', 'Processed', 'Expired'], 
+        default: 'Eligible' 
+      }
+    }
+  }],
   
   // --- GAMIFICATION FIELDS ---
   xp: { type: Number, default: 0 },
