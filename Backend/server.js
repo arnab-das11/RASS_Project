@@ -8,6 +8,7 @@ import mongoose from 'mongoose'; // The tool that talks to MongoDB
 import courseRoutes from './routes/courseRoutes.js'; // <--- 1. Import this
 import adminRoutes from './routes/adminRoutes.js';
 import contactRoutes from './routes/contactRoutes.js';
+import paymentRoutes from './routes/paymentRoutes.js';
 
 // 1. Load the secret .env keys
 dotenv.config();
@@ -27,6 +28,7 @@ app.use('/api/courses', courseRoutes); // <--- 2. Add this line
 app.use('/api/admin', adminRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // 3. Connect to Database (The "Pantry")
 mongoose.connect(process.env.MONGO_URI)

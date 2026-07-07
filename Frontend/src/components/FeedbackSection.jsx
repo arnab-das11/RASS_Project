@@ -92,7 +92,7 @@ const cardVariants = {
 const FeedbackSection = () => {
   return (
     <motion.section
-      className="bg-gradient-to-b from-white to-green-50 py-16 px-6 md:px-16 lg:px-24 will-change-transform"
+      className="bg-gradient-to-b from-white to-green-50 py-16 px-4 sm:px-8 md:px-12 xl:px-16 will-change-transform"
       variants={containerVariants}
       initial="hidden"
       whileInView="visible"
@@ -112,14 +112,14 @@ const FeedbackSection = () => {
       </motion.div>
 
       {/* Feedback cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 justify-items-center">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 md:gap-8 xl:gap-10 justify-items-center">
         {feedbacks.map((item, index) => (
           <motion.div
             key={index}
             variants={cardVariants}
             className="bg-white border border-gray-200 rounded-2xl shadow-sm 
                        hover:shadow-[0_0_25px_rgba(34,197,94,0.4)]
-                       p-6 w-80 sm:w-96 flex flex-col items-center text-center 
+                       p-6 w-full max-w-[360px] flex flex-col items-center text-center 
                        transition-shadow duration-300"
           >
             <img
