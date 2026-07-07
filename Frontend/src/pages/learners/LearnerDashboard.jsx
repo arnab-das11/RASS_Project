@@ -90,6 +90,7 @@ const LearnerDashboard = () => {
   const [showTrophy, setShowTrophy] = useState(false);
   const [completedCourseName, setCompletedCourseName] = useState("");
   const [isGeneratingCert, setIsGeneratingCert] = useState(false);
+  const [examSuccessTimer, setExamSuccessTimer] = useState(5);
 
   // --- 🎙️ AI VOICE ORAL ASSESSMENT STATE ---
   const [showVoiceModal, setShowVoiceModal] = useState(false);
@@ -782,6 +783,27 @@ const LearnerDashboard = () => {
     return () => clearInterval(interval);
   }, [showFinalExamModal, finalExamCurrentIndex, finalExamResult, finalExamQuestions]);
 
+  // --- ⏱️ FINAL EXAM SUCCESS COUNTDOWN AUTO-CLOSE ---
+  useEffect(() => {
+    if (!showFinalExamModal || !finalExamResult?.passed) {
+      setExamSuccessTimer(5);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setExamSuccessTimer(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setShowFinalExamModal(false);
+          return 5;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [showFinalExamModal, finalExamResult]);
+
   const handleNextOrSkipQuestion = () => {
     setFinalExamAnswers(prev => {
       const updated = { ...prev };
@@ -1329,13 +1351,26 @@ const LearnerDashboard = () => {
                         <Trophy className="text-amber-500 w-12 h-12" />
                       </div>
                       <h3 className="text-3xl font-black text-slate-800 mb-2">Victory Achieved! 🏆</h3>
-                      <p className="text-slate-650 font-medium mb-8 max-w-md mx-auto">Sensational job! You passed the exam with a score of <span className="text-amber-600 font-black">{finalExamResult.score}/10</span>. You are certified!</p>
-                      <button
-                        onClick={() => { setShowFinalExamModal(false); setShowTrophy(true); }}
-                        className="px-10 py-4 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-xl shadow-sm transition-all"
-                      >
-                        Claim Certificate
-                      </button>
+                      <p className="text-slate-650 font-medium mb-6 max-w-md mx-auto">Sensational job! You passed the exam with a score of <span className="text-amber-600 font-black">{finalExamResult.score}/10</span>. You are certified!</p>
+                      
+                      <div className="flex flex-col sm:flex-row gap-4 justify-center items-center max-w-md mx-auto mb-4">
+                        <button
+                          onClick={() => generateCertificatePDF(selectedCourse?.title)}
+                          className="w-full sm:w-auto px-8 py-3.5 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-xl shadow-sm transition-all"
+                        >
+                          View & Download Certificate
+                        </button>
+                        <button
+                          onClick={() => setShowFinalExamModal(false)}
+                          className="w-full sm:w-auto px-6 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition border border-slate-200"
+                        >
+                          Close
+                        </button>
+                      </div>
+
+                      <p className="text-xs text-slate-400 font-medium italic">
+                        Closing automatically in {examSuccessTimer} seconds...
+                      </p>
                     </>
                   ) : (
                     <>
