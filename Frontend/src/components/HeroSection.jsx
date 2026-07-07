@@ -78,7 +78,7 @@ const HeroSection = () => {
       </motion.div>
 
       {/* Mentor Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 justify-items-center">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 md:gap-8 xl:gap-10 justify-items-center">
         {mentors.map((mentor, index) => (
           <motion.div
             key={index}
@@ -86,7 +86,7 @@ const HeroSection = () => {
             whileHover={{ scale: 1.06 }}
             transition={{ type: "spring", stiffness: 250, damping: 18 }}
             className="relative group bg-white rounded-2xl shadow-lg overflow-hidden 
-                       transition-all duration-500 aspect-square w-72
+                       transition-all duration-500 aspect-square w-full max-w-[288px]
                        hover:shadow-[0_0_25px_rgba(59,130,246,0.5)]"
           >
             <img

@@ -9,6 +9,17 @@ import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
 import axios from "axios";
 
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
+
 const CourseDetailsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -83,20 +94,89 @@ const CourseDetailsPage = () => {
 
     // Scenario 3: Logged in Learner -> Process Enrollment
     setEnrollLoading(true);
-    try {
-        await axios.post('http://localhost:5000/api/users/enroll', {
-            userId: userInfo._id,
-            courseId: course._id
-        });
 
-        setIsEnrolled(true);
-        navigate('/learner-dashboard'); 
-        
-    } catch (error) {
-        const errorMsg = error.response?.data?.message || error.message;
-        alert("Enrollment Error: " + errorMsg);
-    } finally {
+    // 3.1: If free course, do direct enrollment
+    if (!course.price || course.price === 0) {
+      try {
+          await axios.post('http://localhost:5000/api/users/enroll', {
+              userId: userInfo._id,
+              courseId: course._id
+          });
+
+          setIsEnrolled(true);
+          navigate('/learner-dashboard'); 
+      } catch (error) {
+          const errorMsg = error.response?.data?.message || error.message;
+          alert("Enrollment Error: " + errorMsg);
+      } finally {
+          setEnrollLoading(false);
+      }
+      return;
+    }
+
+    // 3.2: Paid course, process Razorpay Checkout
+    try {
+      const isLoaded = await loadRazorpayScript();
+      if (!isLoaded) {
+        alert("Razorpay SDK failed to load. Please check your internet connection.");
         setEnrollLoading(false);
+        return;
+      }
+
+      // Create Razorpay order
+      const { data: order } = await axios.post('http://localhost:5000/api/payments/create-order', {
+        amount: course.price
+      });
+
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_placeholder',
+        amount: order.amount,
+        currency: order.currency,
+        name: "LearnX",
+        description: `Enrollment for ${course.title}`,
+        image: course.thumbnail || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800",
+        order_id: order.id,
+        handler: async (response) => {
+          try {
+            const { data: verifyData } = await axios.post('http://localhost:5000/api/payments/verify-enroll', {
+              userId: userInfo._id,
+              courseId: course._id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_signature: response.razorpay_signature,
+              amountPaid: order.amount
+            });
+
+            alert(verifyData.message);
+            setIsEnrolled(true);
+            navigate('/learner-dashboard');
+          } catch (err) {
+            const errorMsg = err.response?.data?.message || err.message;
+            alert("Payment verification failed: " + errorMsg);
+            setEnrollLoading(false);
+          }
+        },
+        prefill: {
+          name: userInfo.name,
+          email: userInfo.email
+        },
+        theme: {
+          color: "#2563eb"
+        },
+        modal: {
+          ondismiss: function() {
+            setEnrollLoading(false);
+          }
+        }
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (error) {
+      console.error("Razorpay initiation error:", error);
+      const errorMsg = error.response?.data?.message || error.message;
+      alert("Failed to initialize payment: " + errorMsg);
+      setEnrollLoading(false);
     }
   };
 

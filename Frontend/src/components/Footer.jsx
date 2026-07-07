@@ -5,7 +5,7 @@ const Footer = () => {
   return (
     <div className="px-6 md:px-16 lg:px-24 xl:px-32 bg-gradient-to-b from-gray-200 to-gray-300">
       <div className="flex flex-col md:flex-row items-start justify-between gap-10 py-10 border-b border-gray-500/30 text-gray-500">
-        
+
 
         <div>
           <img src={logo} alt="logo" className="w-32 sm:w-44" />
@@ -14,9 +14,9 @@ const Footer = () => {
           </p>
         </div>
 
-        
+
         <div className="flex flex-wrap justify-between w-full md:w-[45%] gap-5">
-          
+
           <div>
             <h3 className="font-semibold text-base text-gray-900 md:mb-5 mb-2">
               Company
@@ -40,7 +40,7 @@ const Footer = () => {
             </ul>
           </div>
 
-    
+
           <div>
             <h3 className="font-semibold text-base text-gray-900 md:mb-5 mb-2">
               Follow Us
