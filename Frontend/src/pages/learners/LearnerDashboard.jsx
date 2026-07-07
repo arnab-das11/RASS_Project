@@ -76,6 +76,10 @@ const LearnerDashboard = () => {
   const [progressLoading, setProgressLoading] = useState(false);
   const [userInfo, setUserInfo] = useState(null);
 
+  // Cashback & Refund Claim States
+  const [claimLoading, setClaimLoading] = useState(false);
+  const [claimSuccessMessage, setClaimSuccessMessage] = useState("");
+
   // View Controllers
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [activeContent, setActiveContent] = useState(null);
@@ -518,6 +522,14 @@ const LearnerDashboard = () => {
         } catch (err) {
           console.error("Failed to save voice check XP", err);
         }
+
+        // Close the modal automatically after 2.5 seconds so they can read the feedback
+        setTimeout(() => {
+          setShowVoiceModal(false);
+          setVoiceAnswer("");
+          setVoiceFeedback("");
+          setVoicePassed(null);
+        }, 2500);
       }
     } catch (error) {
       console.error("Grading failed", error);
@@ -560,9 +572,54 @@ const LearnerDashboard = () => {
   };
 
   const handleQuizSubmit = () => {
-    if (!quizSelectedOption) return;
+    if (!quizSelectedOption || !quizData) return;
 
-    if (quizSelectedOption === quizData.correctAnswer) {
+    const cleanUser = quizSelectedOption.trim().toLowerCase();
+    const cleanCorrect = (quizData.correctAnswer || '').trim().toLowerCase();
+
+    let isCorrect = (cleanUser === cleanCorrect);
+
+    if (!isCorrect) {
+      const optionLetters = ['a', 'b', 'c', 'd'];
+      const correctIdx = optionLetters.indexOf(cleanCorrect);
+      if (correctIdx !== -1 && quizData.options && quizData.options[correctIdx]) {
+        if (quizData.options[correctIdx].trim().toLowerCase() === cleanUser) {
+          isCorrect = true;
+        }
+      }
+      
+      if (!isCorrect && quizData.options) {
+        for (let i = 0; i < 4; i++) {
+          const letter = optionLetters[i];
+          if (cleanCorrect === `option ${letter}` || 
+              cleanCorrect === `option: ${letter}` || 
+              cleanCorrect === `${letter})` || 
+              cleanCorrect === `${i}` || 
+              cleanCorrect === `option ${i+1}`) {
+            if (quizData.options[i] && quizData.options[i].trim().toLowerCase() === cleanUser) {
+              isCorrect = true;
+              break;
+            }
+          }
+        }
+      }
+
+      if (!isCorrect && quizData.options) {
+        for (let i = 0; i < 4; i++) {
+          if (quizData.options[i]) {
+            const optClean = quizData.options[i].trim().toLowerCase();
+            if (optClean.includes(cleanCorrect) || cleanCorrect.includes(optClean)) {
+              if (optClean === cleanUser) {
+                isCorrect = true;
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (isCorrect) {
       setQuizResult('correct');
       setTimeout(() => {
         setShowQuizModal(false);
@@ -600,7 +657,9 @@ const LearnerDashboard = () => {
   };
 
   const handleFinalExamSubmit = async (overrideAnswers = null) => {
-    const answersToUse = overrideAnswers || finalExamAnswers;
+    const answersToUse = (overrideAnswers && typeof overrideAnswers === 'object' && !overrideAnswers.preventDefault) 
+      ? overrideAnswers 
+      : finalExamAnswers;
     if (Object.keys(answersToUse).length < 10) {
       alert("Please answer all 10 questions before submitting.");
       return;
@@ -610,10 +669,74 @@ const LearnerDashboard = () => {
     try {
       let correctCount = 0;
       finalExamQuestions.forEach((q, idx) => {
-        if (answersToUse[idx] === q.correctAnswer) {
+        const userAnswer = answersToUse[idx];
+        // Resiliently support camelCase, snake_case, or shorter fields for correctAnswer and options
+        const correctAnswer = q.correctAnswer || q.correct_answer || q.answer || q.correct || q.correctOption;
+        const optionsList = q.options || q.choices || q.answers || [];
+        
+        if (!userAnswer || !correctAnswer) {
+          console.warn(`Question ${idx + 1} is missing fields: User: ${userAnswer}, Correct: ${correctAnswer}`);
+          return;
+        }
+
+        const cleanUser = userAnswer.trim().toLowerCase();
+        const cleanCorrect = correctAnswer.trim().toLowerCase();
+
+        let isCorrect = (cleanUser === cleanCorrect);
+
+        if (!isCorrect) {
+          const optionLetters = ['a', 'b', 'c', 'd'];
+          const correctIdx = optionLetters.indexOf(cleanCorrect);
+          if (correctIdx !== -1 && optionsList[correctIdx]) {
+            if (optionsList[correctIdx].trim().toLowerCase() === cleanUser) {
+              isCorrect = true;
+            }
+          }
+          
+          if (!isCorrect) {
+            for (let i = 0; i < 4; i++) {
+              const letter = optionLetters[i];
+              if (cleanCorrect === `option ${letter}` || 
+                  cleanCorrect === `option: ${letter}` || 
+                  cleanCorrect === `${letter})` || 
+                  cleanCorrect === `${i}` || 
+                  cleanCorrect === `option ${i+1}`) {
+                if (optionsList[i] && optionsList[i].trim().toLowerCase() === cleanUser) {
+                  isCorrect = true;
+                  break;
+                }
+              }
+            }
+          }
+
+          if (!isCorrect) {
+            for (let i = 0; i < 4; i++) {
+              if (optionsList[i]) {
+                const optClean = optionsList[i].trim().toLowerCase();
+                if (optClean.includes(cleanCorrect) || cleanCorrect.includes(optClean)) {
+                  if (optClean === cleanUser) {
+                    isCorrect = true;
+                    break;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        console.log(`Grading Question ${idx + 1}:`, {
+          question: q.question,
+          options: optionsList,
+          correctAnswerField: correctAnswer,
+          userAnswer: userAnswer,
+          isCorrect: isCorrect
+        });
+
+        if (isCorrect) {
           correctCount++;
         }
       });
+      console.log(`Final Exam Grading Complete: ${correctCount}/10`);
 
       const passed = correctCount >= 7;
 
@@ -757,6 +880,58 @@ const LearnerDashboard = () => {
     }
   };
 
+  const handleClaimReward = async () => {
+    if (!selectedCourse) return;
+    setClaimLoading(true);
+    setClaimSuccessMessage("");
+    try {
+      const response = await axios.post("http://localhost:5000/api/payments/claim-reward", {
+        userId: userInfo._id,
+        courseId: selectedCourse._id
+      });
+      
+      // Update local enrolledCourses list
+      setEnrolledCourses(prev => prev.map(c => {
+        if (c._id === selectedCourse._id) {
+          return {
+            ...c,
+            purchaseDetails: {
+              ...c.purchaseDetails,
+              refundStatus: "Processed"
+            }
+          };
+        }
+        return c;
+      }));
+
+      // Update selectedCourse
+      setSelectedCourse(prev => ({
+        ...prev,
+        purchaseDetails: {
+          ...prev.purchaseDetails,
+          refundStatus: "Processed"
+        }
+      }));
+
+      // Update passedExams list
+      if (response.data.passedExams) {
+        setPassedExams(response.data.passedExams);
+      }
+
+      setClaimSuccessMessage("Congratulations! Your 75% cashback has been processed successfully via Razorpay.");
+      
+      // Generate certificate
+      setCompletedCourseName(selectedCourse.title);
+      generateCertificatePDF(selectedCourse.title);
+    } catch (error) {
+      console.error("Failed to claim cashback:", error);
+      const errorMsg = error.response?.data?.message || error.message;
+      alert("Failed to claim cashback: " + errorMsg);
+    } finally {
+      setClaimLoading(false);
+    }
+  };
+
 
   // --- DYNAMIC CONTENT WINDOW ---
   const renderActiveContent = () => {
@@ -772,13 +947,81 @@ const LearnerDashboard = () => {
               </div>
               <h3 className="text-2xl font-black text-slate-800 mb-4">Course Mastered! 🏆</h3>
               <p className="text-slate-500 mb-8 max-w-md">Congratulations! You have completed all lessons and passed the final exam. Download your certificate below.</p>
-              <button
-                onClick={() => { setCompletedCourseName(selectedCourse.title); generateCertificatePDF(selectedCourse.title); }}
-                className="px-8 py-4 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-xl flex items-center gap-2 transition-all shadow-sm transform hover:-translate-y-0.5"
-              >
-                {isGeneratingCert ? <Loader className="animate-spin" /> : <Award size={18} />}
-                Download Certificate (PDF)
-              </button>
+              {(() => {
+                const purchase = selectedCourse?.purchaseDetails;
+                if (!purchase) {
+                  return (
+                    <button
+                      onClick={() => { setCompletedCourseName(selectedCourse.title); generateCertificatePDF(selectedCourse.title); }}
+                      className="px-8 py-4 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-xl flex items-center gap-2 transition-all shadow-sm transform hover:-translate-y-0.5"
+                    >
+                      {isGeneratingCert ? <Loader className="animate-spin" /> : <Award size={18} />}
+                      Download Certificate (PDF)
+                    </button>
+                  );
+                }
+
+                const enrollmentDate = new Date(purchase.enrollmentDate);
+                const daysSinceEnroll = Math.floor((new Date() - enrollmentDate) / (1000 * 3600 * 24));
+                const isExpired = daysSinceEnroll > 30 || purchase.refundStatus === 'Expired';
+                const cashbackAmount = Math.round((purchase.amountPaid * 0.75) / 100);
+
+                if (purchase.refundStatus === 'Eligible' && !isExpired) {
+                  return (
+                    <div className="flex flex-col items-center gap-4">
+                      {claimSuccessMessage && (
+                        <div className="p-4 bg-green-50 text-green-700 border border-green-200 rounded-xl text-sm font-semibold">
+                          {claimSuccessMessage}
+                        </div>
+                      )}
+                      <p className="text-sm font-bold text-green-600">
+                        🎉 You completed this course in {daysSinceEnroll} days! You are eligible for a 75% cashback refund of ₹{cashbackAmount}.
+                      </p>
+                      <button
+                        onClick={handleClaimReward}
+                        disabled={claimLoading}
+                        className="px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl flex items-center gap-2 transition-all shadow-md transform hover:-translate-y-0.5"
+                      >
+                        {claimLoading ? <Loader className="animate-spin" /> : <Award size={18} />}
+                        Claim Certificate & ₹{cashbackAmount} Cashback
+                      </button>
+                    </div>
+                  );
+                }
+
+                if (purchase.refundStatus === 'Processed') {
+                  return (
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="p-3 bg-green-50 text-green-700 border border-green-200 rounded-xl text-sm font-semibold">
+                        ✅ ₹{cashbackAmount} Cashback successfully claimed and processed.
+                      </div>
+                      <button
+                        onClick={() => { setCompletedCourseName(selectedCourse.title); generateCertificatePDF(selectedCourse.title); }}
+                        className="px-8 py-4 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-xl flex items-center gap-2 transition-all shadow-sm transform hover:-translate-y-0.5"
+                      >
+                        {isGeneratingCert ? <Loader className="animate-spin" /> : <Award size={18} />}
+                        Download Certificate (PDF)
+                      </button>
+                    </div>
+                  );
+                }
+
+                // Expired or other status
+                return (
+                  <div className="flex flex-col items-center gap-4">
+                    <p className="text-xs text-red-500 font-medium">
+                      ⚠️ Cashback claim period has expired (completed course {daysSinceEnroll} days after enrollment).
+                    </p>
+                    <button
+                      onClick={() => { setCompletedCourseName(selectedCourse.title); generateCertificatePDF(selectedCourse.title); }}
+                      className="px-8 py-4 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-xl flex items-center gap-2 transition-all shadow-sm transform hover:-translate-y-0.5"
+                    >
+                      {isGeneratingCert ? <Loader className="animate-spin" /> : <Award size={18} />}
+                      Download Certificate (PDF)
+                    </button>
+                  </div>
+                );
+              })()}
             </div>
           );
         } else {
@@ -872,23 +1115,22 @@ const LearnerDashboard = () => {
 
     if (activeContent.type === 'link') {
       return (
-        <div className="w-full h-full flex flex-col bg-slate-50 rounded-2xl overflow-hidden border border-slate-200">
-          <div className="p-3 flex justify-between items-center bg-slate-100 border-b border-slate-200">
-            <span className="text-xs text-slate-500 font-bold pl-2 truncate max-w-[60%]">Viewing Curated Web Resource</span>
-            <a
-              href={activeContent.data.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-xs font-bold text-purple-750 hover:text-purple-800 bg-purple-50 border border-purple-250 px-3 py-1.5 rounded transition animate-fade-in"
-            >
-              <ExternalLink size={12} /> Open in New Tab
-            </a>
+        <div className="w-full h-full flex flex-col bg-slate-900 justify-center items-center text-center p-8">
+          <div className="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mb-5 border border-purple-500/20">
+            <LinkIcon className="text-purple-400 w-8 h-8" />
           </div>
-          <iframe
-            src={activeContent.data.url}
-            className="w-full flex-1 bg-white border-0"
-            title={activeContent.data.title}
-          />
+          <h3 className="text-xl font-bold text-white mb-2">{activeContent.data.title}</h3>
+          <p className="text-slate-400 mb-6 max-w-md text-xs font-medium leading-relaxed">
+            This external link is curated as part of your curriculum. Because some platforms block embedding, please click the button below to view the resource in a new tab.
+          </p>
+          <a
+            href={activeContent.data.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-8 py-3.5 bg-purple-650 hover:bg-purple-600 text-white font-bold rounded-xl flex items-center gap-2 transition shadow-md shadow-purple-900/40 transform hover:-translate-y-0.5"
+          >
+            <ExternalLink size={16} /> Open Web Resource
+          </a>
         </div>
       );
     }
@@ -1208,7 +1450,7 @@ const LearnerDashboard = () => {
                         ) : (
                           <button
                             disabled={Object.keys(finalExamAnswers).length < 10}
-                            onClick={handleFinalExamSubmit}
+                            onClick={() => handleFinalExamSubmit()}
                             className="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             Submit Exam
@@ -1279,13 +1521,13 @@ const LearnerDashboard = () => {
             {renderActiveContent()}
           </div>
 
-          <div className="p-6 md:p-8 bg-white space-y-4 overflow-y-auto custom-scrollbar shrink-0 max-h-[35%] lg:max-h-[35%] border-t border-slate-200">
-            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 border-b border-slate-100 pb-4">
+          <div className="p-4 md:p-5 bg-white space-y-3 overflow-y-auto custom-scrollbar shrink-0 max-h-[28%] lg:max-h-[28%] border-t border-slate-200">
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-3 border-b border-slate-100 pb-3">
               <div>
-                <h1 className="text-2xl md:text-3xl font-black text-slate-800 mb-2 leading-tight">
+                <h1 className="text-lg md:text-xl font-bold text-slate-800 mb-1 leading-tight">
                   {activeContent ? activeContent.data.title : "Course Overview"}
                 </h1>
-                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${activeContent?.type === 'video' ? 'bg-blue-50 text-blue-700 border border-blue-200' : activeContent?.type === 'resource' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-purple-50 text-purple-700 border border-purple-200'}`}>
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${activeContent?.type === 'video' ? 'bg-blue-50 text-blue-700 border border-blue-200' : activeContent?.type === 'resource' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-purple-50 text-purple-700 border border-purple-200'}`}>
                   {activeContent?.type || "Information"}
                 </span>
               </div>
@@ -1294,20 +1536,20 @@ const LearnerDashboard = () => {
                 <button
                   onClick={handleToggleComplete}
                   disabled={progressLoading}
-                  className={`px-6 py-3 font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm ${isCurrentItemDone ? 'bg-white text-slate-700 hover:bg-red-50 hover:text-red-600 border border-slate-200 hover:border-red-200' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
+                  className={`px-5 py-2 text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm ${isCurrentItemDone ? 'bg-white text-slate-700 hover:bg-red-50 hover:text-red-600 border border-slate-200 hover:border-red-200' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
                 >
-                  {progressLoading ? <Loader className="animate-spin" size={20} /> : isCurrentItemDone ? <Undo size={20} /> : <><Sparkles size={18} /> Verify Mastery</>}
+                  {progressLoading ? <Loader className="animate-spin" size={18} /> : isCurrentItemDone ? <Undo size={18} /> : <><Sparkles size={16} /> Verify Mastery</>}
                 </button>
               )}
             </div>
 
             {/* General Lesson Description Area */}
             {activeContent && activeContent.data.description && (
-              <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-inner animate-fade-in">
-                <span className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider block mb-1">
+              <div className="bg-slate-55 bg-slate-50 p-3.5 rounded-xl border border-slate-200 shadow-inner animate-fade-in">
+                <span className="text-[9px] text-indigo-600 font-bold uppercase tracking-wider block mb-0.5">
                   {activeContent.type === 'video' ? 'Lecture Notes' : activeContent.type === 'resource' ? 'Study Guidelines' : 'Reference Notes'}
                 </span>
-                <p className="text-xs md:text-sm text-slate-700 font-medium leading-relaxed">
+                <p className="text-xs text-slate-600 font-medium leading-relaxed">
                   {activeContent.data.description}
                 </p>
               </div>

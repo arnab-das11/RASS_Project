@@ -153,6 +153,24 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleDeleteStudentsInstructors = async () => {
+    const code = window.prompt("WARNING: This will permanently delete ALL learners and instructors from the database. Type 'RESET' to confirm:");
+    if (code !== 'RESET') {
+      alert("Operation cancelled.");
+      return;
+    }
+    
+    try {
+      const response = await axios.delete("http://localhost:5000/api/admin/reset-users");
+      alert(response.data.message);
+      fetchData(); // Refresh page data
+    } catch (error) {
+      console.error("Failed to delete user data:", error);
+      const errorMsg = error.response?.data?.message || error.message;
+      alert("Error: " + errorMsg);
+    }
+  };
+
   const handleLogout = () => {
     if (!window.confirm("Log out?")) return;
     localStorage.removeItem("userInfo");
@@ -358,6 +376,23 @@ const AdminDashboard = () => {
                       </div>
                     )}
                   </div>
+
+                  {/* System Maintenance Section */}
+                  <div className="bg-white p-8 rounded-2xl shadow-sm border border-red-200 mt-10">
+                    <h2 className="text-xl font-bold mb-4 text-red-600 flex items-center gap-2">
+                      <Trash2 className="text-red-500" size={22} /> System Maintenance & Reset
+                    </h2>
+                    <p className="text-gray-600 mb-6 text-sm font-medium">
+                      Use this utility to clean up database records. This action will permanently delete all student profiles, instructor profiles, and all course library directories from the system. Admin credentials and messaging data will be preserved.
+                    </p>
+                    <button
+                      onClick={handleDeleteStudentsInstructors}
+                      className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all flex items-center gap-2 transform hover:-translate-y-0.5"
+                    >
+                      <Trash2 size={18} /> Delete Users & Courses Data
+                    </button>
+                  </div>
+
                 </div>
               )}
 
