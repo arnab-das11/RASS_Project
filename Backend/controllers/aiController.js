@@ -4,11 +4,10 @@ import Course from "../models/Course.js";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Free-tier only models — pro has 0 free quota, so excluded
 const MODEL_FALLBACK_CHAIN = [
-  "gemini-3-flash-preview",        // Best free-tier model right now
-  "gemini-3.1-flash-lite-preview", // Lighter, faster fallback
-  "gemini-1.5-flash",              // Stable older model, very reliable
+  "gemini-3.5-flash",              // Active high-performance frontier model (2026)
+  "gemini-3.1-flash-lite",         // Active ultra-low latency fallback
+  "gemini-2.5-flash"               // Stable active fallback
 ];
 
 const isRetryableError = (error) => {
@@ -116,24 +115,37 @@ export const getRecommendations = async (req, res) => {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const { userId } = req.body;
     
-    const user = await User.findById(userId).populate('enrolledCourses');
+    const user = await User.findById(userId)
+      .populate('enrolledCourses')
+      .populate('enrolledCourses.courseId');
     if (!user) return res.status(404).json({ message: "User not found" });
 
     // Fetch all approved courses not enrolled by user
+    const enrolledCourseIds = user.enrolledCourses.map(item => {
+      if (!item) return null;
+      return item.courseId ? item.courseId._id || item.courseId : item._id || item;
+    }).filter(Boolean);
+
     const availableCourses = await Course.find({
       status: 'approved',
-      _id: { $nin: user.enrolledCourses }
+      _id: { $nin: enrolledCourseIds }
     });
 
     if (availableCourses.length === 0) {
       return res.status(200).json([]);
     }
 
+    const enrolledCourseList = user.enrolledCourses.map(item => {
+      if (!item) return null;
+      const course = item.courseId || item;
+      return (course && course.title) ? `"${course.title}" (${course.category || ''})` : null;
+    }).filter(Boolean);
+
     const prompt = `You are a professional educational advisor. We want to recommend relevant programming courses to a student.
     
     Student Profile:
     - Declared Skills: ${JSON.stringify(user.skills || [])}
-    - Currently Enrolled / Finished Courses: ${user.enrolledCourses.map(c => `"${c.title}" (${c.category})`).join(', ') || 'None'}
+    - Currently Enrolled / Finished Courses: ${enrolledCourseList.join(', ') || 'None'}
     
     Catalog of Available Courses:
     ${availableCourses.map(c => `- ID: ${c._id}, Title: "${c.title}", Category: "${c.category}", Level: "${c.level}", Description: "${c.description.substring(0, 150)}..."`).join('\n')}

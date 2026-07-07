@@ -90,7 +90,7 @@ const Navbar = () => {
           </Link>
 
           {/* Desktop Search */}
-          <form className="hidden sm:flex items-center border border-gray-300 bg-white hover:bg-blue-50 rounded-full shadow-sm overflow-hidden w-48 sm:w-64 md:w-80 lg:w-96 transition">
+          <form className="hidden lg:flex items-center border border-gray-300 bg-white hover:bg-blue-50 rounded-full shadow-sm overflow-hidden w-48 sm:w-64 md:w-80 lg:w-96 transition">
             <button type="button" className="p-2 pl-3 text-gray-500 hover:text-blue-600 transition"><Search size={18} /></button>
             <input type="text" placeholder={t("search")} className="px-2 py-2 text-sm w-full focus:outline-none bg-transparent"/>
             <button type="button" title={t("voice_search")} className="p-2 pr-3 text-gray-500 hover:text-blue-700 transition"><Mic size={18} /></button>
@@ -98,10 +98,10 @@ const Navbar = () => {
 
           {/* Right Actions */}
           <div className="flex items-center gap-3">
-            <button className="sm:hidden p-2 rounded-full hover:bg-blue-100" onClick={() => setShowSearch(!showSearch)}><Search size={20} /></button>
-            <button className="sm:hidden p-2 rounded-full hover:bg-blue-100" onClick={() => setIsSidebarOpen(true)}><Menu size={22} /></button>
+            <button className="lg:hidden p-2 rounded-full hover:bg-blue-100" onClick={() => setShowSearch(!showSearch)}><Search size={20} /></button>
+            <button className="lg:hidden p-2 rounded-full hover:bg-blue-100" onClick={() => setIsSidebarOpen(true)}><Menu size={22} /></button>
 
-            <div className="hidden sm:flex items-center gap-4">
+            <div className="hidden lg:flex items-center gap-4">
               <Link to="/features" className="px-3 py-2 rounded-full text-sm text-black hover:bg-blue-100 transition">{t("features")}</Link>
               <Link to="/courses" className="px-3 py-2 rounded-full text-sm text-black hover:bg-blue-100 transition">{t("courses")}</Link>
               <Link to="/contact" className="px-3 py-2 rounded-full text-sm text-black hover:bg-blue-100 transition">{t("contact")}</Link>
@@ -174,7 +174,7 @@ const Navbar = () => {
         </div>
 
         {showSearch && (
-          <div className="sm:hidden px-6 pb-3 transition-all duration-300">
+          <div className="lg:hidden px-6 pb-3 transition-all duration-300">
             <form className="flex border border-gray-300 bg-white rounded-full shadow-sm overflow-hidden">
               <input type="text" placeholder={t("search")} className="px-4 py-2 text-sm w-full focus:outline-none rounded-full"/>
             </form>

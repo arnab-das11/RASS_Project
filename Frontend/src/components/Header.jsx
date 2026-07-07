@@ -35,8 +35,8 @@ const Header = () => {
 
   const handleHeroAction = () => {
     if (userInfo) {
-      if(userInfo.role === 'admin') navigate('/admin-dashboard');
-      else if(userInfo.role === 'instructor') navigate('/instructor-dashboard');
+      if (userInfo.role === 'admin') navigate('/admin-dashboard');
+      else if (userInfo.role === 'instructor') navigate('/instructor-dashboard');
       else navigate('/learner-dashboard');
     } else {
       navigate("/courses");
@@ -62,7 +62,7 @@ const Header = () => {
         </h1>
 
         <p className="mt-6 text-gray-600 text-base sm:text-lg max-w-2xl mx-auto">
-          {userInfo 
+          {userInfo
             ? "Your dashboard is ready. Continue your learning journey or manage your courses with our modern tools."
             : "Your personalized learning path to master new skills and advance your career — guided by modern tools, mentors, and AI support."
           }
@@ -75,7 +75,7 @@ const Header = () => {
           {userInfo ? "Go to My Dashboard →" : "Explore All Career Paths →"}
         </button>
       </div>
-      
+
       <div className="absolute bottom-0 left-0 w-full h-2 bg-gradient-to-r from-transparent via-gray-300/50 to-transparent"></div>
     </motion.div>
   );
