@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import {
   Menu, X, Users, GraduationCap, LayoutDashboard,
-  CheckCircle, XCircle, LogOut, BookOpen, Trash2, Edit3, Eye, Mail
+  CheckCircle, XCircle, LogOut, BookOpen, Trash2, Edit3, Eye, Mail,
+  Clock, Award, CheckCircle2, MonitorPlay, FileText, ChevronDown, ChevronUp, Link as LinkIcon
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from 'axios';
@@ -35,6 +36,8 @@ const AdminDashboard = () => {
   const [viewLearner, setViewLearner] = useState(null);
   const [viewInstructor, setViewInstructor] = useState(null);
   const [editingCourse, setEditingCourse] = useState(null);
+  const [previewCourse, setPreviewCourse] = useState(null);
+  const [expandedLectures, setExpandedLectures] = useState({});
 
   // --- FETCH DATA ---
   const fetchData = async () => {
@@ -91,7 +94,7 @@ const AdminDashboard = () => {
   const handleAction = async (course, actionType) => {
     if (course.status === 'deletion_pending') {
       const isApprove = actionType === 'approve';
-      if (!window.confirm(isApprove ? "PERMANENTLY DELETE this course?" : "Cancel deletion?")) return;
+      if (!window.confirm(isApprove ? "PERMANENTLY DELETE this course?" : "Cancel deletion?")) return false;
       setPendingList(prev => prev.filter(c => c._id !== course._id));
       try {
         if (isApprove) {
@@ -101,15 +104,23 @@ const AdminDashboard = () => {
           await axios.put(`http://localhost:5000/api/courses/${course._id}/status`, { status: 'approved' });
           fetchData();
         }
-      } catch (error) { alert("Error processing request."); }
+        return true;
+      } catch (error) { 
+        alert("Error processing request."); 
+        return false;
+      }
     } else {
-      if (!window.confirm(actionType === 'approve' ? "Approve this new course?" : "Reject this new course?")) return;
+      if (!window.confirm(actionType === 'approve' ? "Approve this new course?" : "Reject this new course?")) return false;
       setPendingList(prev => prev.filter(c => c._id !== course._id));
       try {
         const newStatus = actionType === 'approve' ? 'approved' : 'rejected';
         await axios.put(`http://localhost:5000/api/courses/${course._id}/status`, { status: newStatus });
         if (actionType === 'approve') fetchData();
-      } catch (error) { alert("Error updating status."); }
+        return true;
+      } catch (error) { 
+        alert("Error updating status."); 
+        return false;
+      }
     }
   };
 
@@ -345,10 +356,17 @@ const AdminDashboard = () => {
                       <div className="space-y-4">
                         {pendingList.map(course => (
                           <div key={course._id} className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-4 rounded-xl border border-gray-200 hover:shadow-md transition group">
-                            <div className="flex gap-5 items-center">
-                              <img src={course.thumbnail} className="w-32 h-20 object-cover rounded-lg bg-gray-200 border border-gray-100" alt="" />
+                            <div
+                              className="flex gap-5 items-center cursor-pointer hover:opacity-85 transition"
+                              onClick={() => {
+                                setPreviewCourse(course);
+                                setExpandedLectures({ 0: true });
+                              }}
+                              title="Click to review course overview"
+                            >
+                              <img src={course.thumbnail} className="w-32 h-20 object-cover rounded-lg bg-gray-200 border border-gray-100 shadow-sm" alt="" />
                               <div>
-                                <h3 className="font-bold text-gray-900 text-lg mb-1">{course.title}</h3>
+                                <h3 className="font-bold text-gray-900 text-lg mb-1 group-hover:text-blue-600 transition">{course.title}</h3>
                                 <div className="flex items-center gap-3 text-sm font-medium">
                                   <span className="text-gray-500 flex items-center gap-1"><Users size={14} /> {course.instructorId?.name || "Unknown"}</span>
                                   {course.status === 'deletion_pending'
@@ -359,6 +377,16 @@ const AdminDashboard = () => {
                               </div>
                             </div>
                             <div className="flex gap-2 mt-4 md:mt-0 w-full md:w-auto">
+                              <button
+                                onClick={() => {
+                                  setPreviewCourse(course);
+                                  setExpandedLectures({ 0: true });
+                                }}
+                                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-100 font-bold transition"
+                                title="Review complete course overview"
+                              >
+                                <Eye size={16} /> Review
+                              </button>
                               {course.status === 'deletion_pending' ? (
                                 <>
                                   <button onClick={() => handleAction(course, 'reject')} className="flex-1 md:flex-none px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold transition">Deny Deletion</button>
@@ -695,6 +723,270 @@ const AdminDashboard = () => {
                     <button type="submit" className="flex-1 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200">Save Changes</button>
                   </div>
                 </form>
+              </div>
+            </div>
+          )}
+
+          {/* 4. COURSE PREVIEW/OVERVIEW MODAL */}
+          {previewCourse && (
+            <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-fade-in">
+                
+                {/* Modal Header */}
+                <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-900 text-white shadow-md">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider border border-blue-400/20">
+                        {previewCourse.category || "General"}
+                      </span>
+                      {previewCourse.status === 'deletion_pending' ? (
+                        <span className="bg-red-500/20 text-red-300 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider border border-red-400/20">
+                          Deletion Request
+                        </span>
+                      ) : (
+                        <span className="bg-amber-500/20 text-amber-300 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider border border-amber-400/20">
+                          Approval Request
+                        </span>
+                      )}
+                    </div>
+                    <h2 className="text-xl md:text-2xl font-black mt-2 leading-snug">
+                      {previewCourse.title}
+                    </h2>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Instructor: <span className="font-semibold text-gray-200">{previewCourse.instructorId?.name || "Unknown"}</span> ({previewCourse.instructorId?.email || "No email"})
+                    </p>
+                  </div>
+                  <button onClick={() => setPreviewCourse(null)} className="text-gray-400 hover:text-white p-2 hover:bg-gray-800 rounded-full transition shrink-0 ml-4 cursor-pointer">
+                    <X size={24} />
+                  </button>
+                </div>
+
+                {/* Modal Body */}
+                <div className="p-6 overflow-y-auto flex-1 bg-gray-50/50">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    {/* Left Panel: Description & Objectives */}
+                    <div className="lg:col-span-2 space-y-6">
+                      
+                      {/* Description Card */}
+                      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200/60">
+                        <h3 className="font-bold text-gray-900 text-lg mb-3">Course Description</h3>
+                        <p className="text-gray-600 text-sm whitespace-pre-wrap leading-relaxed">
+                          {previewCourse.description}
+                        </p>
+                      </div>
+
+                      {/* Learning Objectives Card */}
+                      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200/60">
+                        <h3 className="font-bold text-gray-900 text-lg mb-4">Learning Objectives</h3>
+                        {previewCourse.learningObjectives && previewCourse.learningObjectives.length > 0 ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                            {previewCourse.learningObjectives.map((obj, index) => (
+                              <div key={index} className="flex items-start gap-2.5">
+                                <CheckCircle2 className="text-green-500 shrink-0 mt-0.5" size={16} />
+                                <span className="text-gray-600 text-sm leading-relaxed font-medium">{obj}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-gray-400 text-sm italic">No specific learning objectives listed.</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right Panel: Specifications & Syllabus Checklist */}
+                    <div className="space-y-6">
+                      
+                      {/* Quick Specifications Card */}
+                      <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200/60 flex flex-col items-center">
+                        <img
+                          src={previewCourse.thumbnail}
+                          className="w-full aspect-video object-cover rounded-xl bg-gray-100 border border-gray-200 shadow-sm mb-4"
+                          alt="Course Thumbnail"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800";
+                          }}
+                        />
+                        <div className="w-full space-y-3">
+                          <div className="flex justify-between items-center text-sm border-b border-gray-100 pb-2">
+                            <span className="text-gray-500 font-medium">Price</span>
+                            <span className="font-black text-gray-900 text-base">{previewCourse.price === 0 ? <span className="text-green-600">Free</span> : `$${previewCourse.price}`}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-sm border-b border-gray-100 pb-2">
+                            <span className="text-gray-500 font-medium">Duration</span>
+                            <span className="font-bold text-gray-900 flex items-center gap-1"><Clock size={14} className="text-blue-500" /> {previewCourse.duration} Hours</span>
+                          </div>
+                          <div className="flex justify-between items-center text-sm border-b border-gray-100 pb-2">
+                            <span className="text-gray-500 font-medium">Level</span>
+                            <span className="font-bold text-gray-900 flex items-center gap-1"><Award size={14} className="text-purple-500" /> {previewCourse.level}</span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 pt-2 text-center text-xs">
+                            <div className="bg-blue-50/50 p-2.5 rounded-xl border border-blue-100/50">
+                              <p className="font-black text-blue-700 text-lg">
+                                {previewCourse.lectures?.reduce((acc, sec) => acc + (sec.videos?.length || 0), 0) || 0}
+                              </p>
+                              <p className="text-[10px] text-blue-500 font-bold uppercase tracking-wider">Videos</p>
+                            </div>
+                            <div className="bg-green-50/50 p-2.5 rounded-xl border border-green-100/50">
+                              <p className="font-black text-green-700 text-lg">
+                                {previewCourse.lectures?.reduce((acc, sec) => acc + (sec.resources?.length || 0), 0) || 0}
+                              </p>
+                              <p className="text-[10px] text-green-500 font-bold uppercase tracking-wider">Files</p>
+                            </div>
+                            <div className="bg-purple-50/50 p-2.5 rounded-xl border border-purple-100/50">
+                              <p className="font-black text-purple-700 text-lg">
+                                {previewCourse.lectures?.reduce((acc, sec) => acc + (sec.links?.length || 0), 0) || 0}
+                              </p>
+                              <p className="text-[10px] text-purple-500 font-bold uppercase tracking-wider">Links</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Syllabus / Curriculum Card */}
+                      <div className="bg-white rounded-2xl shadow-sm border border-gray-200/60 overflow-hidden flex flex-col">
+                        <div className="p-4 bg-gray-50 border-b border-gray-150">
+                          <h3 className="font-bold text-gray-900 text-sm">Course Curriculum</h3>
+                          <p className="text-xs text-gray-500 mt-0.5">{previewCourse.lectures?.length || 0} Modules / Sections</p>
+                        </div>
+                        <div className="max-h-[260px] overflow-y-auto p-2.5 space-y-2">
+                          {previewCourse.lectures && previewCourse.lectures.length > 0 ? (
+                            previewCourse.lectures.map((section, index) => {
+                              const isExpanded = !!expandedLectures[index];
+                              return (
+                                <div key={index} className="border border-gray-100 rounded-xl overflow-hidden bg-white hover:border-gray-200 transition">
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedLectures(prev => ({ ...prev, [index]: !isExpanded }))}
+                                    className="w-full flex items-center justify-between p-3 hover:bg-gray-55/40 transition text-left"
+                                  >
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      <span className="w-5.5 h-5.5 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs shrink-0">{index + 1}</span>
+                                      <span className="font-bold text-gray-800 text-xs truncate">{section.title}</span>
+                                    </div>
+                                    <ChevronDown size={14} className={`text-gray-400 transition-transform duration-200 shrink-0 ${isExpanded ? "rotate-180" : ""}`} />
+                                  </button>
+                                  {isExpanded && (
+                                    <div className="px-3.5 pb-3 pt-1.5 border-t border-gray-50 bg-gray-50/20 space-y-2.5 text-[11px] max-h-[160px] overflow-y-auto">
+                                      {/* Videos */}
+                                      {section.videos && section.videos.length > 0 && (
+                                        <div className="space-y-1">
+                                          <p className="font-extrabold text-gray-400 text-[9px] uppercase tracking-wider mb-0.5">Videos</p>
+                                          {section.videos.map((vid, vIdx) => (
+                                            <div key={vIdx} className="flex items-start gap-1.5 text-gray-650">
+                                              <MonitorPlay size={10} className="text-blue-500 shrink-0 mt-0.5" />
+                                              <span className="font-semibold line-clamp-1">{vid.title || `Video ${vIdx + 1}`}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {/* Resources */}
+                                      {section.resources && section.resources.length > 0 && (
+                                        <div className="space-y-1">
+                                          <p className="font-extrabold text-gray-400 text-[9px] uppercase tracking-wider mb-0.5">Resources</p>
+                                          {section.resources.map((res, rIdx) => (
+                                            <div key={rIdx} className="flex items-start gap-1.5 text-gray-650">
+                                              <FileText size={10} className="text-green-500 shrink-0 mt-0.5" />
+                                              <span className="font-semibold line-clamp-1">{res.title || `Resource ${rIdx + 1}`}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {/* Links */}
+                                      {section.links && section.links.length > 0 && (
+                                        <div className="space-y-1">
+                                          <p className="font-extrabold text-gray-400 text-[9px] uppercase tracking-wider mb-0.5">Links</p>
+                                          {section.links.map((link, lIdx) => (
+                                            <div key={lIdx} className="flex items-start gap-1.5 text-gray-650">
+                                              <LinkIcon size={10} className="text-purple-500 shrink-0 mt-0.5" />
+                                              <span className="font-semibold line-clamp-1">{link.title || `Link ${lIdx + 1}`}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {!section.videos?.length && !section.resources?.length && !section.links?.length && (
+                                        <p className="text-gray-400 italic text-[10px]">No assets attached to this lecture.</p>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <p className="text-gray-400 italic text-xs text-center py-4">No sections added to syllabus yet.</p>
+                          )}
+                        </div>
+                      </div>
+
+                    </div>
+
+                  </div>
+                </div>
+
+                {/* Modal Footer / Actions Panel */}
+                <div className="p-6 border-t border-gray-150 bg-gray-50 flex flex-col sm:flex-row justify-between items-center gap-4">
+                  <div className="text-xs text-gray-500 font-semibold">
+                    Status: <span className="font-extrabold capitalize text-gray-700">{previewCourse.status.replace("_", " ")}</span>
+                  </div>
+                  <div className="flex gap-3 w-full sm:w-auto">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewCourse(null)}
+                      className="flex-1 sm:flex-none px-5 py-2.5 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-xl font-bold transition text-sm shadow-sm cursor-pointer"
+                    >
+                      Close Overview
+                    </button>
+                    {previewCourse.status === 'deletion_pending' ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const success = await handleAction(previewCourse, 'reject');
+                            if (success) setPreviewCourse(null);
+                          }}
+                          className="flex-1 sm:flex-none px-5 py-2.5 bg-gray-150 hover:bg-gray-200 text-gray-700 rounded-xl font-bold transition text-sm shadow-sm border border-gray-200 cursor-pointer"
+                        >
+                          Deny Deletion
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const success = await handleAction(previewCourse, 'approve');
+                            if (success) setPreviewCourse(null);
+                          }}
+                          className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-red-600 hover:bg-red-750 text-white px-5 py-2.5 rounded-xl font-bold transition text-sm shadow-md cursor-pointer"
+                        >
+                          <Trash2 size={16} /> Delete Course
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const success = await handleAction(previewCourse, 'reject');
+                            if (success) setPreviewCourse(null);
+                          }}
+                          className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 px-5 py-2.5 rounded-xl font-bold transition text-sm border border-red-150 cursor-pointer animate-pulse-subtle"
+                        >
+                          <XCircle size={16} /> Reject Blueprint
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const success = await handleAction(previewCourse, 'approve');
+                            if (success) setPreviewCourse(null);
+                          }}
+                          className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-xl font-bold transition text-sm shadow-md shadow-green-200/50 cursor-pointer"
+                        >
+                          <CheckCircle size={16} /> Approve & Publish
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
               </div>
             </div>
           )}
