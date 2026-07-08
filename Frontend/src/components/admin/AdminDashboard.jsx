@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import {
   Menu, X, Users, GraduationCap, LayoutDashboard,
   CheckCircle, XCircle, LogOut, BookOpen, Trash2, Edit3, Eye, Mail,
-  Clock, Award, CheckCircle2, MonitorPlay, FileText, ChevronDown, ChevronUp, Link as LinkIcon
+  Clock, Award, CheckCircle2, MonitorPlay, FileText, ChevronDown, ChevronUp, Link as LinkIcon,
+  MessageSquare
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from 'axios';
+import ChatModal from "../ChatModal";
 // --- NEW: IMPORT RECHARTS ---
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
@@ -38,6 +40,8 @@ const AdminDashboard = () => {
   const [editingCourse, setEditingCourse] = useState(null);
   const [previewCourse, setPreviewCourse] = useState(null);
   const [expandedLectures, setExpandedLectures] = useState({});
+  const [activeChatUser, setActiveChatUser] = useState(null);
+  const [unreadMessages, setUnreadMessages] = useState([]);
 
   // --- FETCH DATA ---
   const fetchData = async () => {
@@ -59,12 +63,30 @@ const AdminDashboard = () => {
     }
   };
 
+  const fetchUnread = async () => {
+    if (!userInfo?._id) return;
+    try {
+      const { data } = await axios.get(`http://localhost:5000/api/messages/unread/${userInfo._id}`);
+      setUnreadMessages(data);
+    } catch (error) {
+      console.error("Error fetching unread messages:", error);
+    }
+  };
+
+  const getUnreadCountForUser = (userId) => {
+    return unreadMessages.filter(msg => msg.sender?._id === userId || msg.sender === userId).length;
+  };
+
   useEffect(() => {
     if (!userInfo || userInfo.role !== 'admin') {
       navigate("/");
       return;
     }
     fetchData();
+    fetchUnread();
+
+    const interval = setInterval(fetchUnread, 5000);
+    return () => clearInterval(interval);
   }, [userInfo, navigate]);
 
   const learnersList = users.filter(u => u.role === 'learner');
@@ -209,11 +231,18 @@ const AdminDashboard = () => {
             { id: 'learners', icon: GraduationCap, label: 'Student Roster' },
             { id: 'instructors', icon: Users, label: 'Instructors' },
             { id: 'contacts', icon: Mail, label: 'Contact Queries' }
-          ].map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl transition font-semibold ${activeTab === tab.id ? "bg-blue-600 text-white shadow-lg shadow-blue-900/50" : "text-gray-400 hover:bg-gray-800 hover:text-white"}`}>
-              <tab.icon size={20} /> {tab.label}
-            </button>
-          ))}
+          ].map(tab => {
+            const hasUnread = tab.id === 'instructors' && unreadMessages.length > 0;
+            return (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl transition font-semibold ${activeTab === tab.id ? "bg-blue-600 text-white shadow-lg shadow-blue-900/50" : "text-gray-400 hover:bg-gray-800 hover:text-white"}`}>
+                <tab.icon size={20} /> 
+                <span className="flex-1 text-left">{tab.label}</span>
+                {hasUnread && (
+                  <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shadow-md" title={`${unreadMessages.length} unread messages`} />
+                )}
+              </button>
+            );
+          })}
         </nav>
         <button onClick={handleLogout} className="mt-auto flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl transition font-semibold"><LogOut size={20} /> System Logout</button>
       </aside>
@@ -442,7 +471,7 @@ const AdminDashboard = () => {
                             <Users size={14} className="text-blue-500" /> {course.instructorId?.name || "Unknown Instructor"}
                           </p>
                           <div className="mt-auto flex justify-between items-center border-t border-gray-100 pt-4">
-                            <span className="font-black text-gray-800">${course.price}</span>
+                            <span className="font-black text-gray-800">₹{course.price}</span>
                             <div className="flex items-center gap-2">
                               <button onClick={() => setEditingCourse(course)} className="text-blue-600 hover:text-white p-2 hover:bg-blue-600 bg-blue-50 rounded-lg transition" title="Edit Course">
                                 <Edit3 size={18} />
@@ -530,14 +559,25 @@ const AdminDashboard = () => {
                                 {myCourses.length}
                               </span>
                             </td>
-                            <td className="p-5 text-center">
-                              <button
-                                onClick={() => setViewInstructor({ ...user, courses: myCourses })}
-                                className="inline-flex items-center gap-2 bg-white border border-gray-200 hover:border-purple-500 hover:text-purple-600 text-gray-600 font-bold py-1.5 px-4 rounded-lg shadow-sm transition"
-                              >
-                                <BookOpen size={16} /> View Portfolio
-                              </button>
-                            </td>
+                            <td className="p-5 text-center flex items-center justify-center gap-2">
+                               <button
+                                 onClick={() => setViewInstructor({ ...user, courses: myCourses })}
+                                 className="inline-flex items-center gap-2 bg-white border border-gray-200 hover:border-purple-500 hover:text-purple-600 text-gray-600 font-bold py-1.5 px-4 rounded-lg shadow-sm transition cursor-pointer"
+                               >
+                                 <BookOpen size={16} /> View Portfolio
+                               </button>
+                               <button
+                                 onClick={() => setActiveChatUser(user)}
+                                 className="relative inline-flex items-center gap-2 bg-indigo-50 border border-indigo-200/50 hover:bg-indigo-600 hover:text-white text-indigo-700 font-bold py-1.5 px-4 rounded-lg shadow-sm transition cursor-pointer"
+                               >
+                                 <MessageSquare size={16} /> Chat
+                                 {getUnreadCountForUser(user._id) > 0 && (
+                                   <span className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full text-[10px] w-5 h-5 flex items-center justify-center border-2 border-white shadow-md animate-bounce">
+                                     {getUnreadCountForUser(user._id)}
+                                   </span>
+                                 )}
+                               </button>
+                             </td>
                           </tr>
                         )
                       })}
@@ -665,7 +705,7 @@ const AdminDashboard = () => {
                           <img src={course.thumbnail} alt="" className="w-16 h-10 object-cover rounded bg-gray-100 mr-4" />
                           <div>
                             <p className="font-bold text-gray-800">{course.title}</p>
-                            <p className="text-xs font-bold text-purple-600 uppercase mt-1">{course.category} • ${course.price}</p>
+                            <p className="text-xs font-bold text-purple-600 uppercase mt-1">{course.category} • ₹{course.price}</p>
                           </div>
                         </div>
                       ))}
@@ -709,7 +749,7 @@ const AdminDashboard = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-1">Price (USD)</label>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Price (₹)</label>
                       <input
                         type="number"
                         value={editingCourse.price}
@@ -811,7 +851,7 @@ const AdminDashboard = () => {
                         <div className="w-full space-y-3">
                           <div className="flex justify-between items-center text-sm border-b border-gray-100 pb-2">
                             <span className="text-gray-500 font-medium">Price</span>
-                            <span className="font-black text-gray-900 text-base">{previewCourse.price === 0 ? <span className="text-green-600">Free</span> : `$${previewCourse.price}`}</span>
+                            <span className="font-black text-gray-900 text-base">{previewCourse.price === 0 ? <span className="text-green-600">Free</span> : `₹${previewCourse.price}`}</span>
                           </div>
                           <div className="flex justify-between items-center text-sm border-b border-gray-100 pb-2">
                             <span className="text-gray-500 font-medium">Duration</span>
@@ -990,6 +1030,15 @@ const AdminDashboard = () => {
               </div>
             </div>
           )}
+
+          {/* 5. CHAT MODAL */}
+          <ChatModal
+            isOpen={!!activeChatUser}
+            onClose={() => setActiveChatUser(null)}
+            currentUser={userInfo}
+            otherUser={activeChatUser}
+            onMessagesRead={fetchUnread}
+          />
 
         </main>
       </div>

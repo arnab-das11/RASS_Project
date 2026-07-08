@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
     Upload, Plus, Link as LinkIcon, FileText, Video, Save, Loader, ArrowLeft,
-    X, Check, Trash2, Image as ImageIcon, Clock, DollarSign, Tag, BookOpen,
+    X, Check, Trash2, Image as ImageIcon, Clock, IndianRupee, Tag, BookOpen,
     ListChecks, GripVertical, FileArchive, CheckCircle2
 } from "lucide-react";
 import axios from "axios";
@@ -323,7 +323,7 @@ const InstructorCoursePage = () => {
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
-                                    <DollarSign size={16} className="text-indigo-600" /> Price (USD)
+                                    <IndianRupee size={16} className="text-indigo-600" /> Price (INR)
                                 </label>
                                 <input type="number" placeholder="0 for Free" min="0"
                                     className="w-full p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 focus:bg-white focus:border-indigo-500 outline-none placeholder-slate-400 font-medium"
