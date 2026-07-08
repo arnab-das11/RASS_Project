@@ -5,7 +5,7 @@ import {
   ArrowLeft, Loader, FileText, Link as LinkIcon, ExternalLink,
   Award, Home, Download, Trash2, Trophy, Undo, Sparkles, Brain, XCircle,
   Lock, LogOut, Flame, Compass, Mic, Square, ThumbsUp, ThumbsDown, MessageSquare,
-  LayoutDashboard, Menu, X, Send
+  LayoutDashboard, Menu, X, Send, User
 } from 'lucide-react';
 import axios from 'axios';
 import { jsPDF } from "jspdf";
@@ -2376,14 +2376,6 @@ const LearnerDashboard = () => {
             }`}
           >
             <Award size={20} /> <span>Medallions & Skills</span>
-          </button>
-
-          {/* Tab 3: Back to Catalog */}
-          <button
-            onClick={() => navigate('/')}
-            className="flex items-center gap-3 w-full px-4 py-3 rounded-xl transition font-semibold text-slate-400 hover:bg-slate-800 hover:text-white cursor-pointer"
-          >
-            <Home size={20} /> <span>Catalog Home</span>
           </button>
         </nav>
 
