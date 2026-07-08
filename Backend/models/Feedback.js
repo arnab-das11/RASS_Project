@@ -1,23 +1,23 @@
 import mongoose from 'mongoose';
 
-const messageSchema = new mongoose.Schema({
-  sender: {
+const feedbackSchema = new mongoose.Schema({
+  courseId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Course',
+    required: true
+  },
+  studentId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
-  receiver: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+  liked: {
+    type: Boolean,
     required: true
   },
   text: {
     type: String,
     required: true
-  },
-  read: {
-    type: Boolean,
-    default: false
   },
   voiceUrl: {
     type: String,
@@ -25,5 +25,5 @@ const messageSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-const Message = mongoose.model('Message', messageSchema);
-export default Message;
+const Feedback = mongoose.model('Feedback', feedbackSchema);
+export default Feedback;

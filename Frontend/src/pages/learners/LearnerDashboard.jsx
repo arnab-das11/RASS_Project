@@ -1609,11 +1609,11 @@ const LearnerDashboard = () => {
           </div>
 
           {/* Tab Navigation Headers */}
-          <div className="flex border-b border-slate-200 bg-slate-50">
+          <div className="flex flex-wrap border-b border-slate-200 bg-slate-50">
             <button
               onClick={() => setSidebarTab("curriculum")}
-              className={`flex-1 py-3.5 text-xs font-bold uppercase tracking-wider text-center border-b-2 transition flex items-center justify-center gap-1.5 ${sidebarTab === "curriculum"
-                  ? 'border-indigo-600 text-indigo-650 bg-white font-black'
+              className={`flex-1 min-w-[70px] py-3.5 text-[10px] font-bold uppercase tracking-wider text-center border-b-2 transition flex items-center justify-center gap-1 ${sidebarTab === "curriculum"
+                  ? 'border-indigo-650 text-indigo-600 bg-white font-black'
                   : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
             >
@@ -1621,8 +1621,8 @@ const LearnerDashboard = () => {
             </button>
             <button
               onClick={() => { setSidebarTab("summary"); fetchAiSummary(); }}
-              className={`flex-1 py-3.5 text-xs font-bold uppercase tracking-wider text-center border-b-2 transition flex items-center justify-center gap-1.5 ${sidebarTab === "summary"
-                  ? 'border-indigo-600 text-indigo-650 bg-white font-black'
+              className={`flex-1 min-w-[70px] py-3.5 text-[10px] font-bold uppercase tracking-wider text-center border-b-2 transition flex items-center justify-center gap-1 ${sidebarTab === "summary"
+                  ? 'border-indigo-655 text-indigo-600 bg-white font-black'
                   : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
             >
@@ -1630,12 +1630,30 @@ const LearnerDashboard = () => {
             </button>
             <button
               onClick={() => setSidebarTab("notes")}
-              className={`flex-1 py-3.5 text-xs font-bold uppercase tracking-wider text-center border-b-2 transition flex items-center justify-center gap-1.5 ${sidebarTab === "notes"
-                  ? 'border-indigo-600 text-indigo-650 bg-white font-black'
+              className={`flex-1 min-w-[70px] py-3.5 text-[10px] font-bold uppercase tracking-wider text-center border-b-2 transition flex items-center justify-center gap-1 ${sidebarTab === "notes"
+                  ? 'border-indigo-650 text-indigo-600 bg-white font-black'
                   : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
             >
               📝 Notepad
+            </button>
+            <button
+              onClick={() => { setSidebarTab("guidance"); fetchGuidanceChat(); }}
+              className={`flex-1 min-w-[70px] py-3.5 text-[10px] font-bold uppercase tracking-wider text-center border-b-2 transition flex items-center justify-center gap-1 ${sidebarTab === "guidance"
+                  ? 'border-indigo-600 text-indigo-650 bg-white font-black'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+            >
+              💬 Guidance
+            </button>
+            <button
+              onClick={() => { setSidebarTab("feedback"); fetchCourseFeedback(); }}
+              className={`flex-1 min-w-[70px] py-3.5 text-[10px] font-bold uppercase tracking-wider text-center border-b-2 transition flex items-center justify-center gap-1 ${sidebarTab === "feedback"
+                  ? 'border-indigo-600 text-indigo-650 bg-white font-black'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+            >
+              ⭐ Feedback
             </button>
           </div>
 
@@ -1815,6 +1833,235 @@ const LearnerDashboard = () => {
                 )}
               </div>
             )}
+
+            {sidebarTab === "guidance" && (
+              <div className="h-full flex flex-col animate-fade-in bg-white border border-slate-100 rounded-2xl overflow-hidden h-[calc(100vh-270px)] lg:h-[calc(100vh-220px)]">
+                {/* Guidance Header */}
+                <div className="p-3 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-750 flex items-center gap-2">
+                  <User size={14} className="text-indigo-500" />
+                  <span>Instructor: {selectedCourse.instructorId?.name || "Expert Guide"}</span>
+                </div>
+
+                {/* Message list */}
+                <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50/40 custom-scrollbar">
+                  {guidanceMessages.length === 0 ? (
+                    <div className="text-center py-12 text-slate-400 text-[11px] font-medium leading-relaxed px-4">
+                      Stuck somewhere? Ask your instructor for guidance. Voice replies are supported!
+                    </div>
+                  ) : (
+                    guidanceMessages.map(msg => {
+                      const isMe = msg.sender?._id === userInfo._id || msg.sender === userInfo._id;
+                      return (
+                        <div key={msg._id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`max-w-[85%] rounded-xl px-3 py-2 text-[11px] shadow-sm leading-relaxed ${
+                            isMe ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-none'
+                          }`}>
+                            {msg.voiceUrl ? (
+                              <div className="py-0.5">
+                                <audio src={msg.voiceUrl} controls className="max-w-full outline-none" style={{ height: '28px', minWidth: '150px' }} />
+                              </div>
+                            ) : (
+                              <p className="whitespace-pre-wrap">{msg.text}</p>
+                            )}
+                            <span className={`block text-[8px] text-right mt-1 font-light ${isMe ? 'text-indigo-200' : 'text-slate-400'}`}>
+                              {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Input block */}
+                <form onSubmit={handleSendGuidanceText} className="p-2 border-t border-slate-200 bg-white flex gap-1.5 items-center">
+                  {isGuidanceRecording ? (
+                    <div className="flex-1 flex items-center justify-between px-3 py-1.5 border border-red-100 bg-red-50 text-red-700 rounded-xl text-[10px] font-bold">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 bg-red-600 rounded-full animate-ping shrink-0" />
+                        Recording...
+                      </span>
+                      <div className="flex gap-0.5 items-center h-4">
+                        <span className="w-0.5 bg-red-500 rounded-full animate-wave-1" style={{ height: '4px' }} />
+                        <span className="w-0.5 bg-red-500 rounded-full animate-wave-2" style={{ height: '12px' }} />
+                        <span className="w-0.5 bg-red-500 rounded-full animate-wave-3" style={{ height: '6px' }} />
+                        <span className="w-0.5 bg-red-500 rounded-full animate-wave-4" style={{ height: '10px' }} />
+                      </div>
+                      <button type="button" onClick={handleStopGuidanceRecord} className="p-1 bg-red-600 text-white rounded-lg cursor-pointer">
+                        <Square size={10} className="fill-white" />
+                      </button>
+                    </div>
+                  ) : (
+                    <input
+                      type="text"
+                      placeholder="Ask for guidance..."
+                      value={guidanceInput}
+                      onChange={(e) => setGuidanceInput(e.target.value)}
+                      className="flex-grow px-3 py-1.5 border border-slate-200 rounded-xl text-xs outline-none bg-slate-55 bg-slate-50 focus:bg-white"
+                    />
+                  )}
+
+                  {!isGuidanceRecording && (
+                    <button type="button" onClick={handleStartGuidanceRecord} className="p-2 bg-slate-100 hover:bg-indigo-50 text-slate-500 hover:text-indigo-650 rounded-xl cursor-pointer" title="Record Voice">
+                      <Mic size={14} />
+                    </button>
+                  )}
+
+                  {!isGuidanceRecording && (
+                    <button type="submit" disabled={!guidanceInput.trim()} className="p-2 bg-indigo-605 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 cursor-pointer">
+                      <Send size={14} />
+                    </button>
+                  )}
+                </form>
+              </div>
+            )}
+
+            {sidebarTab === "feedback" && (
+              <div className="h-full flex flex-col gap-4 animate-fade-in bg-white p-2">
+                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider pl-1">Course Experience Review</h4>
+
+                {existingFeedback && !isEditingFeedback ? (
+                  /* Read Only Submitted View */
+                  <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-4">
+                    <div className="flex items-center gap-3">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 ${
+                        existingFeedback.liked ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
+                      }`}>
+                        {existingFeedback.liked ? (
+                          <><ThumbsUp size={14} className="fill-green-600" /> Endorsed</>
+                        ) : (
+                          <><ThumbsDown size={14} className="fill-red-600" /> Disliked</>
+                        )}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-semibold">{new Date(existingFeedback.createdAt).toLocaleDateString()}</span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[9px] text-slate-400 uppercase font-black tracking-wide block">Your Comments</span>
+                      <p className="text-xs text-slate-700 font-medium leading-relaxed whitespace-pre-wrap">{existingFeedback.text}</p>
+                    </div>
+
+                    {existingFeedback.voiceUrl && (
+                      <div className="space-y-1">
+                        <span className="text-[9px] text-slate-400 uppercase font-black tracking-wide block">Voice review</span>
+                        <audio src={existingFeedback.voiceUrl} controls className="w-full mt-1.5" style={{ height: '36px' }} />
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => setIsEditingFeedback(true)}
+                      className="w-full py-2.5 bg-white border border-slate-200 text-indigo-650 hover:bg-slate-100 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+                    >
+                      Update Review
+                    </button>
+                  </div>
+                ) : (
+                  /* Form Submission View */
+                  <form onSubmit={handleFeedbackSubmit} className="space-y-4">
+                    {/* Thumbs Selection */}
+                    <div className="space-y-2">
+                      <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Do you like this course?</label>
+                      <div className="flex gap-4">
+                        <button
+                          type="button"
+                          onClick={() => setFeedbackLiked(true)}
+                          className={`flex-1 py-3 rounded-xl border flex items-center justify-center gap-2 font-bold text-xs transition cursor-pointer ${
+                            feedbackLiked === true
+                              ? 'bg-green-55 bg-green-50 border-green-500 text-green-700 font-black shadow-sm'
+                              : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                          }`}
+                        >
+                          <ThumbsUp size={16} className={feedbackLiked === true ? 'fill-green-600' : ''} /> Liked
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFeedbackLiked(false)}
+                          className={`flex-1 py-3 rounded-xl border flex items-center justify-center gap-2 font-bold text-xs transition cursor-pointer ${
+                            feedbackLiked === false
+                              ? 'bg-red-50 border-red-500 text-red-705 text-red-700 font-black shadow-sm'
+                              : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                          }`}
+                        >
+                          <ThumbsDown size={16} className={feedbackLiked === false ? 'fill-red-600' : ''} /> Disliked
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Text review comments */}
+                    <div className="space-y-2">
+                      <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Suggestions for Improvement</label>
+                      <textarea
+                        placeholder="What did you like or dislike? How can we make it better?"
+                        value={feedbackText}
+                        onChange={(e) => setFeedbackText(e.target.value)}
+                        className="w-full p-3.5 text-xs bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white rounded-xl outline-none text-slate-700 resize-none font-medium h-24"
+                      />
+                    </div>
+
+                    {/* Voice Feedback Widget */}
+                    <div className="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-205">
+                      <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wide block">Voice review attachment</span>
+                      
+                      {isFeedbackRecording ? (
+                        <div className="flex items-center justify-between py-1 px-2.5 border border-red-100 bg-white text-red-700 rounded-lg text-xs font-bold">
+                          <span className="flex items-center gap-1.5 animate-pulse">
+                            <span className="w-2 h-2 bg-red-600 rounded-full animate-ping" />
+                            Recording feedback...
+                          </span>
+                          <button type="button" onClick={handleStopFeedbackRecord} className="p-1 bg-red-600 text-white rounded cursor-pointer">
+                            <Square size={10} className="fill-white" />
+                          </button>
+                        </div>
+                      ) : feedbackVoiceUrl ? (
+                        <div className="space-y-2">
+                          <audio src={feedbackVoiceUrl} controls className="w-full" style={{ height: '32px' }} />
+                          <button
+                            type="button"
+                            onClick={() => setFeedbackVoiceUrl("")}
+                            className="text-[10px] text-red-655 font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                          >
+                            🗑️ Delete Voice Recording
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleStartFeedbackRecord}
+                          className="w-full py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-800 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                        >
+                          <Mic size={14} className="text-red-500 animate-pulse" /> Record Voice Feedback
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Form Controls */}
+                    <div className="flex gap-2 pt-2">
+                      {existingFeedback && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsEditingFeedback(false);
+                            setFeedbackLiked(existingFeedback.liked);
+                            setFeedbackText(existingFeedback.text);
+                            setFeedbackVoiceUrl(existingFeedback.voiceUrl);
+                          }}
+                          className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                      <button
+                        type="submit"
+                        disabled={feedbackLiked === null || (!feedbackText.trim() && !feedbackVoiceUrl)}
+                        className="flex-grow py-3 bg-indigo-650 hover:bg-indigo-700 text-white text-xs font-black rounded-xl transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      >
+                        Submit Review
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -1847,300 +2094,371 @@ const LearnerDashboard = () => {
         )}
       </div>
     );
-  }
-  // =====================================================================
-  // VIEW A: THE DASHBOARD GRID
+  };
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#F3F4F6] via-[#F9FAFB] to-[#EEF2F6] text-slate-800 pb-20 font-sans relative overflow-x-hidden">
+    <div className="flex min-h-screen bg-slate-50 font-sans text-slate-800">
+      
+      {/* --- SIDEBAR --- */}
+      <aside className={`fixed z-30 top-0 left-0 h-screen bg-slate-900 text-white w-64 p-6 flex flex-col transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-64"} md:translate-x-0 md:relative shadow-2xl`}>
+        <div className="mb-10 flex justify-between items-center">
+          <div className="font-bold text-xl flex items-center gap-2 text-indigo-400">
+            <LayoutDashboard size={24} /> <span>Student Arena</span>
+          </div>
+          <button className="md:hidden text-slate-400" onClick={() => setSidebarOpen(false)}>
+            <X />
+          </button>
+        </div>
 
-      <div className="bg-gradient-to-r from-indigo-100/60 via-white to-violet-50/60 border-b border-indigo-100/80 pt-8 pb-16 px-8 relative shadow-sm">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between mb-8">
-            <button onClick={() => navigate('/')} className="text-sm font-bold text-indigo-700 hover:text-indigo-800 flex items-center gap-2 transition-all duration-300 hover:scale-105 active:scale-95 bg-indigo-50 hover:bg-indigo-100/80 px-5 py-2.5 rounded-xl border border-indigo-100 shadow-sm">
-              <Home size={16} /> Back to Catalog
+        <nav className="flex-1 space-y-2">
+          {/* Tab 1: My Arena */}
+          <button
+            onClick={() => { setActiveDashboardTab("courses"); setSidebarOpen(false); }}
+            className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl transition font-semibold cursor-pointer ${
+              activeDashboardTab === "courses"
+                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/50"
+                : "text-slate-400 hover:bg-slate-800 hover:text-white"
+            }`}
+          >
+            <BookOpen size={20} /> <span>My Learning Arena</span>
+          </button>
+
+          {/* Tab 2: Achievements & Skills */}
+          <button
+            onClick={() => { setActiveDashboardTab("profile"); setSidebarOpen(false); }}
+            className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl transition font-semibold cursor-pointer ${
+              activeDashboardTab === "profile"
+                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/50"
+                : "text-slate-400 hover:bg-slate-800 hover:text-white"
+            }`}
+          >
+            <Award size={20} /> <span>Medallions & Skills</span>
+          </button>
+
+          {/* Tab 3: Back to Catalog */}
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-3 w-full px-4 py-3 rounded-xl transition font-semibold text-slate-400 hover:bg-slate-800 hover:text-white cursor-pointer"
+          >
+            <Home size={20} /> <span>Catalog Home</span>
+          </button>
+        </nav>
+
+        <button
+          onClick={handleLogout}
+          className="mt-auto flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl transition font-semibold cursor-pointer"
+        >
+          <LogOut size={20} /> Portal Logout
+        </button>
+      </aside>
+
+      {/* --- MAIN CONTENT AREA --- */}
+      <div className="flex-grow flex flex-col h-screen overflow-hidden">
+        
+        {/* Top Header Row */}
+        <header className="bg-white shadow-sm px-8 py-5 flex justify-between items-center z-10 border-b border-slate-200 shrink-0">
+          <div className="flex items-center gap-4">
+            <button className="md:hidden text-slate-655 hover:text-indigo-600 transition" onClick={() => setSidebarOpen(true)}>
+              <Menu size={24} />
             </button>
+            <h1 className="text-2xl font-black text-slate-800 tracking-tight capitalize">
+              {activeDashboardTab === 'courses' ? 'My Learning Arena' : 'Achievements & Skills'}
+            </h1>
+          </div>
 
-            <div className="flex items-center gap-6 relative">
-              {/* Streak Flame */}
-              <div className="flex items-center gap-1.5 bg-orange-50 text-orange-600 px-3 py-1.5 rounded-full border border-orange-100 text-xs font-black shadow-sm" title="Daily Streak">
-                <Flame size={14} className="fill-orange-500 animate-pulse" />
-                <span>{userInfo?.streak || 0}-Day Streak</span>
+          <div className="flex items-center gap-4">
+            {/* Streak indicator */}
+            <div className="flex items-center gap-1.5 bg-orange-50 text-orange-600 px-3 py-1.5 rounded-full border border-orange-100 text-xs font-black shadow-sm" title="Daily Streak">
+              <Flame size={14} className="fill-orange-500 animate-pulse" />
+              <span>{userInfo?.streak || 0}-Day Streak</span>
+            </div>
+
+            {/* Level Badge */}
+            <div className="flex flex-col items-end hidden sm:flex">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-indigo-605 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100 font-black">
+                  Lvl {Math.floor((userInfo?.xp || 0) / 1000) + 1}
+                </span>
+                <span className="text-xs font-bold text-slate-500">{(userInfo?.xp || 0) % 1000}/1000 XP</span>
               </div>
-
-              {/* Level and XP indicator */}
-              <div className="flex flex-col items-end">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-indigo-600 font-black tracking-wider uppercase bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-                    Lvl {Math.floor((userInfo?.xp || 0) / 1000) + 1}
-                  </span>
-                  <span className="text-xs font-bold text-slate-500">{(userInfo?.xp || 0) % 1000}/1000 XP</span>
-                </div>
-                <div className="w-24 bg-slate-100 rounded-full h-1.5 mt-1 border border-slate-200 overflow-hidden">
-                  <div className="bg-indigo-600 h-1.5 rounded-full" style={{ width: `${((userInfo?.xp || 0) % 1000) / 10}%` }}></div>
-                </div>
+              <div className="w-24 bg-slate-100 rounded-full h-1.5 mt-1 border border-slate-200 overflow-hidden">
+                <div className="bg-indigo-600 h-1.5 rounded-full" style={{ width: `${((userInfo?.xp || 0) % 1000) / 10}%` }}></div>
               </div>
+            </div>
 
-              <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-slate-805">{userInfo?.name}</p>
-                <p className="text-xs text-indigo-650 font-bold uppercase tracking-wider">Learner</p>
-              </div>
-              <div className="relative">
-                <button
-                  onClick={() => setShowUserDropdown(!showUserDropdown)}
-                  className="focus:outline-none flex items-center"
-                >
-                  {userInfo?.profilePicture ? (
-                    <img
-                      src={userInfo.profilePicture}
-                      alt={userInfo.name}
-                      className="w-12 h-12 rounded-full object-cover border-2 border-indigo-200 shadow-sm hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer"
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(userInfo.name || 'Learner')}&background=random&color=fff`;
-                      }}
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full bg-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-sm uppercase hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer">
-                      {userInfo?.name?.charAt(0) || "L"}
-                    </div>
-                  )}
-                </button>
+            <div className="text-right hidden md:block">
+              <p className="text-sm font-bold text-slate-800">{userInfo?.name}</p>
+              <p className="text-xs text-indigo-600 font-bold uppercase tracking-wider">Student Learner</p>
+            </div>
 
-                {showUserDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 animate-fade-in">
-                    <button
-                      onClick={() => {
-                        setShowUserDropdown(false);
-                        navigate('/');
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-750 font-bold transition flex items-center gap-2"
-                    >
-                      <Home size={14} /> Catalog Home
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowUserDropdown(false);
-                        handleLogout();
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-bold transition flex items-center gap-2"
-                    >
-                      <LogOut size={14} /> Logout
-                    </button>
+            {/* Dropdown Menu Toggle */}
+            <div className="relative">
+              <button
+                onClick={() => setShowUserDropdown(!showUserDropdown)}
+                className="focus:outline-none flex items-center"
+              >
+                {userInfo?.profilePicture ? (
+                  <img
+                    src={userInfo.profilePicture}
+                    alt={userInfo.name}
+                    className="w-10 h-10 rounded-full object-cover border-2 border-indigo-500 shadow-md cursor-pointer hover:scale-105 transition duration-300"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(userInfo.name || 'Student')}&background=random&color=fff`;
+                    }}
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-indigo-605 flex items-center justify-center text-white font-black text-xl shadow-md uppercase hover:scale-105 transition duration-300 cursor-pointer">
+                    {userInfo?.name?.charAt(0) || "L"}
                   </div>
                 )}
-              </div>
-            </div>
-          </div>
-          <h1 className="text-3xl md:text-5xl font-black mb-3 text-transparent bg-clip-text bg-gradient-to-r from-indigo-800 via-violet-750 to-violet-750 to-indigo-900">My Learning Arena</h1>
-          <p className="text-slate-650 font-medium text-lg">Your active quests and ongoing training.</p>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-8 mt-8 relative z-10 flex flex-col lg:flex-row gap-8">
-        {/* Left Column: Enrolled Courses */}
-        <div className="flex-grow">
-          {enrolledCourses.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 bg-white rounded-3xl border border-slate-200 shadow-sm transition-all duration-300 hover:shadow-md">
-              <div className="bg-indigo-50 p-6 rounded-full mb-6 border border-indigo-100"><BookOpen className="w-16 h-16 text-indigo-600" /></div>
-              <h2 className="text-3xl font-black mb-3 text-slate-850">Your journey has not yet begun</h2>
-              <p className="text-slate-500 mb-8 text-center max-w-md font-medium text-lg">The Lands Between await. Discover new skills and begin your training.</p>
-              <Link to="/courses" className="px-10 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-lg shadow-sm transform hover:-translate-y-1 transition-all duration-300">Browse Courses</Link>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {enrolledCourses.map((course) => {
-                const prog = calculateProgress(course);
-                return (
-                  <div key={course._id} className="bg-gradient-to-br from-white via-indigo-50/5 to-slate-50 rounded-3xl overflow-hidden border border-slate-200/80 hover:border-indigo-400 hover:shadow-[0_12px_40px_rgba(99,102,241,0.08)] transform hover:-translate-y-1.5 hover:scale-[1.01] transition-all duration-300 shadow-sm group flex flex-col animate-fade-in">
-                    <div className="h-52 relative overflow-hidden bg-slate-100">
-                      <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-700 opacity-90 group-hover:opacity-100" />
-                      <button onClick={(e) => handleUnenroll(course._id, e)} className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm text-slate-550 hover:text-red-650 p-2.5 rounded-xl opacity-0 group-hover:opacity-100 transition-all border border-slate-200 hover:border-red-200 hover:scale-105 active:scale-95" title="Drop Course">
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                    <div className="p-6 flex-1 flex flex-col">
-                      <h3 className="text-xl font-black text-slate-800 mb-2 line-clamp-2 leading-tight group-hover:text-indigo-850 transition duration-300">{course.title}</h3>
-                      <div className="mb-6 mt-auto pt-6">
-                        <div className="flex justify-between text-xs text-slate-500 mb-2 font-bold uppercase tracking-wider">
-                          <span>Progress</span>
-                          <span className={prog === 100 ? "text-amber-600 font-black" : "text-indigo-650 font-black"}>{prog}%</span>
-                        </div>
-                        <div className="w-full bg-slate-100 rounded-full h-2 shadow-inner">
-                          <div className={`h-2 rounded-full transition-all duration-700 ${prog === 100 ? "bg-amber-500" : "bg-indigo-600"}`} style={{ width: `${prog}%` }}></div>
-                        </div>
-                      </div>
-                      {prog === 100 ? (
-                        passedExams.includes(course._id) ? (
-                          <button
-                            onClick={() => {
-                              setSelectedCourse(course);
-                              setCompletedCourseName(course.title);
-                              setShowTrophy(true);
-                            }}
-                            className="w-full py-4 rounded-xl font-black transition-all duration-300 flex items-center justify-center gap-2 shadow-md hover:shadow-lg transform hover:-translate-y-1 hover:scale-[1.02] active:scale-95 bg-amber-500 hover:bg-amber-600 text-white font-bold"
-                          >
-                            <Trophy size={20} /> Claim Certificate
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => {
-                              setSelectedCourse(course);
-                              fetchFinalExam(course);
-                            }}
-                            className="w-full py-4 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2 shadow-md hover:shadow-lg transform hover:-translate-y-1 hover:scale-[1.02] active:scale-95 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
-                          >
-                            <Brain size={20} /> Take Final Exam
-                          </button>
-                        )
-                      ) : (
-                        <button
-                          onClick={() => handleStartCourse(course)}
-                          className="w-full py-4 rounded-xl font-black transition-all duration-300 flex items-center justify-center gap-2 shadow-md hover:shadow-lg transform hover:-translate-y-1 hover:scale-[1.02] active:scale-95 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white"
-                        >
-                          <PlayCircle size={20} /> Resume Training
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Right Column: Skills & AI Suggestions */}
-        <div className="w-full lg:w-80 shrink-0 space-y-8">
-          {/* Achievements & Badges Card */}
-          <div className="bg-gradient-to-br from-white to-violet-50/30 p-6 rounded-3xl border border-violet-100 shadow-sm space-y-4 transition-all duration-300 hover:shadow-md">
-            <h3 className="text-lg font-black text-slate-805 flex items-center gap-2">
-              <Award className="text-violet-600 w-5 h-5" />
-              My Medallions
-            </h3>
-            <p className="text-xs text-slate-505 font-medium">Unlock badges by completing training milestones.</p>
-            <div className="flex flex-wrap justify-center gap-x-6 gap-y-6 pt-2">
-              {badgeList.map((badge) => {
-                const isUnlocked = userInfo?.badges?.includes(badge.id);
-                const IconComponent = badge.icon;
-                return (
-                  <div
-                    key={badge.id}
-                    className={`flex flex-col items-center group transition-all duration-300 ${isUnlocked ? 'scale-100 opacity-100 hover:scale-110' : 'scale-95 opacity-35 hover:opacity-50'}`}
-                    title={`${badge.name}: ${badge.requirement} (${isUnlocked ? 'Unlocked' : 'Locked'})`}
-                  >
-                    {/* Relative wrapper for circle + ribbons */}
-                    <div className="relative w-12 h-12 flex items-center justify-center shrink-0">
-                      {/* Ribbon tails */}
-                      <svg
-                        className={`absolute -bottom-3.5 w-8 h-8 z-0 drop-shadow-sm transition-colors duration-300 ${isUnlocked ? badge.ribbonColor : 'text-slate-300'}`}
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                      >
-                        <path d="M 6 0 L 11 0 L 8 16 L 5 13 L 2 16 Z" />
-                        <path d="M 11 0 L 16 0 L 19 16 L 16 13 L 13 16 Z" />
-                      </svg>
-
-                      {/* Main Medal Circle */}
-                      <div
-                        className={`relative z-10 w-full h-full rounded-full flex items-center justify-center border-4 shadow-md bg-white transition-all duration-300 ${isUnlocked
-                            ? `${badge.activeRing} ${badge.color}`
-                            : 'border-slate-200 text-slate-400'
-                          }`}
-                      >
-                        <IconComponent size={20} className={isUnlocked ? 'animate-pulse-slow' : ''} />
-                      </div>
-                    </div>
-
-                    {/* Label */}
-                    <span className="text-[10px] font-bold text-slate-500 mt-5 text-center truncate w-14">
-                      {badge.name}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Skills Card */}
-          <div className="bg-gradient-to-br from-white to-emerald-50/30 p-6 rounded-3xl border border-emerald-100 shadow-sm space-y-4 transition-all duration-300 hover:shadow-md">
-            <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
-              <Sparkles className="text-emerald-600 w-5 h-5" />
-              My Skills
-            </h3>
-            <p className="text-xs text-slate-500 font-medium">Add your expertise to get tailored course suggestions.</p>
-
-            <form onSubmit={handleAddSkill} className="flex gap-2">
-              <input
-                type="text"
-                placeholder="e.g. HTML"
-                value={newSkillInput}
-                onChange={(e) => setNewSkillInput(e.target.value)}
-                className="flex-grow p-2 text-sm bg-white border border-slate-205 focus:border-emerald-500 rounded-lg outline-none text-slate-800 shadow-inner"
-              />
-              <button type="submit" className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-lg text-sm transition-all duration-300 hover:scale-105 active:scale-95 shadow-sm">
-                Add
               </button>
-            </form>
 
-            <div className="flex flex-wrap gap-2 pt-2">
-              {userSkills.length === 0 ? (
-                <span className="text-xs text-slate-500 italic">No skills added yet.</span>
-              ) : (
-                userSkills.map((skill, idx) => (
-                  <span key={idx} className="flex items-center gap-1 bg-white text-emerald-850 text-xs font-bold px-2.5 py-1 rounded-full border border-emerald-150 shadow-sm hover:scale-105 hover:border-emerald-300 transition-all duration-200">
-                    {skill}
-                    <button type="button" onClick={() => handleRemoveSkill(skill)} className="text-slate-400 hover:text-red-655 font-black">
-                      ✕
-                    </button>
-                  </span>
-                ))
+              {showUserDropdown && (
+                <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 animate-fade-in">
+                  <button
+                    onClick={() => {
+                      setShowUserDropdown(false);
+                      navigate('/');
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-750 font-bold transition flex items-center gap-2"
+                  >
+                    <Home size={14} /> Catalog Home
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowUserDropdown(false);
+                      handleLogout();
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-red-655 hover:bg-red-50 font-bold transition flex items-center gap-2 cursor-pointer"
+                  >
+                    <LogOut size={14} /> Logout
+                  </button>
+                </div>
               )}
             </div>
           </div>
+        </header>
 
-          {/* AI Recommendations Card */}
-          <div className="bg-gradient-to-br from-white to-indigo-50/30 p-6 rounded-3xl border border-indigo-100 shadow-sm space-y-4 transition-all duration-300 hover:shadow-md">
-            <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
-              <Brain className="text-indigo-655 w-5 h-5 animate-pulse" />
-              AI Suggestions
-            </h3>
+        {/* Dashboard Content Body */}
+        <main className="p-8 overflow-y-auto bg-slate-50 flex-1 relative">
+          <div className="max-w-7xl mx-auto animate-fade-in">
+            
+            {activeDashboardTab === "courses" && (
+              <div>
+                <div className="mb-8">
+                  <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-650 to-violet-650 tracking-tight mb-2">My Learning Arena</h2>
+                  <p className="text-slate-500 font-semibold">Your active quests and ongoing training blueprints.</p>
+                </div>
 
-            {recsLoading ? (
-              <div className="flex flex-col items-center justify-center py-8">
-                <Loader className="animate-spin text-indigo-600 w-8 h-8 mb-2" />
-                <p className="text-xs text-slate-500 font-medium">Consulting AI Advisor...</p>
-              </div>
-            ) : recommendations.length === 0 ? (
-              <div className="text-center py-6 text-slate-500 text-xs italic">
-                No recommendations available. Try adding more skills or enrolling in courses!
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {recommendations.map((rec, idx) => (
-                  <div key={idx} className="bg-white p-4 rounded-2xl border border-indigo-100/60 space-y-3 shadow-sm hover:border-indigo-300 hover:shadow-md transform hover:-translate-y-1 transition duration-300">
-                    <div className="flex gap-3">
-                      <img src={rec.course.thumbnail} alt={rec.course.title} className="w-12 h-12 object-cover rounded-lg border border-slate-200" />
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-xs font-black text-slate-800 truncate leading-snug">{rec.course.title}</h4>
-                        <span className="text-[10px] bg-indigo-55 bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-full font-bold inline-block mt-1">
-                          {rec.course.category}
-                        </span>
-                      </div>
+                {enrolledCourses.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-24 bg-white rounded-3xl border border-slate-200 shadow-xl text-center">
+                    <div className="bg-indigo-50 p-6 rounded-full mb-6 border border-indigo-100">
+                      <BookOpen className="w-16 h-16 text-indigo-600 animate-pulse" />
                     </div>
-                    <p className="text-[11px] text-slate-655 leading-relaxed bg-indigo-50/20 p-2.5 rounded-xl border border-indigo-100/30">
-                      <strong>AI Reason:</strong> {rec.reason}
-                    </p>
-                    <button
-                      onClick={() => navigate(`/courses`)}
-                      className="w-full py-2 bg-indigo-50 hover:bg-indigo-600 border border-indigo-100 hover:border-transparent text-indigo-750 hover:text-white font-bold rounded-lg text-xs transition-all duration-300 hover:-translate-y-0.5 active:scale-95 shadow-sm"
-                    >
-                      View Course
-                    </button>
+                    <h2 className="text-3xl font-black mb-3 text-slate-800">Your journey has not yet begun</h2>
+                    <p className="text-slate-500 mb-8 max-w-md font-medium text-lg">The arena awaits. Discover new skills and begin your professional training.</p>
+                    <Link to="/courses" className="px-10 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-lg shadow-md hover:shadow-lg transform hover:-translate-y-1 transition duration-300">Browse Course Catalog</Link>
                   </div>
-                ))}
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {enrolledCourses.map((course) => {
+                      const prog = calculateProgress(course);
+                      return (
+                        <div key={course._id} className="bg-white rounded-3xl overflow-hidden border border-slate-200 hover:border-indigo-400 hover:shadow-2xl transition duration-300 shadow-md group flex flex-col">
+                          
+                          {/* Thumbnail */}
+                          <div className="h-48 relative overflow-hidden bg-slate-100">
+                            <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-505 opacity-90 group-hover:opacity-100" />
+                            <button onClick={(e) => handleUnenroll(course._id, e)} className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm text-slate-500 hover:text-red-655 p-2.5 rounded-xl opacity-0 group-hover:opacity-100 transition-all border border-slate-200 hover:border-red-200 cursor-pointer shadow" title="Drop Course">
+                              <Trash2 size={16} />
+                            </button>
+                            <span className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-black text-indigo-600 uppercase tracking-wide shadow-sm border border-indigo-50">
+                              {course.category || "General"}
+                            </span>
+                          </div>
+
+                          {/* Details */}
+                          <div className="p-6 flex-1 flex flex-col">
+                            <h3 className="text-lg font-bold text-slate-805 mb-4 line-clamp-2 leading-tight group-hover:text-indigo-600 transition duration-300 min-h-[44px]">{course.title}</h3>
+                            
+                            <div className="mb-6 mt-auto">
+                              <div className="flex justify-between text-[10px] text-slate-500 mb-2 font-bold uppercase tracking-wider">
+                                <span>Mastery Progress</span>
+                                <span className={prog === 100 ? "text-amber-600 font-black" : "text-indigo-600 font-black"}>{prog}%</span>
+                              </div>
+                              <div className="w-full bg-slate-100 rounded-full h-2 shadow-inner border border-slate-100 overflow-hidden">
+                                <div className={`h-2 rounded-full transition-all duration-700 ${prog === 100 ? "bg-amber-500" : "bg-indigo-600"}`} style={{ width: `${prog}%` }}></div>
+                              </div>
+                            </div>
+
+                            {prog === 100 ? (
+                              passedExams.includes(course._id) ? (
+                                <button
+                                  onClick={() => {
+                                    setSelectedCourse(course);
+                                    setCompletedCourseName(course.title);
+                                    setShowTrophy(true);
+                                  }}
+                                  className="w-full py-3.5 rounded-xl font-bold transition duration-300 flex items-center justify-center gap-2 shadow bg-amber-500 hover:bg-amber-600 text-white cursor-pointer"
+                                >
+                                  <Trophy size={18} /> Claim Certificate
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setSelectedCourse(course);
+                                    fetchFinalExam(course);
+                                  }}
+                                  className="w-full py-3.5 rounded-xl font-bold transition duration-300 flex items-center justify-center gap-2 shadow bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white cursor-pointer"
+                                >
+                                  <Brain size={18} /> Take Final Exam
+                                </button>
+                              )
+                            ) : (
+                              <button
+                                onClick={() => handleStartCourse(course)}
+                                className="w-full py-3.5 rounded-xl font-bold transition duration-300 flex items-center justify-center gap-2 shadow bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-750 text-white cursor-pointer"
+                              >
+                                <PlayCircle size={18} /> Resume Quest
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
+
+            {activeDashboardTab === "profile" && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                
+                {/* Achievements Card */}
+                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-md space-y-4">
+                  <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                    <Award className="text-violet-600 w-5 h-5" />
+                    My Medallions
+                  </h3>
+                  <p className="text-xs text-slate-500 font-semibold">Earn these honors by completing training milestones.</p>
+                  <div className="flex flex-wrap justify-start gap-x-6 gap-y-6 pt-2 pl-2">
+                    {badgeList.map((badge) => {
+                      const isUnlocked = userInfo?.badges?.includes(badge.id);
+                      const IconComponent = badge.icon;
+                      return (
+                        <div
+                          key={badge.id}
+                          className={`flex flex-col items-center group transition duration-350 ${isUnlocked ? 'scale-100 opacity-100 hover:scale-110' : 'scale-95 opacity-30 hover:opacity-45'}`}
+                          title={`${badge.name}: ${badge.requirement} (${isUnlocked ? 'Unlocked' : 'Locked'})`}
+                        >
+                          <div className="relative w-12 h-12 flex items-center justify-center shrink-0">
+                            {/* Ribbons */}
+                            <svg
+                              className={`absolute -bottom-3.5 w-8 h-8 z-0 drop-shadow-sm transition-colors duration-300 ${isUnlocked ? badge.ribbonColor : 'text-slate-300'}`}
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                            >
+                              <path d="M 6 0 L 11 0 L 8 16 L 5 13 L 2 16 Z" />
+                              <path d="M 11 0 L 16 0 L 19 16 L 16 13 L 13 16 Z" />
+                            </svg>
+                            {/* Circle */}
+                            <div className={`relative z-10 w-full h-full rounded-full flex items-center justify-center border-4 shadow bg-white transition-all duration-300 ${isUnlocked ? `${badge.activeRing} ${badge.color}` : 'border-slate-200 text-slate-400'}`}>
+                              <IconComponent size={18} />
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-bold text-slate-500 mt-5 text-center truncate w-14">{badge.name}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Skills Tag Editor Card */}
+                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-md space-y-4">
+                  <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                    <Sparkles className="text-emerald-600 w-5 h-5" />
+                    My Skills Blueprint
+                  </h3>
+                  <p className="text-xs text-slate-500 font-semibold">Declare your programming focus to tailor suggestions.</p>
+
+                  <form onSubmit={handleAddSkill} className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="e.g. JavaScript"
+                      value={newSkillInput}
+                      onChange={(e) => setNewSkillInput(e.target.value)}
+                      className="flex-grow px-3 py-2 text-xs bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl outline-none text-slate-800"
+                    />
+                    <button type="submit" className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer">
+                      Add
+                    </button>
+                  </form>
+
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    {userSkills.length === 0 ? (
+                      <span className="text-xs text-slate-400 italic">No skills listed. Adding tags unlocks AI course path advisor.</span>
+                    ) : (
+                      userSkills.map((skill, idx) => (
+                        <span key={idx} className="flex items-center gap-1 bg-emerald-50/50 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded-full border border-emerald-100 shadow-sm hover:scale-105 transition-all">
+                          {skill}
+                          <button type="button" onClick={() => handleRemoveSkill(skill)} className="text-emerald-600 hover:text-red-655 font-black ml-0.5">
+                            ✕
+                          </button>
+                        </span>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* AI Advice Card */}
+                <div className="bg-white p-6 rounded-3xl border border-slate-205 shadow-md space-y-4">
+                  <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                    <Brain className="text-indigo-600 w-5 h-5 animate-pulse" />
+                    AI Path Recommendations
+                  </h3>
+
+                  {recsLoading ? (
+                    <div className="flex flex-col items-center justify-center py-8">
+                      <Loader className="animate-spin text-indigo-600 w-8 h-8 mb-2" />
+                      <p className="text-xs text-slate-400 font-semibold">Consulting AI advisor...</p>
+                    </div>
+                  ) : recommendations.length === 0 ? (
+                    <div className="text-center py-6 text-slate-405 text-xs italic">
+                      No advisory matches. Add more skills to get course recommendations!
+                    </div>
+                  ) : (
+                    <div className="space-y-4 max-h-[350px] overflow-y-auto custom-scrollbar pr-1">
+                      {recommendations.map((rec, idx) => (
+                        <div key={idx} className="bg-slate-50/50 p-4 rounded-2xl border border-indigo-50/70 space-y-3 hover:border-indigo-200 transition duration-300">
+                          <div className="flex gap-3">
+                            <img src={rec.course.thumbnail} alt={rec.course.title} className="w-12 h-12 object-cover rounded-lg border border-slate-200" />
+                            <div className="flex-grow min-w-0">
+                              <h4 className="text-xs font-black text-slate-800 truncate leading-snug">{rec.course.title}</h4>
+                              <span className="text-[9px] bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-full font-bold inline-block mt-1">
+                                {rec.course.category}
+                              </span>
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-slate-500 leading-relaxed bg-white p-2.5 rounded-xl border border-slate-100">
+                            <strong>AI:</strong> {rec.reason}
+                          </p>
+                          <button
+                            onClick={() => navigate(`/courses`)}
+                            className="w-full py-2 bg-indigo-50 text-indigo-650 hover:bg-indigo-600 hover:text-white font-bold rounded-lg text-[10px] border border-indigo-100 hover:border-transparent transition duration-300 cursor-pointer"
+                          >
+                            View Course Card
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            )}
+
           </div>
-        </div>
+        </main>
       </div>
 
       {/* 🌟 GAMIFICATION XP/BADGE ALERT TOAST */}

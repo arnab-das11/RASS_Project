@@ -5,15 +5,16 @@ import User from '../models/User.js';
 // @route   POST /api/messages
 export const sendMessage = async (req, res) => {
   try {
-    const { sender, receiver, text } = req.body;
-    if (!sender || !receiver || !text) {
-      return res.status(400).json({ message: 'Sender, receiver, and text are required' });
+    const { sender, receiver, text, voiceUrl } = req.body;
+    if (!sender || !receiver || (!text && !voiceUrl)) {
+      return res.status(400).json({ message: 'Sender, receiver, and either text or voiceUrl are required' });
     }
 
     const message = new Message({
       sender,
       receiver,
-      text
+      text: text || "[Voice Message]",
+      voiceUrl: voiceUrl || ""
     });
 
     const savedMessage = await message.save();
@@ -90,6 +91,43 @@ export const getAdmins = async (req, res) => {
   try {
     const admins = await User.find({ role: 'admin' }).select('name email profilePicture');
     res.json(admins);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get unique chat contacts (users who sent/received messages) for a user
+// @route   GET /api/messages/contacts/:userId
+export const getChatContacts = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Find all messages involving this user
+    const messages = await Message.find({
+      $or: [{ sender: userId }, { receiver: userId }]
+    })
+    .sort({ createdAt: -1 })
+    .populate('sender', 'name email profilePicture role')
+    .populate('receiver', 'name email profilePicture role');
+
+    // Extract unique other users
+    const contactsMap = new Map();
+    messages.forEach(msg => {
+      if (!msg.sender || !msg.receiver) return;
+      const otherUser = msg.sender._id.toString() === userId ? msg.receiver : msg.sender;
+      if (otherUser && otherUser._id.toString() !== userId) {
+        if (!contactsMap.has(otherUser._id.toString())) {
+          contactsMap.set(otherUser._id.toString(), {
+            user: otherUser,
+            lastMessage: msg.text,
+            lastMessageAt: msg.createdAt,
+            voice: !!msg.voiceUrl
+          });
+        }
+      }
+    });
+
+    res.json(Array.from(contactsMap.values()));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

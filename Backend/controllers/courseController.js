@@ -1,10 +1,26 @@
 import Course from "../models/Course.js";
+import Feedback from "../models/Feedback.js";
 
 // @desc    Get all approved courses (Public)
 export const getAllCourses = async (req, res) => {
   try {
     const courses = await Course.find({ status: "approved" }).populate("instructorId", "name");
-    res.json(courses);
+    
+    const coursesWithRatings = await Promise.all(courses.map(async (course) => {
+      const feedbacks = await Feedback.find({ courseId: course._id });
+      let rating = 4.8;
+      if (feedbacks.length > 0) {
+        const likes = feedbacks.filter(f => f.liked).length;
+        rating = parseFloat((1 + (likes / feedbacks.length) * 4).toFixed(1));
+      }
+      return {
+        ...course.toObject(),
+        rating,
+        totalRatings: feedbacks.length
+      };
+    }));
+
+    res.json(coursesWithRatings);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -14,8 +30,21 @@ export const getAllCourses = async (req, res) => {
 export const getCourseById = async (req, res) => {
   try {
     const course = await Course.findById(req.params.id).populate("instructorId", "name");
-    if (course) res.json(course);
-    else res.status(404).json({ message: "Course not found" });
+    if (course) {
+      const feedbacks = await Feedback.find({ courseId: course._id });
+      let rating = 4.8;
+      if (feedbacks.length > 0) {
+        const likes = feedbacks.filter(f => f.liked).length;
+        rating = parseFloat((1 + (likes / feedbacks.length) * 4).toFixed(1));
+      }
+      res.json({
+        ...course.toObject(),
+        rating,
+        totalRatings: feedbacks.length
+      });
+    } else {
+      res.status(404).json({ message: "Course not found" });
+    }
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
