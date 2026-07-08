@@ -41,7 +41,7 @@ const InstructorDashboard = () => {
     try {
       const contactsRes = await axios.get(`http://localhost:5000/api/messages/contacts/${instId}`);
       // Filter contacts to show students who have engaged
-      const studentContacts = contactsRes.data.filter(c => c.user?.role === 'student');
+      const studentContacts = contactsRes.data.filter(c => c.user?.role === 'learner');
       setChatContacts(studentContacts);
     } catch (e) {
       console.error("Error fetching chat contacts:", e);

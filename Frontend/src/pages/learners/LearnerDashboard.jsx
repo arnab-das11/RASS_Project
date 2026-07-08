@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   BookOpen, PlayCircle, MonitorPlay, ChevronDown, CheckCircle,
   ArrowLeft, Loader, FileText, Link as LinkIcon, ExternalLink,
   Award, Home, Download, Trash2, Trophy, Undo, Sparkles, Brain, XCircle,
-  Lock, LogOut, Flame, Compass, Mic
+  Lock, LogOut, Flame, Compass, Mic, Square, ThumbsUp, ThumbsDown, MessageSquare,
+  LayoutDashboard, Menu, X, Send
 } from 'lucide-react';
 import axios from 'axios';
 import { jsPDF } from "jspdf";
@@ -125,6 +126,27 @@ const LearnerDashboard = () => {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [sidebarTab, setSidebarTab] = useState("curriculum");
   const [studyNotes, setStudyNotes] = useState("");
+  
+  // --- 💬 GUIDANCE & ⭐ FEEDBACK STATE ---
+  const [activeDashboardTab, setActiveDashboardTab] = useState("courses");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [guidanceMessages, setGuidanceMessages] = useState([]);
+  const [guidanceInput, setGuidanceInput] = useState("");
+  const [isGuidanceRecording, setIsGuidanceRecording] = useState(false);
+  const [existingFeedback, setExistingFeedback] = useState(null);
+  const [feedbackLiked, setFeedbackLiked] = useState(null);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackVoiceUrl, setFeedbackVoiceUrl] = useState("");
+  const [isFeedbackRecording, setIsFeedbackRecording] = useState(false);
+  const [isEditingFeedback, setIsEditingFeedback] = useState(false);
+  const [unreadMessages, setUnreadMessages] = useState([]);
+
+  const guidanceRecorderRef = useRef(null);
+  const guidanceChunksRef = useRef([]);
+  const feedbackRecorderRef = useRef(null);
+  const feedbackChunksRef = useRef([]);
+  const guidancePollingRef = useRef(null);
+
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [xpAlert, setXpAlert] = useState({ show: false, amount: 0, badge: "" });
 
@@ -177,6 +199,207 @@ const LearnerDashboard = () => {
     }
   };
 
+  const fetchGuidanceChat = async (courseToUse = selectedCourse) => {
+    if (!userInfo?._id || !courseToUse) return;
+    const instId = courseToUse.instructorId?._id || courseToUse.instructorId;
+    if (!instId) return;
+    try {
+      const { data } = await axios.get(`http://localhost:5000/api/messages/chat/${userInfo._id}/${instId}`);
+      setGuidanceMessages(data);
+    } catch (e) {
+      console.error("Error loading chat messages", e);
+    }
+  };
+
+  const fetchCourseFeedback = async (courseToUse = selectedCourse) => {
+    if (!userInfo?._id || !courseToUse) return;
+    try {
+      const { data } = await axios.get(`http://localhost:5000/api/feedback/course/${courseToUse._id}`);
+      const myFeedback = data.find(f => (f.studentId?._id || f.studentId) === userInfo._id);
+      if (myFeedback) {
+        setExistingFeedback(myFeedback);
+        setFeedbackLiked(myFeedback.liked);
+        setFeedbackText(myFeedback.text);
+        setFeedbackVoiceUrl(myFeedback.voiceUrl);
+        setIsEditingFeedback(false);
+      } else {
+        setExistingFeedback(null);
+        setFeedbackLiked(null);
+        setFeedbackText("");
+        setFeedbackVoiceUrl("");
+        setIsEditingFeedback(false);
+      }
+    } catch (e) {
+      console.error("Error loading feedback details", e);
+    }
+  };
+
+  // Guidance audio recorder handlers
+  const handleStartGuidanceRecord = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      guidanceRecorderRef.current = mediaRecorder;
+      guidanceChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) guidanceChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(guidanceChunksRef.current, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          sendGuidanceVoice(reader.result);
+        };
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsGuidanceRecording(true);
+    } catch (err) {
+      alert("Microphone permission denied.");
+    }
+  };
+
+  const handleStopGuidanceRecord = () => {
+    if (guidanceRecorderRef.current && isGuidanceRecording) {
+      guidanceRecorderRef.current.stop();
+      setIsGuidanceRecording(false);
+    }
+  };
+
+  const sendGuidanceVoice = async (base64Audio) => {
+    const instId = selectedCourse.instructorId?._id || selectedCourse.instructorId;
+    if (!userInfo?._id || !instId) return;
+    try {
+      const { data } = await axios.post('http://localhost:5000/api/messages', {
+        sender: userInfo._id,
+        receiver: instId,
+        text: "[Voice Message]",
+        voiceUrl: base64Audio
+      });
+      setGuidanceMessages(prev => [...prev, data]);
+    } catch (e) {
+      alert("Failed to send voice message.");
+    }
+  };
+
+  const handleSendGuidanceText = async (e) => {
+    e.preventDefault();
+    const instId = selectedCourse.instructorId?._id || selectedCourse.instructorId;
+    if (!guidanceInput.trim() || !userInfo?._id || !instId) return;
+
+    const textMsg = guidanceInput;
+    setGuidanceInput("");
+
+    try {
+      const { data } = await axios.post('http://localhost:5000/api/messages', {
+        sender: userInfo._id,
+        receiver: instId,
+        text: textMsg
+      });
+      setGuidanceMessages(prev => [...prev, data]);
+    } catch (e) {
+      alert("Failed to send message.");
+    }
+  };
+
+  // Feedback audio recorder handlers
+  const handleStartFeedbackRecord = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      feedbackRecorderRef.current = mediaRecorder;
+      feedbackChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) feedbackChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(feedbackChunksRef.current, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          setFeedbackVoiceUrl(reader.result);
+        };
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsFeedbackRecording(true);
+    } catch (err) {
+      alert("Microphone permission denied.");
+    }
+  };
+
+  const handleStopFeedbackRecord = () => {
+    if (feedbackRecorderRef.current && isFeedbackRecording) {
+      feedbackRecorderRef.current.stop();
+      setIsFeedbackRecording(false);
+    }
+  };
+
+  const handleFeedbackSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedCourse?._id || !userInfo?._id || feedbackLiked === null || (!feedbackText.trim() && !feedbackVoiceUrl)) {
+      alert("Please select a rating (like/dislike) and enter suggestions or record a voice review.");
+      return;
+    }
+
+    try {
+      const { data } = await axios.post('http://localhost:5000/api/feedback', {
+        courseId: selectedCourse._id,
+        studentId: userInfo._id,
+        liked: feedbackLiked,
+        text: feedbackText || "[Voice Feedback]",
+        voiceUrl: feedbackVoiceUrl || ""
+      });
+      setExistingFeedback(data);
+      setIsEditingFeedback(false);
+      alert("Feedback submitted successfully!");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to submit feedback.");
+    }
+  };
+
+  // Polling hook for guidance chat messages
+  useEffect(() => {
+    if (selectedCourse && sidebarTab === 'guidance') {
+      const markChatRead = async () => {
+        const instId = selectedCourse.instructorId?._id || selectedCourse.instructorId;
+        if (!userInfo?._id || !instId) return;
+        try {
+          await axios.put('http://localhost:5000/api/messages/read', {
+            sender: instId,
+            receiver: userInfo._id
+          });
+        } catch (e) {}
+      };
+
+      markChatRead();
+      fetchGuidanceChat();
+
+      guidancePollingRef.current = setInterval(() => {
+        fetchGuidanceChat();
+        markChatRead();
+      }, 3000);
+    } else {
+      if (guidancePollingRef.current) {
+        clearInterval(guidancePollingRef.current);
+      }
+    }
+
+    return () => {
+      if (guidancePollingRef.current) {
+        clearInterval(guidancePollingRef.current);
+      }
+    };
+  }, [selectedCourse, sidebarTab]);
+
   useEffect(() => {
     const fetchMyCourses = async () => {
       try {
@@ -203,6 +426,10 @@ const LearnerDashboard = () => {
           }
           fetchRecommendations(user._id);
         }
+
+        // Fetch unread
+        const unreadRes = await axios.get(`http://localhost:5000/api/messages/unread/${user._id}`);
+        setUnreadMessages(unreadRes.data);
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -211,6 +438,20 @@ const LearnerDashboard = () => {
     };
     fetchMyCourses();
   }, [navigate]);
+
+  useEffect(() => {
+    if (!userInfo?._id) return;
+    const fetchUnread = async () => {
+      try {
+        const unreadRes = await axios.get(`http://localhost:5000/api/messages/unread/${userInfo._id}`);
+        setUnreadMessages(unreadRes.data);
+      } catch (e) {}
+    };
+
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 5000);
+    return () => clearInterval(interval);
+  }, [userInfo?._id]);
 
   useEffect(() => {
     if (activeContent && activeContent.data && userInfo) {
@@ -371,6 +612,9 @@ const LearnerDashboard = () => {
 
   const handleStartCourse = (course) => {
     setSelectedCourse(course);
+    setSidebarTab("curriculum");
+    fetchGuidanceChat(course);
+    fetchCourseFeedback(course);
     const items = getCourseItems(course);
 
     // Find the first uncompleted item
