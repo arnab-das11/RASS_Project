@@ -256,7 +256,13 @@ export const getEnrolledCourses = async (req, res) => {
   try {
     const user = await User.findById(req.params.id)
       .populate('enrolledCourses')
-      .populate('enrolledCourses.courseId');
+      .populate({
+        path: 'enrolledCourses.courseId',
+        populate: {
+          path: 'instructorId',
+          select: 'name email profilePicture'
+        }
+      });
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     const courses = user.enrolledCourses.map(item => {
