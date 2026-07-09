@@ -3,7 +3,7 @@ import {
   Menu, X, Users, GraduationCap, LayoutDashboard,
   CheckCircle, XCircle, LogOut, BookOpen, Trash2, Edit3, Eye, Mail,
   Clock, Award, CheckCircle2, MonitorPlay, FileText, ChevronDown, ChevronUp, Link as LinkIcon,
-  MessageSquare
+  MessageSquare, ShieldAlert, DollarSign, TrendingUp, AlertTriangle, Settings, RefreshCw, BarChart2
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from 'axios';
@@ -11,7 +11,8 @@ import ChatModal from "../ChatModal";
 // --- NEW: IMPORT RECHARTS ---
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
-  CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer
+  CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
+  AreaChart, Area
 } from 'recharts';
 
 const AdminDashboard = () => {
@@ -42,6 +43,11 @@ const AdminDashboard = () => {
   const [expandedLectures, setExpandedLectures] = useState({});
   const [activeChatUser, setActiveChatUser] = useState(null);
   const [unreadMessages, setUnreadMessages] = useState([]);
+  
+  // Security Reset Modal States
+  const [generatedVerificationCode, setGeneratedVerificationCode] = useState("");
+  const [enteredCode, setEnteredCode] = useState("");
+  const [maintenanceChecked, setMaintenanceChecked] = useState(false);
 
   // --- FETCH DATA ---
   const fetchData = async () => {
@@ -92,15 +98,25 @@ const AdminDashboard = () => {
   const learnersList = users.filter(u => u.role === 'learner');
   const instructorsList = users.filter(u => u.role === 'instructor');
 
+  // --- DYNAMIC CODE GENERATION FOR SYSTEM MAINTENANCE ---
+  const generateRandomCode = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  };
+
   // --- ANALYTICS DATA CALCULATION ---
-  // 1. Pie Chart Data (Users)
+  // 1. Demographics
   const userRoleData = [
     { name: 'Learners', value: learnersList.length },
     { name: 'Instructors', value: instructorsList.length }
   ];
   const PIE_COLORS = ['#3b82f6', '#8b5cf6']; // Blue and Purple
 
-  // 2. Bar Chart Data (Courses by Category)
+  // 2. Courses by Category
   const categoryCounts = allCourses.reduce((acc, course) => {
     const cat = course.category || 'Uncategorized';
     acc[cat] = (acc[cat] || 0) + 1;
@@ -111,6 +127,96 @@ const AdminDashboard = () => {
     name: key,
     Courses: categoryCounts[key]
   }));
+
+  // 3. Platform Revenue
+  let totalRevenuePaise = 0;
+  users.forEach(user => {
+    if (user.enrolledCourses && Array.isArray(user.enrolledCourses)) {
+      user.enrolledCourses.forEach(enroll => {
+        if (enroll.purchaseDetails && enroll.purchaseDetails.amountPaid) {
+          totalRevenuePaise += Number(enroll.purchaseDetails.amountPaid);
+        }
+      });
+    }
+  });
+  const totalRevenueRupees = totalRevenuePaise / 100;
+
+  // 4. Cumulative XP
+  const cumulativeStudentXP = learnersList.reduce((acc, learner) => acc + (learner.xp || 0), 0);
+
+  // 5. Popular Courses by Enrollment
+  const courseEnrollmentCounts = allCourses.reduce((acc, course) => {
+    acc[course._id] = 0;
+    return acc;
+  }, {});
+
+  users.forEach(user => {
+    if (user.enrolledCourses && Array.isArray(user.enrolledCourses)) {
+      user.enrolledCourses.forEach(enroll => {
+        const courseId = enroll.courseId?._id || enroll.courseId;
+        if (courseEnrollmentCounts[courseId] !== undefined) {
+          courseEnrollmentCounts[courseId]++;
+        }
+      });
+    }
+  });
+
+  const popularCoursesData = allCourses.map(course => ({
+    title: course.title,
+    Enrollments: courseEnrollmentCounts[course._id] || 0
+  }))
+  .sort((a, b) => b.Enrollments - a.Enrollments)
+  .slice(0, 5); // top 5 popular courses
+
+  // 6. User Signup Growth Trend
+  const signupCounts = users.reduce((acc, user) => {
+    const dateStr = user.createdAt 
+      ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      : new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    acc[dateStr] = (acc[dateStr] || 0) + 1;
+    return acc;
+  }, {});
+
+  const userTrendData = Object.keys(signupCounts)
+    .map(date => ({
+      date,
+      timestamp: new Date(date + ", " + new Date().getFullYear()).getTime(),
+      Registrations: signupCounts[date]
+    }))
+    .sort((a, b) => a.timestamp - b.timestamp)
+    .map(item => ({ date: item.date, Registrations: item.Registrations }));
+
+  // 7. Leaderboard (Top XP Students)
+  const topLearners = learnersList
+    .map(u => ({
+      name: u.name,
+      email: u.email,
+      xp: u.xp || 0,
+      level: Math.floor((u.xp || 0) / 1000) + 1,
+      badgesCount: u.badges?.length || 0
+    }))
+    .sort((a, b) => b.xp - a.xp)
+    .slice(0, 5);
+
+  // 8. Recent Transactions
+  const transactions = [];
+  users.forEach(user => {
+    if (user.enrolledCourses && Array.isArray(user.enrolledCourses)) {
+      user.enrolledCourses.forEach(enroll => {
+        const course = allCourses.find(c => c._id === enroll.courseId || c._id === enroll.courseId?._id);
+        transactions.push({
+          id: enroll._id || Math.random().toString(),
+          userName: user.name,
+          userEmail: user.email,
+          courseTitle: course ? course.title : 'Deleted/Unknown Course',
+          amount: enroll.purchaseDetails?.amountPaid ? (enroll.purchaseDetails.amountPaid / 100) : 0,
+          date: enroll.purchaseDetails?.enrollmentDate ? new Date(enroll.purchaseDetails.enrollmentDate) : new Date(user.createdAt || Date.now())
+        });
+      });
+    }
+  });
+  transactions.sort((a, b) => b.date - a.date);
+  const recentTransactions = transactions.slice(0, 5);
 
   // --- HANDLERS ---
   const handleAction = async (course, actionType) => {
@@ -187,20 +293,30 @@ const AdminDashboard = () => {
   };
 
   const handleDeleteStudentsInstructors = async () => {
-    const code = window.prompt("WARNING: This will permanently delete ALL learners and instructors from the database. Type 'RESET' to confirm:");
-    if (code !== 'RESET') {
-      alert("Operation cancelled.");
+    if (!maintenanceChecked) {
+      alert("Please check the acknowledgment box confirming you understand the consequences of this reset.");
+      return;
+    }
+    if (enteredCode.trim().toUpperCase() !== generatedVerificationCode) {
+      alert("Invalid verification code. Please type the exact code displayed.");
+      return;
+    }
+    if (!window.confirm("CRITICAL WARNING: This will permanently erase ALL student profiles, grades, progress logs, XP metrics, courses, and portfolios from the system. Are you absolutely certain you wish to proceed?")) {
       return;
     }
     
     try {
       const response = await axios.delete("http://localhost:5000/api/admin/reset-users");
       alert(response.data.message);
+      setEnteredCode('');
+      setMaintenanceChecked(false);
+      setGeneratedVerificationCode(generateRandomCode());
       fetchData(); // Refresh page data
     } catch (error) {
       console.error("Failed to delete user data:", error);
       const errorMsg = error.response?.data?.message || error.message;
       alert("Error: " + errorMsg);
+      setGeneratedVerificationCode(generateRandomCode());
     }
   };
 
@@ -227,18 +343,38 @@ const AdminDashboard = () => {
         <nav className="flex-1 space-y-2">
           {[
             { id: 'dashboard', icon: LayoutDashboard, label: 'Overview & Analytics' },
+            { id: 'actions-required', icon: AlertTriangle, label: 'Actions Required' },
             { id: 'all-courses', icon: BookOpen, label: 'Manage Courses' },
             { id: 'learners', icon: GraduationCap, label: 'Student Roster' },
             { id: 'instructors', icon: Users, label: 'Instructors' },
-            { id: 'contacts', icon: Mail, label: 'Contact Queries' }
+            { id: 'contacts', icon: Mail, label: 'Contact Queries' },
+            { id: 'maintenance', icon: Settings, label: 'System Reset' }
           ].map(tab => {
             const hasUnread = tab.id === 'instructors' && unreadMessages.length > 0;
+            const hasCount = tab.id === 'actions-required' && pendingList.length > 0;
             return (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl transition font-semibold ${activeTab === tab.id ? "bg-blue-600 text-white shadow-lg shadow-blue-900/50" : "text-gray-400 hover:bg-gray-800 hover:text-white"}`}>
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  if (tab.id === 'maintenance') {
+                    setEnteredCode('');
+                    setMaintenanceChecked(false);
+                    setGeneratedVerificationCode(generateRandomCode());
+                  }
+                  setSidebarOpen(false);
+                }}
+                className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl transition font-semibold ${activeTab === tab.id ? "bg-blue-600 text-white shadow-lg shadow-blue-900/50" : "text-gray-400 hover:bg-gray-800 hover:text-white"}`}
+              >
                 <tab.icon size={20} /> 
                 <span className="flex-1 text-left">{tab.label}</span>
                 {hasUnread && (
                   <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shadow-md" title={`${unreadMessages.length} unread messages`} />
+                )}
+                {hasCount && (
+                  <span className="bg-orange-500 text-white text-[10px] px-2.5 py-0.5 rounded-full font-extrabold shadow-sm animate-pulse">
+                    {pendingList.length}
+                  </span>
                 )}
               </button>
             );
@@ -255,7 +391,11 @@ const AdminDashboard = () => {
           <div className="flex items-center gap-4">
             <button className="md:hidden text-gray-600 hover:text-blue-600 transition" onClick={() => setSidebarOpen(true)}><Menu size={24} /></button>
             <h1 className="text-2xl font-black text-gray-800 tracking-tight capitalize">
-              {activeTab === 'all-courses' ? 'Manage Courses' : activeTab === 'dashboard' ? 'System Overview' : activeTab === 'contacts' ? 'Contact Queries' : activeTab}
+              {activeTab === 'all-courses' ? 'Manage Courses' : 
+               activeTab === 'dashboard' ? 'System Overview' : 
+               activeTab === 'contacts' ? 'Contact Queries' : 
+               activeTab === 'actions-required' ? 'Actions Required' :
+               activeTab === 'maintenance' ? 'System Reset' : activeTab}
             </h1>
           </div>
           <div className="flex items-center gap-3">
@@ -287,52 +427,118 @@ const AdminDashboard = () => {
         <main className="p-8 overflow-y-auto bg-gray-50 flex-1 relative">
           {loading ? <div className="flex justify-center items-center h-full"><div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600"></div></div> : (
             <>
-              {/* --- DASHBOARD TAB (WITH CHARTS) --- */}
+              {/* --- DASHBOARD TAB (WITH CHARTS & LEADERBOARDS) --- */}
               {activeTab === "dashboard" && (
-                <div className="max-w-7xl mx-auto animate-fade-in">
+                <div className="max-w-7xl mx-auto animate-fade-in space-y-10">
 
-                  {/* Top Stats Row */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between group hover:border-orange-300 transition cursor-default">
-                      <div>
-                        <p className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-1">Pending Actions</p>
-                        <h3 className="text-4xl font-black text-gray-800 group-hover:text-orange-500 transition">{pendingList.length}</h3>
+                  {/* Top Stats KPI Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
+                    {/* Stat Card 1: Platform Revenue */}
+                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between group hover:shadow-md transition">
+                      <div className="space-y-1">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Revenue</p>
+                        <h3 className="text-2xl font-black text-gray-900">₹{totalRevenueRupees.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</h3>
+                        <p className="text-[10px] text-green-500 font-semibold flex items-center gap-1">
+                          <TrendingUp size={10} /> Paid Enrollments
+                        </p>
                       </div>
-                      <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center text-orange-500"><LayoutDashboard size={28} /></div>
+                      <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center text-green-500"><DollarSign size={22} /></div>
                     </div>
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between group hover:border-blue-300 transition cursor-default">
-                      <div>
-                        <p className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-1">Active Courses</p>
-                        <h3 className="text-4xl font-black text-gray-800 group-hover:text-blue-600 transition">{allCourses.length}</h3>
+
+                    {/* Stat Card 2: Courses Catalog */}
+                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between group hover:shadow-md transition">
+                      <div className="space-y-1">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Active Courses</p>
+                        <h3 className="text-2xl font-black text-gray-900">{allCourses.length}</h3>
+                        <p className="text-[10px] text-gray-500 font-medium">Published blueprints</p>
                       </div>
-                      <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center text-blue-600"><BookOpen size={28} /></div>
+                      <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-500"><BookOpen size={22} /></div>
                     </div>
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between group hover:border-purple-300 transition cursor-default">
-                      <div>
-                        <p className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-1">Total Users</p>
-                        <h3 className="text-4xl font-black text-gray-800 group-hover:text-purple-600 transition">{users.length}</h3>
+
+                    {/* Stat Card 3: Total Accounts */}
+                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between group hover:shadow-md transition">
+                      <div className="space-y-1">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Users</p>
+                        <h3 className="text-2xl font-black text-gray-900">{users.length}</h3>
+                        <p className="text-[10px] text-gray-500 font-medium">
+                          {learnersList.length} S / {instructorsList.length} I
+                        </p>
                       </div>
-                      <div className="w-16 h-16 bg-purple-50 rounded-full flex items-center justify-center text-purple-600"><Users size={28} /></div>
+                      <div className="w-12 h-12 bg-purple-50 rounded-full flex items-center justify-center text-purple-550"><Users size={22} /></div>
+                    </div>
+
+                    {/* Stat Card 4: Cumulative XP */}
+                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between group hover:shadow-md transition">
+                      <div className="space-y-1">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Student XP</p>
+                        <h3 className="text-2xl font-black text-gray-900">{cumulativeStudentXP.toLocaleString()}</h3>
+                        <p className="text-[10px] text-blue-500 font-semibold">Total Gamification Points</p>
+                      </div>
+                      <div className="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-500"><Award size={22} /></div>
+                    </div>
+
+                    {/* Stat Card 5: Action Required (Interactive) */}
+                    <div 
+                      onClick={() => setActiveTab("actions-required")}
+                      className={`p-5 rounded-2xl shadow-sm border transition cursor-pointer flex items-center justify-between group transform hover:-translate-y-1 ${pendingList.length > 0 ? "bg-orange-50/40 hover:bg-orange-50 border-orange-200 shadow-orange-100" : "bg-white border-gray-100 hover:shadow-md"}`}
+                    >
+                      <div className="space-y-1">
+                        <p className="text-xs font-bold text-gray-405 uppercase tracking-wider">Pending Approvals</p>
+                        <h3 className={`text-2xl font-black ${pendingList.length > 0 ? "text-orange-600 animate-pulse" : "text-gray-900"}`}>{pendingList.length}</h3>
+                        <p className="text-[10px] text-orange-500 font-bold flex items-center gap-0.5">
+                          {pendingList.length > 0 ? "Review actions queue →" : "All clean!"}
+                        </p>
+                      </div>
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${pendingList.length > 0 ? "bg-orange-500 text-white shadow-md shadow-orange-200" : "bg-gray-100 text-gray-400"}`}><AlertTriangle size={20} /></div>
                     </div>
                   </div>
 
-                  {/* --- NEW: ANALYTICS CHARTS ROW --- */}
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+                  {/* Charts Grid Section */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                    {/* Pie Chart: User Demographics */}
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 lg:col-span-1">
-                      <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                        <Users className="text-blue-500" size={20} /> User Demographics
-                      </h3>
+                    {/* Chart 1 (Col span 2): Registration Trend (AreaChart) */}
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 lg:col-span-2">
+                      <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                          <TrendingUp className="text-blue-500" size={18} /> Platform Signups Growth
+                        </h3>
+                        <span className="text-[10px] bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">Live Registrations</span>
+                      </div>
                       <div className="h-[250px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={userTrendData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="colorRegistrations" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4}/>
+                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                            <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                            <RechartsTooltip 
+                              contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                            />
+                            <Area type="monotone" dataKey="Registrations" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorRegistrations)" />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* Chart 2 (Col span 1): User Demographics (PieChart) */}
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 lg:col-span-1">
+                      <h3 className="text-base font-bold text-gray-800 mb-6 flex items-center gap-2">
+                        <Users className="text-purple-500" size={18} /> Demographics Distribution
+                      </h3>
+                      <div className="h-[200px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
                             <Pie
                               data={userRoleData}
                               cx="50%"
                               cy="50%"
-                              innerRadius={60}
-                              outerRadius={90}
+                              innerRadius={55}
+                              outerRadius={80}
                               paddingAngle={5}
                               dataKey="value"
                             >
@@ -341,115 +547,331 @@ const AdminDashboard = () => {
                               ))}
                             </Pie>
                             <RechartsTooltip />
-                            <Legend verticalAlign="bottom" height={36} />
                           </PieChart>
                         </ResponsiveContainer>
                       </div>
-                    </div>
-
-                    {/* Bar Chart: Course Library */}
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 lg:col-span-2">
-                      <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                        <BookOpen className="text-purple-500" size={20} /> Course Library by Category
-                      </h3>
-                      <div className="h-[250px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={courseCategoryData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                            <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#6B7280' }} axisLine={false} tickLine={false} />
-                            <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                            <RechartsTooltip
-                              cursor={{ fill: '#F3F4F6' }}
-                              contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
-                            />
-                            <Bar dataKey="Courses" fill="#8b5cf6" radius={[4, 4, 0, 0]} barSize={40} />
-                          </BarChart>
-                        </ResponsiveContainer>
+                      <div className="flex justify-center gap-6 text-xs font-semibold pt-4">
+                        <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-blue-500 rounded-full inline-block"></span> Learners ({learnersList.length})</span>
+                        <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-purple-500 rounded-full inline-block"></span> Instructors ({instructorsList.length})</span>
                       </div>
                     </div>
+
+                    {/* Chart 3 (Col span 2): Popular Courses by Enrollment (BarChart) */}
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 lg:col-span-2">
+                      <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                          <BarChart2 className="text-green-500" size={18} /> Popular Courses by Enrollment
+                        </h3>
+                        <span className="text-[10px] bg-green-50 text-green-600 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">Top 5 Courses</span>
+                      </div>
+                      {popularCoursesData.length === 0 ? (
+                        <div className="h-[250px] flex items-center justify-center text-gray-400 font-medium italic">No enrollments recorded yet.</div>
+                      ) : (
+                        <div className="h-[250px] w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={popularCoursesData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                              <XAxis 
+                                dataKey="title" 
+                                tick={{ fontSize: 9, fill: '#6B7280' }} 
+                                axisLine={false} 
+                                tickLine={false}
+                                tickFormatter={(val) => val.length > 15 ? `${val.substring(0, 12)}...` : val}
+                              />
+                              <YAxis tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                              <RechartsTooltip 
+                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                cursor={{ fill: '#F9FAFB' }}
+                              />
+                              <Bar dataKey="Enrollments" fill="#10B981" radius={[4, 4, 0, 0]} barSize={30} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Content 4 (Col span 1): Course Library Category List */}
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 lg:col-span-1">
+                      <h3 className="text-base font-bold text-gray-800 mb-6 flex items-center gap-2">
+                        <BookOpen className="text-orange-500" size={18} /> Library Categories ({courseCategoryData.length})
+                      </h3>
+                      <div className="space-y-4 max-h-[250px] overflow-y-auto pr-2">
+                        {courseCategoryData.map((cat, idx) => {
+                          const percentage = allCourses.length > 0 ? (cat.Courses / allCourses.length) * 100 : 0;
+                          return (
+                            <div key={idx} className="space-y-1">
+                              <div className="flex justify-between text-xs font-semibold text-gray-700">
+                                <span>{cat.name}</span>
+                                <span>{cat.Courses} {cat.Courses === 1 ? 'course' : 'courses'}</span>
+                              </div>
+                              <div className="w-full bg-gray-100 rounded-full h-1.5">
+                                <div className="bg-orange-500 h-1.5 rounded-full" style={{ width: `${percentage}%` }}></div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {courseCategoryData.length === 0 && (
+                          <div className="text-center py-10 text-gray-400 font-medium italic">No courses in database.</div>
+                        )}
+                      </div>
+                    </div>
+
                   </div>
 
-                  {/* Pending Approvals Table */}
-                  <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-                    <h2 className="text-xl font-bold mb-6 text-gray-800 flex items-center gap-2">
-                      <span className="w-3 h-3 bg-orange-500 rounded-full animate-pulse"></span> Action Required Queue
-                    </h2>
-
-                    {pendingList.length === 0 ? (
-                      <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
-                        <CheckCircle className="mx-auto text-green-400 mb-3" size={48} />
-                        <h3 className="text-lg font-bold text-gray-700">All Caught Up!</h3>
-                        <p className="text-gray-500 font-medium">No pending requests at this time.</p>
+                  {/* Leaderboards and Activities row */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    
+                    {/* Left: Gamified Leaderboard */}
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                      <h3 className="text-base font-bold text-gray-800 mb-6 flex items-center gap-2">
+                        <Award className="text-indigo-600" size={18} /> Top Performing Students
+                      </h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                          <thead>
+                            <tr className="border-b border-gray-100 text-[10px] uppercase font-bold text-gray-400">
+                              <th className="pb-3">Rank</th>
+                              <th className="pb-3">Student</th>
+                              <th className="pb-3 text-center">Level</th>
+                              <th className="pb-3 text-right">Cumulative XP</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-50 text-xs">
+                            {topLearners.map((learner, idx) => (
+                              <tr key={idx} className="hover:bg-gray-50/50 transition">
+                                <td className="py-3 font-bold text-gray-500">
+                                  {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`}
+                                </td>
+                                <td className="py-3">
+                                  <div>
+                                    <p className="font-bold text-gray-800">{learner.name}</p>
+                                    <p className="text-[10px] text-gray-400">{learner.email}</p>
+                                  </div>
+                                </td>
+                                <td className="py-3 text-center">
+                                  <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded font-extrabold text-[10px] border border-blue-100">
+                                    Lvl {learner.level}
+                                  </span>
+                                </td>
+                                <td className="py-3 text-right font-black text-gray-800">{learner.xp.toLocaleString()} XP</td>
+                              </tr>
+                            ))}
+                            {topLearners.length === 0 && (
+                              <tr>
+                                <td colSpan={4} className="text-center py-8 text-gray-400 font-medium italic">No students registered yet.</td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
                       </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {pendingList.map(course => (
-                          <div key={course._id} className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-4 rounded-xl border border-gray-200 hover:shadow-md transition group">
-                            <div
-                              className="flex gap-5 items-center cursor-pointer hover:opacity-85 transition"
+                    </div>
+
+                    {/* Right: Recent Transactions Log */}
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                      <h3 className="text-base font-bold text-gray-800 mb-6 flex items-center gap-2">
+                        <DollarSign className="text-green-600" size={18} /> Recent Enrollments
+                      </h3>
+                      <div className="space-y-4 max-h-[320px] overflow-y-auto pr-2">
+                        {recentTransactions.map((tx, idx) => (
+                          <div key={tx.id || idx} className="flex justify-between items-center p-3 rounded-xl border border-gray-50 bg-gray-50/20 hover:border-gray-100 transition">
+                            <div className="space-y-0.5">
+                              <p className="text-xs font-bold text-gray-800 line-clamp-1">{tx.courseTitle}</p>
+                              <p className="text-[10px] text-gray-450 font-semibold">{tx.userName} ({tx.userEmail})</p>
+                              <p className="text-[9px] text-gray-400">{new Date(tx.date).toLocaleDateString()} at {new Date(tx.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                            </div>
+                            <div className="text-right">
+                              <span className={`text-xs font-black px-2.5 py-1 rounded-lg ${tx.amount > 0 ? "bg-green-50 text-green-700 border border-green-100" : "bg-gray-100 text-gray-600"}`}>
+                                {tx.amount > 0 ? `₹${tx.amount}` : "Free"}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                        {recentTransactions.length === 0 && (
+                          <div className="text-center py-10 text-gray-400 font-medium italic">No enrollments recorded yet.</div>
+                        )}
+                      </div>
+                    </div>
+
+                  </div>
+
+                </div>
+              )}
+
+              {/* --- ACTION REQUIRED QUEUE TAB --- */}
+              {activeTab === "actions-required" && (
+                <div className="max-w-7xl mx-auto animate-fade-in bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+                  <h2 className="text-xl font-bold mb-6 text-gray-800 flex items-center gap-2">
+                    <span className="w-3 h-3 bg-orange-500 rounded-full animate-pulse"></span> Action Required Queue
+                  </h2>
+
+                  {pendingList.length === 0 ? (
+                    <div className="text-center py-16 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+                      <CheckCircle className="mx-auto text-green-400 mb-3" size={48} />
+                      <h3 className="text-lg font-bold text-gray-700">All Caught Up!</h3>
+                      <p className="text-gray-500 font-medium">No pending course approval or deletion requests at this time.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {pendingList.map(course => (
+                        <div key={course._id} className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-4 rounded-xl border border-gray-200 hover:shadow-md transition group">
+                          <div
+                            className="flex gap-5 items-center cursor-pointer hover:opacity-85 transition"
+                            onClick={() => {
+                              setPreviewCourse(course);
+                              setExpandedLectures({ 0: true });
+                            }}
+                            title="Click to review course overview"
+                          >
+                            <img src={course.thumbnail} className="w-32 h-20 object-cover rounded-lg bg-gray-200 border border-gray-100 shadow-sm" alt="" />
+                            <div>
+                              <h3 className="font-bold text-gray-900 text-lg mb-1 group-hover:text-blue-600 transition">{course.title}</h3>
+                              <div className="flex items-center gap-3 text-sm font-medium">
+                                <span className="text-gray-500 flex items-center gap-1"><Users size={14} /> {course.instructorId?.name || "Unknown"}</span>
+                                {course.status === 'deletion_pending'
+                                  ? <span className="bg-red-50 text-red-600 px-2 py-1 rounded border border-red-100">Deletion Request</span>
+                                  : <span className="bg-blue-50 text-blue-600 px-2 py-1 rounded border border-blue-100">New Course Request</span>
+                                }
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 mt-4 md:mt-0 w-full md:w-auto">
+                            <button
                               onClick={() => {
                                 setPreviewCourse(course);
                                 setExpandedLectures({ 0: true });
                               }}
-                              title="Click to review course overview"
+                              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-100 font-bold transition"
+                              title="Review complete course overview"
                             >
-                              <img src={course.thumbnail} className="w-32 h-20 object-cover rounded-lg bg-gray-200 border border-gray-100 shadow-sm" alt="" />
-                              <div>
-                                <h3 className="font-bold text-gray-900 text-lg mb-1 group-hover:text-blue-600 transition">{course.title}</h3>
-                                <div className="flex items-center gap-3 text-sm font-medium">
-                                  <span className="text-gray-500 flex items-center gap-1"><Users size={14} /> {course.instructorId?.name || "Unknown"}</span>
-                                  {course.status === 'deletion_pending'
-                                    ? <span className="bg-red-50 text-red-600 px-2 py-1 rounded border border-red-100">Deletion Request</span>
-                                    : <span className="bg-blue-50 text-blue-600 px-2 py-1 rounded border border-blue-100">New Course Request</span>
-                                  }
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex gap-2 mt-4 md:mt-0 w-full md:w-auto">
-                              <button
-                                onClick={() => {
-                                  setPreviewCourse(course);
-                                  setExpandedLectures({ 0: true });
-                                }}
-                                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-100 font-bold transition"
-                                title="Review complete course overview"
-                              >
-                                <Eye size={16} /> Review
-                              </button>
-                              {course.status === 'deletion_pending' ? (
-                                <>
-                                  <button onClick={() => handleAction(course, 'reject')} className="flex-1 md:flex-none px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold transition">Deny Deletion</button>
-                                  <button onClick={() => handleAction(course, 'approve')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-red-600 text-white px-5 py-2 rounded-lg hover:bg-red-700 font-bold transition shadow-md"><Trash2 size={16} /> Delete</button>
-                                </>
-                              ) : (
-                                <>
-                                  <button onClick={() => handleAction(course, 'reject')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-lg hover:bg-red-100 font-bold transition"><XCircle size={16} /> Reject</button>
-                                  <button onClick={() => handleAction(course, 'approve')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700 font-bold transition shadow-md"><CheckCircle size={16} /> Approve</button>
-                                </>
-                              )}
-                            </div>
+                              <Eye size={16} /> Review
+                            </button>
+                            {course.status === 'deletion_pending' ? (
+                              <>
+                                <button onClick={() => handleAction(course, 'reject')} className="flex-1 md:flex-none px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold transition">Deny Deletion</button>
+                                <button onClick={() => handleAction(course, 'approve')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-red-600 text-white px-5 py-2 rounded-lg hover:bg-red-700 font-bold transition shadow-md"><Trash2 size={16} /> Delete</button>
+                              </>
+                            ) : (
+                              <>
+                                <button onClick={() => handleAction(course, 'reject')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-lg hover:bg-red-100 font-bold transition"><XCircle size={16} /> Reject</button>
+                                <button onClick={() => handleAction(course, 'approve')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700 font-bold transition shadow-md"><CheckCircle size={16} /> Approve</button>
+                              </>
+                            )}
                           </div>
-                        ))}
-                      </div>
-                    )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* --- SYSTEM MAINTENANCE & RESET TAB --- */}
+              {activeTab === "maintenance" && (
+                <div className="max-w-3xl mx-auto bg-white p-8 rounded-2xl shadow-sm border border-red-200 animate-fade-in space-y-6">
+                  <div className="flex items-center gap-3 pb-4 border-b border-gray-100 text-red-650">
+                    <ShieldAlert size={28} className="text-red-600" />
+                    <div>
+                      <h2 className="text-xl font-black text-gray-800">Administrative System Maintenance</h2>
+                      <p className="text-xs text-gray-400 font-semibold">DANGER ZONE &bull; HIGH CONTEXT AUTHORIZATION REQUIRED</p>
+                    </div>
                   </div>
 
-                  {/* System Maintenance Section */}
-                  <div className="bg-white p-8 rounded-2xl shadow-sm border border-red-200 mt-10">
-                    <h2 className="text-xl font-bold mb-4 text-red-600 flex items-center gap-2">
-                      <Trash2 className="text-red-500" size={22} /> System Maintenance & Reset
-                    </h2>
-                    <p className="text-gray-600 mb-6 text-sm font-medium">
-                      Use this utility to clean up database records. This action will permanently delete all student profiles, instructor profiles, and all course library directories from the system. Admin credentials and messaging data will be preserved.
+                  <div className="bg-red-50/50 border border-red-100 p-5 rounded-xl space-y-3">
+                    <h3 className="font-bold text-red-800 text-sm flex items-center gap-1.5"><AlertTriangle size={16} /> Irreversible Wipe Operation</h3>
+                    <p className="text-xs text-gray-650 leading-relaxed font-medium">
+                      Executing this utility will completely delete all records for <strong>learners</strong>, <strong>instructors</strong>, <strong>course blueprints</strong>, <strong>quizzes/exams</strong>, <strong>gamification history</strong>, and <strong>completion certificates</strong>. 
                     </p>
+                    <div className="grid grid-cols-2 gap-4 text-[11px] font-semibold text-gray-600 pt-2">
+                      <div className="bg-white p-3 rounded-lg border border-red-100/30">
+                        <p className="text-red-750 font-bold uppercase tracking-wider mb-1">Items Purged:</p>
+                        <ul className="list-disc pl-4 space-y-0.5">
+                          <li>Student roster & enrollments</li>
+                          <li>Instructor bios & course catalogs</li>
+                          <li>Quizzes, notes & course feedback</li>
+                          <li>Level progression, XP, badges</li>
+                        </ul>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg border border-red-100/30">
+                        <p className="text-green-700 font-bold uppercase tracking-wider mb-1">Items Preserved:</p>
+                        <ul className="list-disc pl-4 space-y-0.5">
+                          <li>Super Admin accounts</li>
+                          <li>Contact/Inquiry logs</li>
+                          <li>Asynchronous messaging history</li>
+                          <li>Database schema models</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Verification checkbox */}
+                  <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
+                    <input 
+                      type="checkbox"
+                      id="reset-acknowledge"
+                      checked={maintenanceChecked}
+                      onChange={(e) => setMaintenanceChecked(e.target.checked)}
+                      className="mt-1 w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500 cursor-pointer"
+                    />
+                    <label htmlFor="reset-acknowledge" className="text-xs text-gray-600 font-bold leading-normal select-none cursor-pointer">
+                      I explicitly acknowledge that this action is irreversible, will wipe all course progression database documents, and cannot be reverted under any circumstances.
+                    </label>
+                  </div>
+
+                  {/* Verification Voucher Display */}
+                  <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl flex flex-col items-center space-y-4">
+                    <div className="text-center space-y-1">
+                      <p className="text-xs text-gray-500 font-bold">Verification Authorization Code</p>
+                      <p className="text-[10px] text-gray-400">Type the monospace code below to authorize this reset</p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="bg-white px-6 py-2.5 rounded-xl border border-gray-300 shadow-sm text-xl font-black font-mono tracking-widest text-red-600 select-none">
+                        {generatedVerificationCode.split('').join(' ')}
+                      </div>
+                      <button 
+                        onClick={() => {
+                          setGeneratedVerificationCode(generateRandomCode());
+                          setEnteredCode('');
+                        }}
+                        type="button"
+                        className="p-2.5 bg-white border border-gray-300 text-gray-600 hover:text-blue-600 hover:border-blue-500 rounded-xl shadow-sm transition"
+                        title="Regenerate verification code"
+                      >
+                        <RefreshCw size={16} />
+                      </button>
+                    </div>
+
+                    <div className="w-full max-w-xs">
+                      <input 
+                        type="text"
+                        maxLength={6}
+                        placeholder="ENTER 6-DIGIT CODE"
+                        value={enteredCode}
+                        onChange={(e) => setEnteredCode(e.target.value.toUpperCase())}
+                        className="w-full text-center px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 font-mono font-bold tracking-widest outline-none bg-white uppercase text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('dashboard');
+                        setEnteredCode('');
+                        setMaintenanceChecked(false);
+                      }}
+                      className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold transition text-sm cursor-pointer"
+                    >
+                      Cancel & Return
+                    </button>
                     <button
                       onClick={handleDeleteStudentsInstructors}
-                      className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all flex items-center gap-2 transform hover:-translate-y-0.5"
+                      disabled={!maintenanceChecked || enteredCode.trim().length !== 6}
+                      className={`px-6 py-2.5 font-bold rounded-xl shadow-sm transition flex items-center gap-2 cursor-pointer ${(!maintenanceChecked || enteredCode.trim().length !== 6) ? "bg-gray-200 text-gray-400 border border-gray-300 cursor-not-allowed" : "bg-red-600 hover:bg-red-700 text-white hover:shadow-md"}`}
                     >
-                      <Trash2 size={18} /> Delete Users & Courses Data
+                      <Trash2 size={16} /> Reset User & Course Catalog
                     </button>
                   </div>
-
                 </div>
               )}
 
