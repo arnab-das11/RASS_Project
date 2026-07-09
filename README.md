@@ -9,7 +9,7 @@
 [![Express.js](https://img.shields.io/badge/Express.js-4.19+-000000?style=flat-square&logo=express)](https://expressjs.com)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
-**A comprehensive, modern Learning Management System (LMS) built with the MERN stack, featuring role-based access control, AI-powered quiz & final exam generation, speech-recognition oral assessments, a synchronized gamification engine, and cloud-based media management.**
+**A comprehensive, modern Learning Management System (LMS) built with the MERN stack, featuring role-based access control, AI-powered quiz & final exam generation, speech-recognition oral assessments, a synchronized gamification engine, secure Razorpay checkouts with a 75% cashback refund flow, multi-user voice/text chat channels, dynamic course feedback/audio reviews, and cloud-based media management.**
 
 [Features](#features) • [Tech Stack](#tech-stack) • [Getting Started](#getting-started) • [API Reference](#api-reference) • [How It Works](#how-it-works) • [Contributing](#contributing)
 
@@ -36,6 +36,12 @@
   - [Gamification Engine](#4-gamification-engine)
   - [AI Final Exam & Failure Path](#5-ai-final-exam--failure-path)
   - [Premium Learning Hub & Player Layout](#6-premium-learning-hub--player-layout)
+  - [Paid Courses, Razorpay, & 75% Cashback Reward Flow](#7-paid-courses-razorpay--75-cashback-reward-flow)
+  - [Voice Messaging Q&A & Audio Course Feedback](#8-voice-messaging-qa--audio-course-feedback)
+  - [Moderation Chat & Syllabus Previews](#9-moderation-chat--syllabus-previews)
+  - [Overview & Analytics Views](#10-overview--analytics-views)
+  - [Course Edit Permissions & Reset Flow](#11-course-edit-permissions--reset-flow)
+  - [Safe Database Reset & Verification Code](#12-safe-database-reset--verification-code)
 - [API Reference](#api-reference)
 - [User Roles & Workflows](#user-roles--workflows)
 - [Future Improvements](#future-improvements)
@@ -60,6 +66,9 @@ Traditional online learning platforms lack structured progression control, inter
 - 🧭 **AI course recommendations** - Recommends subsequent courses based on student profile history and custom skills tags.
 - 🎓 **Digital Credentials** - Automated PDF certificates on course completion with verified final exam scores.
 - 📊 **Progress Analytics & Summaries** - Real-time analytics charts and study summary drawers.
+- 💳 **Razorpay & Cashback** - Secure payment integration with a unique **75% cashback refund flow** for completed courses.
+- 💬 **Multimodal Messaging** - Support for asynchronous voice questions/answers and text messaging between learners, instructors, and admins.
+- 📝 **Course Feedback & Audio Reviews** - Dynamic ratings aggregation featuring written and audio-recorded learner course feedback.
 
 ---
 
@@ -80,6 +89,12 @@ Traditional online learning platforms lack structured progression control, inter
 - ✅ **Digital Certificates** - Customized jsPDF certificates displaying student name, course title, and completion date.
 - ✅ **Multi-Language Support** - Persistent language selector supporting English, Hindi, and Bengali interfaces.
 - ✅ **Google OAuth Integration** - Seamless one-click registration and profile sync.
+- ✅ **Razorpay Checkout & 75% Cashback Reward** - Enroll in premium paid courses using Razorpay and claim a 75% cashback refund immediately upon graduation.
+- ✅ **Learner-Instructor Voice Messaging Q&A** - Record, transcribe, and exchange audio-based questions and answers directly with the instructor inside a dedicated Chat modal.
+- ✅ **Course Feedback Surveys & Audio Reviews** - Submit written comments, like/rating status, and custom recorded audio course reviews.
+- ✅ **Immediate Certificate Download & Countdown** - Enhanced success screen supporting instant manual PDF downloads and auto-close countdown.
+- ✅ **Learner Analytics Dashboard** - Professional Overview tab featuring Recharts visualizations: Study Minutes (daily learning activity Bar chart), Skill Strength Matrix (Radar chart showing category lesson distribution), and Active Course Progress Comparison.
+- ✅ **Global Peer Arena** - Live competitive scoreboard showcasing student rank, name, and total XP relative to peers.
 
 ### 👨‍🏫 Instructor Features
 
@@ -88,6 +103,13 @@ Traditional online learning platforms lack structured progression control, inter
 - ✅ **Detailed Descriptions Input** - Set custom text explanations for every video, document, and link created.
 - ✅ **Dashboard Analytics** - Review course status badges (Pending, Approved, Rejected, Deleting) and active enrollments.
 - ✅ **Deletion Oversight Requests** - Submit formal deletion requests to admin moderators rather than direct destructions.
+- ✅ **Admin-Instructor Chat Portal** - Message admins directly regarding course approvals, rejections, or deletion statuses, highlighted with unread message notifications.
+- ✅ **Redesigned Sidebar & Rupee Conversions** - Navigate using a polished sidebar layout and manage course pricing automatically formatted with Rupee conversions.
+- ✅ **Audio Feedbacks Review** - Playback audio reviews and read written ratings left by enrolled learners.
+- ✅ **Instructor Analytics Overview** - Default Overview dashboard tracking active blueprints, total enrollment count, and approval statuses.
+- ✅ **Student Progress Roster** - Full visibility into student lists enrolled in the instructor's courses, detailing their individual XP, current Level, and completion progress.
+- ✅ **Course Edit Request System** - Request course edit authorization from admin moderators to tweak curriculum or update titles/descriptions/objectives/pricing.
+- ✅ **Progression Reset Utility** - Decide whether to reset progression to 0% for active (non-graduated) learners when modifying course syllabus materials, while safely preserving certificates for graduates.
 
 ### 👨‍💼 Admin Features
 
@@ -96,6 +118,11 @@ Traditional online learning platforms lack structured progression control, inter
 - ✅ **Interactive Analytics Dashboard** - Recharts pie charts displaying user distribution and category histograms.
 - ✅ **User Management Board** - Inspect learners and instructors, inspect progress levels, and drop user enrollments.
 - ✅ **Course Editing Portal** - Manually override course metadata and details.
+- ✅ **Admin-Instructor Chat Support** - Real-time support dialogue directly from the moderator dashboard to coordinate blueprint revisions.
+- ✅ **Course Syllabus Preview Modal** - Inspect course objectives, category, duration, and syllabus details in an overlay preview before making decisions.
+- ✅ **Database User Reset Utility** - Clean up and purge user/learner data tables via a secure administrative action.
+- ✅ **Admin Edit Request Moderation** - Review, approve, or deny instructor requests for editing approved courses.
+- ✅ **Danger Zone Maintenance Safeguards** - Secure 6-digit Verification Authorization Code prompt and checkbox acknowledgement for database purging/reset utilities.
 
 ---
 
@@ -116,6 +143,7 @@ Traditional online learning platforms lack structured progression control, inter
 | **jsPDF + html2canvas** | PDF certificate generation                        | 4.2+ / 1.4+ |
 | **Lucide React**        | Icon library (24x24px consistent icons)           | 0.548+      |
 | **Web Speech API**      | Speech Recognition for AI Oral Assessments        | Native      |
+| **Razorpay SDK**        | Dynamic checkout modal for processing payments    | Native JS   |
 
 ### **Backend**
 
@@ -130,6 +158,7 @@ Traditional online learning platforms lack structured progression control, inter
 | **Multer**               | Middleware for file uploads              | 2.0+    |
 | **Google Generative AI** | Gemini API for quizzes, exams, summaries | 0.24+   |
 | **Google Auth Library**  | OAuth 2.0 token verification             | 10.6+   |
+| **Razorpay**             | Payment Gateway integration and verification    | 2.9+    |
 
 ---
 
@@ -295,6 +324,10 @@ GEMINI_API_KEY=your_gemini_api_key
 
 # CORS Configuration
 CORS_ORIGIN=http://localhost:5173
+
+# Razorpay Configuration
+RAZORPAY_KEY_ID=your_razorpay_key_id
+RAZORPAY_KEY_SECRET=your_razorpay_key_secret
 ```
 
 #### Frontend `.env` File
@@ -305,6 +338,7 @@ Create `Frontend/.env`:
 # Vite Configuration
 VITE_API_URL=http://localhost:5000/api
 VITE_GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
+VITE_RAZORPAY_KEY_ID=your_razorpay_key_id
 ```
 
 ---
@@ -362,17 +396,25 @@ RASS_Project/
 │   │   ├── userController.js         # User auth, enrollment, progress, gamification, skills
 │   │   ├── courseController.js       # Course CRUD, blueprints, lectures, deletion requests
 │   │   ├── aiController.js           # AI quizzes, exams, summaries, oral assessments
-│   │   └── adminController.js        # Admin stats & analytics
+│   │   ├── adminController.js        # Admin stats & analytics
+│   │   ├── paymentController.js      # Razorpay orders, signatures, cashback rewards
+│   │   ├── feedbackController.js     # Course reviews, text feedback, audio ratings
+│   │   └── messageController.js      # Inter-user chat sessions, unread checks, voice QA uploads
 │   │
 │   ├── models/                       # Mongoose schemas
 │   │   ├── User.js                   # User schema (roles, streak, xp, badges, skills, passedExams)
-│   │   └── Course.js                 # Course schema with lectures (videos, resources, links, metadata)
+│   │   ├── Course.js                 # Course schema with lectures (videos, resources, links, metadata)
+│   │   ├── Feedback.js               # Course rating feedback (written text, like status, audio URLs)
+│   │   └── Message.js                # Direct chat message log (sender, receiver, unread status, audio URLs)
 │   │
 │   ├── routes/                       # API endpoints
 │   │   ├── userRoutes.js             # /api/users
 │   │   ├── courseRoutes.js           # /api/courses
 │   │   ├── aiRoutes.js               # /api/ai
-│   │   └── adminRoutes.js            # /api/admin
+│   │   ├── adminRoutes.js            # /api/admin
+│   │   ├── paymentRoutes.js          # /api/payments
+│   │   ├── feedbackRoutes.js         # /api/feedback
+│   │   └── messageRoutes.js          # /api/messages
 │   │
 │   ├── package.json                  # Backend dependencies
 │   ├── server.js                     # Express app entry point
@@ -388,6 +430,7 @@ RASS_Project/
 │   │   │   ├── FeedbackSection.jsx
 │   │   │   ├── SponsorSection.jsx
 │   │   │   ├── HeroSection.jsx
+│   │   │   ├── ChatModal.jsx         # Unified messaging widget supporting voice recording & playback
 │   │   │   └── admin/
 │   │   │       ├── AdminDashboard.jsx   # Admin analytics with Recharts
 │   │   │       └── AdminSignUp.jsx      # Admin authentication
@@ -485,6 +528,38 @@ The student workspace is styled as a dual-pane workspace:
 - **Interactive Markdown Notebook**: An inline text area that lets users type and save custom markdown notes local to the active lesson.
 - **AI Summary Drawer**: Opens a slide-out drawer utilizing `POST /api/ai/generate-summary` to generate and display clean, detailed study notes for the active lecture.
 
+### 7. Paid Courses, Razorpay, & 75% Cashback Refund Flow
+- **Razorpay Integration**: Premium courses require an enrollment fee. Clicking enroll launches the Razorpay Checkout overlay, loading the SDK dynamically and executing transaction signature verification on the backend to register the purchase.
+- **75% Cashback Incentive**: To motivate learners to complete courses, a completion-triggered cashback system allows students to claim 75% of their fee back. Once they pass the course final exam and graduate, a "Claim Refund" option is unlocked, sending a payload to the backend payment controller to verify completion and process the reward.
+
+### 8. Voice messaging Q&A & Audio Course Feedback
+- **Voice Messaging**: Within the Chat Modal, learners can record voice notes (or use speech-to-text transcription). The audio is captured, uploaded to Cloudinary, and saved to the message schema. Instructors are notified of unread messages with notification badges on their sidebar layout.
+- **Feedback & Audio Reviews**: Learners can submit standard stars/like ratings along with written reviews and optional voice recordings for finished courses. This provides instructors with rich feedback and allows the system to aggregate course ratings dynamically.
+
+### 9. Moderation Chat & Syllabus Previews
+- **Admin-Instructor Chat**: Instructors can coordinate directly with administrators via direct chat, enabling fast communication about course approvals, edits, or deletion requests.
+- **Blueprint Preview Modal**: Before moderators approve or reject a course blueprint, they can preview the entire course structure, objectives, descriptions, and category metadata in an overlay dialog.
+
+### 10. Overview & Analytics Views
+- **Learner Dashboard**: Added a comprehensive Overview & Analytics panel featuring Recharts. Learners can view:
+  - **Learning Activity (Study Minutes)**: A Bar chart showing daily study minutes.
+  - **Skill Strength Matrix**: A Radar chart demonstrating completed lesson breakdown by platform categories.
+  - **Active Course Blueprints**: A horizontal Bar chart comparing progress percentages across active courses.
+  - **Global Peer Arena**: A leaderboard scoreboard highlighting the student's XP rank relative to other top peers.
+- **Instructor Dashboard**: Includes a default Overview analytics page displaying course status statistics and a **Student Progress Roster** listing names, emails, XP, levels, and progress logs for every enrolled student.
+- **Admin Dashboard**: Refined system-wide analytics showcasing categorical distributions and user enrollments via visual charts.
+
+### 11. Course Edit Permissions & Reset Flow
+- **Edit Permission Requests**: Instructors cannot make edits on approved blueprints directly. They must submit an **Edit Request** through their dashboard.
+- **Admin Approval**: Admins review requests under the Course Moderation tab, choosing to approve or deny edit permissions.
+- **Blueprint Updates**: When editing is allowed (`editPermission: allowed`), instructors can modify sections, edit descriptions, adjust objective metadata, and upload/delete specific video lectures and resource content.
+- **Progression Resets**: On final submission, instructors can check a box to reset progression to 0% for active (non-graduated) learners (so they retake updated/changed courses).
+- **Certificate Safeguards**: Once a student passes the final exam and obtains their certificate, their progress is permanently locked at 100% and lessons remain fully unlocked, preventing edits to course blueprints from invalidating their certificates.
+
+### 12. Safe Database Reset & Verification Code
+- **Danger Zone Isolation**: Administrative database wipe commands are isolated to a dedicated "System Maintenance" tab.
+- **Double Authorization Safeguards**: Admins must check a safety acknowledgement box and type in a randomized **6-digit Verification Authorization Code** shown on-screen before the purge utility can execute.
+
 ---
 
 ## 📡 API Reference
@@ -514,10 +589,14 @@ The student workspace is styled as a dual-pane workspace:
 | `POST`   | `/`                         | Create new course blueprint              | ✅ (Instructor) |
 | `GET`    | `/:id`                      | Fetch course details                     | ❌              |
 | `GET`    | `/instructor/:instructorId` | Fetch instructor's courses               | ✅ (Instructor) |
-| `PUT`    | `/:id`                      | Edit course details                      | ✅ (Admin)      |
+| `PUT`    | `/:id`                      | Update course details (Admin/Instructor Edit, optional thumbnail) | ✅ (Auth) |
 | `PUT`    | `/:id/status`               | Approve/Reject/Delete course             | ✅ (Admin)      |
 | `PUT`    | `/:id/request-delete`       | Request course deletion (status updates) | ✅ (Instructor) |
+| `PUT`    | `/:id/request-edit`         | Request course edit permission           | ✅ (Instructor) |
+| `PUT`    | `/:id/approve-edit`         | Approve course edit request              | ✅ (Admin)      |
+| `PUT`    | `/:id/reject-edit`          | Reject course edit request               | ✅ (Admin)      |
 | `POST`   | `/:id/lectures`             | Add lecture with videos/resources/links  | ✅ (Instructor) |
+| `DELETE` | `/:id/lectures/:lectureId`  | Delete a specific lecture from course     | ✅ (Instructor) |
 | `DELETE` | `/:id`                      | Force delete course                      | ✅ (Admin)      |
 
 ### AI Routes (`/api/ai/`)
@@ -531,6 +610,40 @@ The student workspace is styled as a dual-pane workspace:
 | `POST` | `/verify-voice-answer`      | Grade oral explanation voice text responses       | ✅ (Learner)  |
 | `POST` | `/generate-summary`         | Generate clean, detailed study notes summaries    | ✅ (Learner)  |
 
+### Payment Routes (`/api/payments/`)
+
+| Method | Endpoint        | Description                                           | Auth Required |
+| ------ | --------------- | ----------------------------------------------------- | ------------- |
+| `POST` | `/create-order` | Create a new Razorpay checkout order                  | ✅ (Learner)  |
+| `POST` | `/verify-enroll`| Verify signature and enroll student in paid course    | ✅ (Learner)  |
+| `POST` | `/claim-reward` | Process and claim 75% cashback refund upon completion | ✅ (Learner)  |
+
+### Message Routes (`/api/messages/`)
+
+| Method | Endpoint                  | Description                                            | Auth Required    |
+| ------ | ------------------------- | ------------------------------------------------------ | ---------------- |
+| `POST` | `/`                       | Send message (supports text and recorded voice Urls)   | ✅ (Authenticated)|
+| `GET`  | `/chat/:userId1/:userId2` | Fetch chat history logs between two users              | ✅ (Authenticated)|
+| `PUT`  | `/read`                   | Mark unread messages as read                           | ✅ (Authenticated)|
+| `GET`  | `/unread/:receiverId`     | Fetch count of unread incoming messages                | ✅ (Authenticated)|
+| `GET`  | `/admins`                 | Fetch list of administrators for instructor chat       | ✅ (Instructor)  |
+| `GET`  | `/contacts/:userId`       | Retrieve active conversation contacts                  | ✅ (Authenticated)|
+
+### Feedback Routes (`/api/feedback/`)
+
+| Method | Endpoint                    | Description                                             | Auth Required   |
+| ------ | --------------------------- | ------------------------------------------------------- | --------------- |
+| `POST` | `/`                         | Submit course rating (likes, text, recorded voice review)| ✅ (Learner)    |
+| `GET`  | `/course/:courseId`         | Retrieve all student reviews and rating for a course    | ❌               |
+| `GET`  | `/instructor/:instructorId` | Retrieve aggregated feedback reviews for an instructor  | ✅ (Instructor) |
+
+### Admin Routes (`/api/admin/`)
+
+| Method   | Endpoint       | Description                                            | Auth Required |
+| -------- | -------------- | ------------------------------------------------------ | ------------- |
+| `GET`    | `/stats`       | Fetch aggregated user and course registration stats    | ✅ (Admin)    |
+| `DELETE` | `/reset-users` | Reset user and progress collection data tables          | ✅ (Admin)    |
+
 ---
 
 ## 👥 User Roles & Workflows
@@ -538,32 +651,37 @@ The student workspace is styled as a dual-pane workspace:
 ### 🎓 Learner Workflow
 ```
 1. Sign up (Manual or Google OAuth) -> Select declared skill tags
-2. Browse approved courses -> Enroll -> Enters LearnerDashboard
-3. Systematic Progression locks future modules; complete lessons chronologically
-4. Mark lesson complete -> passes AI voice oral question check (+150 XP)
-5. Earn XP -> levels up (+1 Level per 1000 XP), daily streaks, unlocks badges
-6. Pass 100% lessons -> Generate 10 MCQ exam (passing score >= 70%)
-7. Pass exam -> Unlocks Certificate -> generates & downloads PDF
+2. Browse approved courses -> Process Razorpay checkout for paid catalog additions
+3. Enters LearnerDashboard -> Systematic Progression locks future modules; complete lessons chronologically
+4. Mark lesson complete -> passes AI voice oral question check (+150 XP) or quiz
+5. Record & send voice questions in Q&A thread directly to instructors if stuck
+6. Earn XP -> levels up (+1 Level per 1000 XP), daily streaks, unlocks badges
+7. Pass 100% lessons -> Generate 10 MCQ exam (passing score >= 70%) with countdown timer
+8. Pass exam -> Unlocks Certificate (immediate download/countdown) & 75% Cashback Refund Claim
+9. Submit course feedback ratings with written reviews and optional voice reviews
 ```
 
 ### 👨‍🏫 Instructor Workflow
 ```
-1. Register -> Access InstructorDashboard
+1. Register -> Access InstructorDashboard (redesigned sidebar, Rupee conversion pricing)
 2. Click "Create Course" -> Fill course blueprint (thumbnail, objectives, duration)
 3. Build curriculum section-by-section:
    - Upload videos / add YouTube URLs (add custom text descriptions)
    - Upload resources / add external links (add custom text descriptions)
-4. Await Admin Approval -> Approved course is publicised to catalog
-5. Request course deletion if required (moderated by admin approvals)
+4. Await Admin Approval (previewed by admin via syllabus modal)
+5. Review learners' course feedback and play back recorded audio reviews
+6. Respond to student voice messaging Q&A requests directly from the workspace
+7. Chat with Admins regarding course feedback, approval queries, or deletion requests
 ```
 
 ### 👨‍💼 Admin Workflow
 ```
 1. Log in -> Open AdminDashboard
-2. Moderate blueprints: Approve or Reject course creations and Deletion requests
-3. User management: Track users, drop user enrollments, check levels
-4. Monitor analytics: Category bar charts, user pie charts
-5. Manually override or update course information
+2. Moderate blueprints: Open syllabus blueprint preview modals, approve/reject creations
+3. Message Instructors directly in moderation chat to coordinate updates (notification badges)
+4. User management: Track users, drop user enrollments, check levels
+5. Reset users / clean progress tables using user reset utility
+6. Monitor analytics: Category bar charts, user pie charts
 ```
 
 ---
@@ -602,13 +720,13 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ## 📊 Project Statistics
 
-- **Total Files**: 65+ component and logic files
-- **API Endpoints**: 25+ RESTful routes
+- **Total Files**: 75+ component and logic files
+- **API Endpoints**: 40+ RESTful routes
 - **Supported Languages**: 3 (English, Hindi, Bengali)
-- **Database Collections**: 2 (Users, Courses)
-- **External Integrations**: 3 (Google OAuth, Gemini AI, Cloudinary)
+- **Database Collections**: 4 (Users, Courses, Feedbacks, Messages)
+- **External Integrations**: 4 (Google OAuth, Gemini AI, Cloudinary, Razorpay)
 - **User Roles**: 3 (Learner, Instructor, Admin)
 
 **Last Updated**: July 2026  
-**Version**: 1.1.0  
+**Version**: 1.3.0  
 **Maintenance Status**: ✅ Active Development

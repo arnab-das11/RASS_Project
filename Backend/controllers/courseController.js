@@ -1,10 +1,27 @@
 import Course from "../models/Course.js";
+import Feedback from "../models/Feedback.js";
+import User from "../models/User.js";
 
 // @desc    Get all approved courses (Public)
 export const getAllCourses = async (req, res) => {
   try {
     const courses = await Course.find({ status: "approved" }).populate("instructorId", "name");
-    res.json(courses);
+    
+    const coursesWithRatings = await Promise.all(courses.map(async (course) => {
+      const feedbacks = await Feedback.find({ courseId: course._id });
+      let rating = 4.8;
+      if (feedbacks.length > 0) {
+        const likes = feedbacks.filter(f => f.liked).length;
+        rating = parseFloat((1 + (likes / feedbacks.length) * 4).toFixed(1));
+      }
+      return {
+        ...course.toObject(),
+        rating,
+        totalRatings: feedbacks.length
+      };
+    }));
+
+    res.json(coursesWithRatings);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -14,8 +31,21 @@ export const getAllCourses = async (req, res) => {
 export const getCourseById = async (req, res) => {
   try {
     const course = await Course.findById(req.params.id).populate("instructorId", "name");
-    if (course) res.json(course);
-    else res.status(404).json({ message: "Course not found" });
+    if (course) {
+      const feedbacks = await Feedback.find({ courseId: course._id });
+      let rating = 4.8;
+      if (feedbacks.length > 0) {
+        const likes = feedbacks.filter(f => f.liked).length;
+        rating = parseFloat((1 + (likes / feedbacks.length) * 4).toFixed(1));
+      }
+      res.json({
+        ...course.toObject(),
+        rating,
+        totalRatings: feedbacks.length
+      });
+    } else {
+      res.status(404).json({ message: "Course not found" });
+    }
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -82,11 +112,14 @@ export const deleteCourse = async (req, res) => {
   }
 };
 
-// @desc    Get all pending courses (New Requests AND Deletion Requests)
+// @desc    Get all pending courses (New Requests, Deletion Requests, and Edit Requests)
 export const getPendingCourses = async (req, res) => {
   try {
     const courses = await Course.find({ 
-      status: { $in: ["pending", "deletion_pending"] } 
+      $or: [
+        { status: { $in: ["pending", "deletion_pending"] } },
+        { editPermission: "requested" }
+      ]
     }).populate("instructorId", "name email");
     res.json(courses);
   } catch (error) {
@@ -203,21 +236,143 @@ export const addLecture = async (req, res) => {
   }
 };
 
-// --- NEW FUNCTION: Edit Course Details (For Admin Dashboard) ---
-// @desc    Update entire course details
+// @desc    Update entire course details (Admin/Instructor Edit)
 export const updateCourse = async (req, res) => {
     try {
-      const updatedCourse = await Course.findByIdAndUpdate(
-          req.params.id, 
-          req.body, 
-          { new: true } // Returns the newly updated document
-      );
-      if (updatedCourse) {
-          res.json(updatedCourse);
-      } else {
-          res.status(404).json({ message: "Course not found" });
+      const { title, description, category, level, duration, price, learningObjectives, submitEdit, resetProgress } = req.body;
+      const course = await Course.findById(req.params.id);
+      if (!course) return res.status(404).json({ message: "Course not found" });
+
+      // Update text fields
+      if (title !== undefined) course.title = title;
+      if (description !== undefined) course.description = description;
+      if (category !== undefined) course.category = category;
+      if (level !== undefined) course.level = level;
+      if (duration !== undefined) course.duration = parseFloat(duration);
+      if (price !== undefined) course.price = Number(price) || 0;
+
+      // Handle objectives
+      if (learningObjectives !== undefined) {
+        try {
+          course.learningObjectives = JSON.parse(learningObjectives);
+        } catch (e) {
+          course.learningObjectives = Array.isArray(learningObjectives) ? learningObjectives : [learningObjectives];
+        }
       }
+
+      // Handle thumbnail upload
+      if (req.file) {
+        course.thumbnail = req.file.path;
+      }
+
+      // Lock down course after instructor submits edits
+      if (submitEdit === "true" || submitEdit === true) {
+        course.editPermission = "none";
+      }
+
+      // Progression Reset for active/in-progress students
+      if (resetProgress === "true" || resetProgress === true) {
+        const contentIdsToClear = [];
+        course.lectures.forEach(lecture => {
+          if (lecture.videos) {
+            lecture.videos.forEach(v => {
+              contentIdsToClear.push(v._id.toString());
+              if (v.videoUrl) contentIdsToClear.push(v.videoUrl);
+            });
+          }
+          if (lecture.resources) {
+            lecture.resources.forEach(r => {
+              contentIdsToClear.push(r._id.toString());
+              if (r.url) contentIdsToClear.push(r.url);
+            });
+          }
+          if (lecture.links) {
+            lecture.links.forEach(l => {
+              contentIdsToClear.push(l._id.toString());
+              if (l.url) contentIdsToClear.push(l.url);
+            });
+          }
+        });
+
+        if (contentIdsToClear.length > 0) {
+          await User.updateMany(
+            { 
+              role: 'learner',
+              passedExams: { $ne: course._id } // Only clear for non-graduates
+            },
+            {
+              $pull: { completedContent: { $in: contentIdsToClear } }
+            }
+          );
+        }
+      }
+
+      const updatedCourse = await course.save();
+      res.json(updatedCourse);
     } catch (error) {
       res.status(500).json({ message: error.message });
     }
   };
+
+// @desc    Request Course Edit permission (Instructor)
+export const requestEditCourse = async (req, res) => {
+  try {
+    const course = await Course.findById(req.params.id);
+    if (course) {
+      course.editPermission = "requested";
+      const updatedCourse = await course.save();
+      res.json(updatedCourse);
+    } else {
+      res.status(404).json({ message: "Course not found" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Approve Course Edit request (Admin)
+export const approveEditCourse = async (req, res) => {
+  try {
+    const course = await Course.findById(req.params.id);
+    if (course) {
+      course.editPermission = "allowed";
+      const updatedCourse = await course.save();
+      res.json(updatedCourse);
+    } else {
+      res.status(404).json({ message: "Course not found" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Reject/Deny Course Edit request (Admin)
+export const rejectEditCourse = async (req, res) => {
+  try {
+    const course = await Course.findById(req.params.id);
+    if (course) {
+      course.editPermission = "none";
+      const updatedCourse = await course.save();
+      res.json(updatedCourse);
+    } else {
+      res.status(404).json({ message: "Course not found" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Delete a specific lecture from course
+export const deleteLecture = async (req, res) => {
+  try {
+    const { id, lectureId } = req.params;
+    const course = await Course.findById(id);
+    if (!course) return res.status(404).json({ message: "Course not found" });
+
+    course.lectures = course.lectures.filter(lecture => lecture._id.toString() !== lectureId);
+    const updatedCourse = await course.save();
+    res.json(updatedCourse);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
