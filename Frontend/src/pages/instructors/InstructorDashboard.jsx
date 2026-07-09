@@ -140,6 +140,17 @@ const InstructorDashboard = () => {
     }
   };
 
+  const handleRequestEdit = async (courseId) => {
+    if (!window.confirm("Request edit permission for this course from the Administrator?")) return;
+    try {
+      await axios.put(`http://localhost:5000/api/courses/${courseId}/request-edit`);
+      setMyCourses(prev => prev.map(c => c._id === courseId ? { ...c, editPermission: 'requested' } : c));
+      alert("Edit request submitted to Admin.");
+    } catch (e) {
+      alert("Failed to request edit permission.");
+    }
+  };
+
   const handleLogout = () => {
     if (!window.confirm("Log out of Instructor Portal?")) return;
     localStorage.removeItem("userInfo");
@@ -733,7 +744,29 @@ const InstructorDashboard = () => {
 
                           <div className="mt-auto flex justify-between items-center border-t border-slate-100 pt-5">
                             <span className="text-xs text-slate-400 uppercase font-black tracking-wider">{course.category}</span>
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 items-center">
+                              {course.editPermission === 'none' && (
+                                <button 
+                                  onClick={() => handleRequestEdit(course._id)}
+                                  className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-650 hover:bg-indigo-600 text-indigo-700 hover:text-white border border-slate-200 hover:border-transparent rounded-lg text-xs font-bold transition cursor-pointer"
+                                >
+                                  Request Edit
+                                </button>
+                              )}
+                              {course.editPermission === 'requested' && (
+                                <span className="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-xs font-bold">
+                                  Edit Requested
+                                </span>
+                              )}
+                              {course.editPermission === 'allowed' && (
+                                <button 
+                                  onClick={() => navigate(`/instructor-course?edit=${course._id}`)}
+                                  className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-650 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-slate-200 hover:border-transparent rounded-lg text-xs font-bold transition cursor-pointer"
+                                >
+                                  Edit Blueprint
+                                </button>
+                              )}
+
                               {course.status === 'approved' && (
                                 <button onClick={() => handleRequestDelete(course._id)} className="p-2 bg-red-50 text-red-655 hover:bg-red-600 hover:text-white rounded-lg transition border border-red-200/40 cursor-pointer" title="Request Deletion">
                                   <Trash2 size={18} />

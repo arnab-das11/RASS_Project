@@ -253,6 +253,23 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleEditRequestAction = async (course, actionType) => {
+    const isApprove = actionType === 'approve';
+    if (!window.confirm(isApprove ? "ALLOW the instructor to edit this course?" : "DENY the edit request?")) return;
+    
+    setPendingList(prev => prev.filter(c => c._id !== course._id));
+    try {
+      const endpoint = isApprove 
+        ? `http://localhost:5000/api/courses/${course._id}/approve-edit`
+        : `http://localhost:5000/api/courses/${course._id}/reject-edit`;
+      await axios.put(endpoint);
+      fetchData();
+      alert(isApprove ? "Edit request allowed." : "Edit request denied.");
+    } catch (e) {
+      alert("Error updating edit request status.");
+    }
+  };
+
   const handleDeleteDirectly = async (id) => {
     if (!window.confirm("WARNING: Are you sure you want to FORCE DELETE this course?")) return;
     setAllCourses(prev => prev.filter(c => c._id !== id));
@@ -728,10 +745,13 @@ const AdminDashboard = () => {
                               <h3 className="font-bold text-gray-900 text-lg mb-1 group-hover:text-blue-600 transition">{course.title}</h3>
                               <div className="flex items-center gap-3 text-sm font-medium">
                                 <span className="text-gray-500 flex items-center gap-1"><Users size={14} /> {course.instructorId?.name || "Unknown"}</span>
-                                {course.status === 'deletion_pending'
-                                  ? <span className="bg-red-50 text-red-600 px-2 py-1 rounded border border-red-100">Deletion Request</span>
-                                  : <span className="bg-blue-50 text-blue-600 px-2 py-1 rounded border border-blue-100">New Course Request</span>
-                                }
+                                {course.editPermission === 'requested' ? (
+                                  <span className="bg-amber-50 text-amber-600 px-2 py-1 rounded border border-amber-100">Edit Permission Request</span>
+                                ) : course.status === 'deletion_pending' ? (
+                                  <span className="bg-red-50 text-red-600 px-2 py-1 rounded border border-red-100">Deletion Request</span>
+                                ) : (
+                                  <span className="bg-blue-50 text-blue-600 px-2 py-1 rounded border border-blue-100">New Course Request</span>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -746,7 +766,12 @@ const AdminDashboard = () => {
                             >
                               <Eye size={16} /> Review
                             </button>
-                            {course.status === 'deletion_pending' ? (
+                            {course.editPermission === 'requested' ? (
+                              <>
+                                <button onClick={() => handleEditRequestAction(course, 'reject')} className="flex-1 md:flex-none px-4 py-2 bg-red-50 hover:bg-red-105 text-red-600 rounded-lg font-bold transition border border-red-200">Deny Edit</button>
+                                <button onClick={() => handleEditRequestAction(course, 'approve')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700 font-bold transition shadow-md"><CheckCircle size={16} /> Allow Edit</button>
+                              </>
+                            ) : course.status === 'deletion_pending' ? (
                               <>
                                 <button onClick={() => handleAction(course, 'reject')} className="flex-1 md:flex-none px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold transition">Deny Deletion</button>
                                 <button onClick={() => handleAction(course, 'approve')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-red-600 text-white px-5 py-2 rounded-lg hover:bg-red-700 font-bold transition shadow-md"><Trash2 size={16} /> Delete</button>

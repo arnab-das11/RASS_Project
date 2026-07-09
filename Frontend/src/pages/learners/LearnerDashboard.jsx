@@ -597,6 +597,8 @@ const LearnerDashboard = () => {
   };
 
   const isItemLocked = (itemId, course, completedList) => {
+    if (course?._id && passedExams.includes(course._id)) return false;
+
     const items = getCourseItems(course);
     const index = items.findIndex(item => item.id === itemId);
     if (index <= 0) return false; // First item is never locked
@@ -671,6 +673,7 @@ const LearnerDashboard = () => {
 
   // --- PROGRESS LOGIC ---
   const calculateProgress = (course, currentCompleted = completedItems) => {
+    if (course?._id && passedExams.includes(course._id)) return 100;
     if (!course.lectures) return 0;
     let totalItems = 0;
     let finishedItems = 0;
