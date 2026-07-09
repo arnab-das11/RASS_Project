@@ -153,7 +153,7 @@ const AdminDashboard = () => {
   users.forEach(user => {
     if (user.enrolledCourses && Array.isArray(user.enrolledCourses)) {
       user.enrolledCourses.forEach(enroll => {
-        const courseId = enroll.courseId?._id || enroll.courseId;
+        const courseId = enroll._id || enroll.courseId?._id || enroll.courseId;
         if (courseEnrollmentCounts[courseId] !== undefined) {
           courseEnrollmentCounts[courseId]++;
         }
@@ -203,7 +203,8 @@ const AdminDashboard = () => {
   users.forEach(user => {
     if (user.enrolledCourses && Array.isArray(user.enrolledCourses)) {
       user.enrolledCourses.forEach(enroll => {
-        const course = allCourses.find(c => c._id === enroll.courseId || c._id === enroll.courseId?._id);
+        const courseId = enroll._id || enroll.courseId?._id || enroll.courseId;
+        const course = allCourses.find(c => c._id === courseId);
         transactions.push({
           id: enroll._id || Math.random().toString(),
           userName: user.name,
