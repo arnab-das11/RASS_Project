@@ -39,6 +39,9 @@
   - [Paid Courses, Razorpay, & 75% Cashback Reward Flow](#7-paid-courses-razorpay--75-cashback-reward-flow)
   - [Voice Messaging Q&A & Audio Course Feedback](#8-voice-messaging-qa--audio-course-feedback)
   - [Moderation Chat & Syllabus Previews](#9-moderation-chat--syllabus-previews)
+  - [Overview & Analytics Views](#10-overview--analytics-views)
+  - [Course Edit Permissions & Reset Flow](#11-course-edit-permissions--reset-flow)
+  - [Safe Database Reset & Verification Code](#12-safe-database-reset--verification-code)
 - [API Reference](#api-reference)
 - [User Roles & Workflows](#user-roles--workflows)
 - [Future Improvements](#future-improvements)
@@ -90,6 +93,8 @@ Traditional online learning platforms lack structured progression control, inter
 - ✅ **Learner-Instructor Voice Messaging Q&A** - Record, transcribe, and exchange audio-based questions and answers directly with the instructor inside a dedicated Chat modal.
 - ✅ **Course Feedback Surveys & Audio Reviews** - Submit written comments, like/rating status, and custom recorded audio course reviews.
 - ✅ **Immediate Certificate Download & Countdown** - Enhanced success screen supporting instant manual PDF downloads and auto-close countdown.
+- ✅ **Learner Analytics Dashboard** - Professional Overview tab featuring Recharts visualizations: Study Minutes (daily learning activity Bar chart), Skill Strength Matrix (Radar chart showing category lesson distribution), and Active Course Progress Comparison.
+- ✅ **Global Peer Arena** - Live competitive scoreboard showcasing student rank, name, and total XP relative to peers.
 
 ### 👨‍🏫 Instructor Features
 
@@ -101,6 +106,10 @@ Traditional online learning platforms lack structured progression control, inter
 - ✅ **Admin-Instructor Chat Portal** - Message admins directly regarding course approvals, rejections, or deletion statuses, highlighted with unread message notifications.
 - ✅ **Redesigned Sidebar & Rupee Conversions** - Navigate using a polished sidebar layout and manage course pricing automatically formatted with Rupee conversions.
 - ✅ **Audio Feedbacks Review** - Playback audio reviews and read written ratings left by enrolled learners.
+- ✅ **Instructor Analytics Overview** - Default Overview dashboard tracking active blueprints, total enrollment count, and approval statuses.
+- ✅ **Student Progress Roster** - Full visibility into student lists enrolled in the instructor's courses, detailing their individual XP, current Level, and completion progress.
+- ✅ **Course Edit Request System** - Request course edit authorization from admin moderators to tweak curriculum or update titles/descriptions/objectives/pricing.
+- ✅ **Progression Reset Utility** - Decide whether to reset progression to 0% for active (non-graduated) learners when modifying course syllabus materials, while safely preserving certificates for graduates.
 
 ### 👨‍💼 Admin Features
 
@@ -112,6 +121,8 @@ Traditional online learning platforms lack structured progression control, inter
 - ✅ **Admin-Instructor Chat Support** - Real-time support dialogue directly from the moderator dashboard to coordinate blueprint revisions.
 - ✅ **Course Syllabus Preview Modal** - Inspect course objectives, category, duration, and syllabus details in an overlay preview before making decisions.
 - ✅ **Database User Reset Utility** - Clean up and purge user/learner data tables via a secure administrative action.
+- ✅ **Admin Edit Request Moderation** - Review, approve, or deny instructor requests for editing approved courses.
+- ✅ **Danger Zone Maintenance Safeguards** - Secure 6-digit Verification Authorization Code prompt and checkbox acknowledgement for database purging/reset utilities.
 
 ---
 
@@ -529,6 +540,26 @@ The student workspace is styled as a dual-pane workspace:
 - **Admin-Instructor Chat**: Instructors can coordinate directly with administrators via direct chat, enabling fast communication about course approvals, edits, or deletion requests.
 - **Blueprint Preview Modal**: Before moderators approve or reject a course blueprint, they can preview the entire course structure, objectives, descriptions, and category metadata in an overlay dialog.
 
+### 10. Overview & Analytics Views
+- **Learner Dashboard**: Added a comprehensive Overview & Analytics panel featuring Recharts. Learners can view:
+  - **Learning Activity (Study Minutes)**: A Bar chart showing daily study minutes.
+  - **Skill Strength Matrix**: A Radar chart demonstrating completed lesson breakdown by platform categories.
+  - **Active Course Blueprints**: A horizontal Bar chart comparing progress percentages across active courses.
+  - **Global Peer Arena**: A leaderboard scoreboard highlighting the student's XP rank relative to other top peers.
+- **Instructor Dashboard**: Includes a default Overview analytics page displaying course status statistics and a **Student Progress Roster** listing names, emails, XP, levels, and progress logs for every enrolled student.
+- **Admin Dashboard**: Refined system-wide analytics showcasing categorical distributions and user enrollments via visual charts.
+
+### 11. Course Edit Permissions & Reset Flow
+- **Edit Permission Requests**: Instructors cannot make edits on approved blueprints directly. They must submit an **Edit Request** through their dashboard.
+- **Admin Approval**: Admins review requests under the Course Moderation tab, choosing to approve or deny edit permissions.
+- **Blueprint Updates**: When editing is allowed (`editPermission: allowed`), instructors can modify sections, edit descriptions, adjust objective metadata, and upload/delete specific video lectures and resource content.
+- **Progression Resets**: On final submission, instructors can check a box to reset progression to 0% for active (non-graduated) learners (so they retake updated/changed courses).
+- **Certificate Safeguards**: Once a student passes the final exam and obtains their certificate, their progress is permanently locked at 100% and lessons remain fully unlocked, preventing edits to course blueprints from invalidating their certificates.
+
+### 12. Safe Database Reset & Verification Code
+- **Danger Zone Isolation**: Administrative database wipe commands are isolated to a dedicated "System Maintenance" tab.
+- **Double Authorization Safeguards**: Admins must check a safety acknowledgement box and type in a randomized **6-digit Verification Authorization Code** shown on-screen before the purge utility can execute.
+
 ---
 
 ## 📡 API Reference
@@ -558,10 +589,14 @@ The student workspace is styled as a dual-pane workspace:
 | `POST`   | `/`                         | Create new course blueprint              | ✅ (Instructor) |
 | `GET`    | `/:id`                      | Fetch course details                     | ❌              |
 | `GET`    | `/instructor/:instructorId` | Fetch instructor's courses               | ✅ (Instructor) |
-| `PUT`    | `/:id`                      | Edit course details                      | ✅ (Admin)      |
+| `PUT`    | `/:id`                      | Update course details (Admin/Instructor Edit, optional thumbnail) | ✅ (Auth) |
 | `PUT`    | `/:id/status`               | Approve/Reject/Delete course             | ✅ (Admin)      |
 | `PUT`    | `/:id/request-delete`       | Request course deletion (status updates) | ✅ (Instructor) |
+| `PUT`    | `/:id/request-edit`         | Request course edit permission           | ✅ (Instructor) |
+| `PUT`    | `/:id/approve-edit`         | Approve course edit request              | ✅ (Admin)      |
+| `PUT`    | `/:id/reject-edit`          | Reject course edit request               | ✅ (Admin)      |
 | `POST`   | `/:id/lectures`             | Add lecture with videos/resources/links  | ✅ (Instructor) |
+| `DELETE` | `/:id/lectures/:lectureId`  | Delete a specific lecture from course     | ✅ (Instructor) |
 | `DELETE` | `/:id`                      | Force delete course                      | ✅ (Admin)      |
 
 ### AI Routes (`/api/ai/`)
@@ -686,12 +721,12 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 ## 📊 Project Statistics
 
 - **Total Files**: 75+ component and logic files
-- **API Endpoints**: 35+ RESTful routes
+- **API Endpoints**: 40+ RESTful routes
 - **Supported Languages**: 3 (English, Hindi, Bengali)
 - **Database Collections**: 4 (Users, Courses, Feedbacks, Messages)
 - **External Integrations**: 4 (Google OAuth, Gemini AI, Cloudinary, Razorpay)
 - **User Roles**: 3 (Learner, Instructor, Admin)
 
 **Last Updated**: July 2026  
-**Version**: 1.2.0  
+**Version**: 1.3.0  
 **Maintenance Status**: ✅ Active Development
