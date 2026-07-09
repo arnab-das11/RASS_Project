@@ -3,14 +3,20 @@ import { useNavigate } from "react-router-dom";
 import {
   BookOpen, Plus, Clock, IndianRupee,
   Trash2, LogOut, Menu, X, LayoutDashboard, MessageSquare,
-  ThumbsUp, ThumbsDown, User, Star
+  ThumbsUp, ThumbsDown, User, Star, TrendingUp, Users, Award, Percent
 } from "lucide-react";
 import axios from "axios";
 import ChatModal from "../../components/ChatModal";
+// --- NEW: IMPORT RECHARTS ---
+import {
+  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
+  CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer
+} from 'recharts';
 
 const InstructorDashboard = () => {
   const navigate = useNavigate();
   const [myCourses, setMyCourses] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userInfo, setUserInfo] = useState(null);
   
@@ -25,7 +31,7 @@ const InstructorDashboard = () => {
   const [feedbacks, setFeedbacks] = useState([]);
 
   // Tab State
-  const [activeTab, setActiveTab] = useState("courses");
+  const [activeTab, setActiveTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const fetchUnread = async (instId) => {
@@ -72,9 +78,10 @@ const InstructorDashboard = () => {
 
     const fetchInstructorData = async () => {
       try {
-        const [approvedRes, pendingRes] = await Promise.all([
+        const [approvedRes, pendingRes, usersRes] = await Promise.all([
           axios.get('http://localhost:5000/api/courses'),
-          axios.get('http://localhost:5000/api/courses/pending')
+          axios.get('http://localhost:5000/api/courses/pending'),
+          axios.get('http://localhost:5000/api/users')
         ]);
 
         const allFetched = [...approvedRes.data, ...pendingRes.data];
@@ -86,6 +93,7 @@ const InstructorDashboard = () => {
 
         const uniqueCourses = Array.from(new Map(filtered.map(item => [item._id, item])).values());
         setMyCourses(uniqueCourses);
+        setAllUsers(usersRes.data);
       } catch (error) {
         console.error("Error fetching instructor courses:", error);
       } finally {
@@ -173,6 +181,172 @@ const InstructorDashboard = () => {
   const dislikedReviews = totalReviews - likedReviews;
   const likeRatio = totalReviews > 0 ? Math.round((likedReviews / totalReviews) * 100) : 100;
 
+  // --- INSTRUCTOR ANALYTICS & DATA COMPILATION ---
+  
+  // 1. Instructor Course IDs set
+  const myCourseIds = myCourses.map(c => c._id);
+
+  // 2. Filter students enrolled in this instructor's courses
+  const enrolledStudents = allUsers.filter(user => {
+    if (user.role !== 'learner' || !user.enrolledCourses) return false;
+    return user.enrolledCourses.some(enroll => {
+      const courseId = enroll._id || enroll.courseId?._id || enroll.courseId;
+      return myCourseIds.includes(courseId);
+    });
+  });
+
+  // 3. Total Enrollments Count
+  let totalEnrollments = 0;
+  enrolledStudents.forEach(user => {
+    user.enrolledCourses.forEach(enroll => {
+      const courseId = enroll._id || enroll.courseId?._id || enroll.courseId;
+      if (myCourseIds.includes(courseId)) {
+        totalEnrollments++;
+      }
+    });
+  });
+
+  // 4. Instructor Revenue (₹)
+  let totalRevenuePaise = 0;
+  enrolledStudents.forEach(user => {
+    user.enrolledCourses.forEach(enroll => {
+      const courseId = enroll._id || enroll.courseId?._id || enroll.courseId;
+      if (myCourseIds.includes(courseId)) {
+        if (enroll.purchaseDetails && enroll.purchaseDetails.amountPaid) {
+          totalRevenuePaise += Number(enroll.purchaseDetails.amountPaid);
+        }
+      }
+    });
+  });
+  const totalRevenueRupees = totalRevenuePaise / 100;
+
+  // 5. Course Graduates
+  let totalGraduates = 0;
+  enrolledStudents.forEach(user => {
+    if (user.passedExams && Array.isArray(user.passedExams)) {
+      user.passedExams.forEach(examCourseId => {
+        if (myCourseIds.includes(examCourseId)) {
+          totalGraduates++;
+        }
+      });
+    }
+  });
+
+  // 6. Course Performance Roster (Students list with progression metrics)
+  const studentProgressionList = [];
+  enrolledStudents.forEach(user => {
+    user.enrolledCourses.forEach(enroll => {
+      const courseId = enroll._id || enroll.courseId?._id || enroll.courseId;
+      if (myCourseIds.includes(courseId)) {
+        const course = myCourses.find(c => c._id === courseId);
+        if (!course) return;
+
+        // Calculate progress percentage
+        // Total contents in course = sum of videos, resources, links in all sections
+        let totalItems = 0;
+        if (course.lectures) {
+          course.lectures.forEach(lecture => {
+            totalItems += (lecture.videos?.length || 0) + (lecture.resources?.length || 0) + (lecture.links?.length || 0);
+          });
+        }
+
+        // Count completed contents belonging to this course
+        let completedItems = 0;
+        if (course.lectures && user.completedContent) {
+          course.lectures.forEach(lecture => {
+            if (lecture.videos) {
+              lecture.videos.forEach(v => {
+                if (user.completedContent.includes(v._id) || user.completedContent.includes(v.videoUrl)) {
+                  completedItems++;
+                }
+              });
+            }
+            if (lecture.resources) {
+              lecture.resources.forEach(r => {
+                if (user.completedContent.includes(r._id) || user.completedContent.includes(r.url)) {
+                  completedItems++;
+                }
+              });
+            }
+            if (lecture.links) {
+              lecture.links.forEach(l => {
+                if (user.completedContent.includes(l._id) || user.completedContent.includes(l.url)) {
+                  completedItems++;
+                }
+              });
+            }
+          });
+        }
+
+        const percentage = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+
+        studentProgressionList.push({
+          studentId: user._id,
+          studentName: user.name,
+          studentEmail: user.email,
+          courseId: course._id,
+          courseTitle: course.title,
+          progressPercent: Math.min(percentage, 100),
+          enrolledAt: enroll.purchaseDetails?.enrollmentDate ? new Date(enroll.purchaseDetails.enrollmentDate).toLocaleDateString() : new Date(user.createdAt || Date.now()).toLocaleDateString()
+        });
+      }
+    });
+  });
+
+  // Sort roster by progress percent descending
+  studentProgressionList.sort((a, b) => b.progressPercent - a.progressPercent);
+
+  // 7. Course Enrollment Distribution Data (BarChart)
+  const courseEnrollmentCounts = myCourses.reduce((acc, course) => {
+    acc[course._id] = 0;
+    return acc;
+  }, {});
+
+  enrolledStudents.forEach(user => {
+    user.enrolledCourses.forEach(enroll => {
+      const courseId = enroll._id || enroll.courseId?._id || enroll.courseId;
+      if (courseEnrollmentCounts[courseId] !== undefined) {
+        courseEnrollmentCounts[courseId]++;
+      }
+    });
+  });
+
+  const coursePerformanceData = myCourses.map(course => ({
+    title: course.title,
+    Students: courseEnrollmentCounts[course._id] || 0
+  }))
+  .sort((a, b) => b.Students - a.Students);
+
+  // 8. Revenue per Course Data (BarChart)
+  const courseRevenueCounts = myCourses.reduce((acc, course) => {
+    acc[course._id] = 0;
+    return acc;
+  }, {});
+
+  enrolledStudents.forEach(user => {
+    user.enrolledCourses.forEach(enroll => {
+      const courseId = enroll._id || enroll.courseId?._id || enroll.courseId;
+      if (courseRevenueCounts[courseId] !== undefined) {
+        if (enroll.purchaseDetails && enroll.purchaseDetails.amountPaid) {
+          courseRevenueCounts[courseId] += Number(enroll.purchaseDetails.amountPaid) / 100;
+        }
+      }
+    });
+  });
+
+  const courseRevenueData = myCourses.map(course => ({
+    title: course.title,
+    Revenue: courseRevenueCounts[course._id] || 0
+  }))
+  .sort((a, b) => b.Revenue - a.Revenue);
+
+  // 9. Feedback Sentiment Data (PieChart)
+  const feedbackSentimentData = [
+    { name: 'Endorsed', value: likedReviews },
+    { name: 'Disliked', value: dislikedReviews }
+  ];
+  const SENTIMENT_COLORS = ['#10b981', '#ef4444'];
+
   if (loading) return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
@@ -194,6 +368,18 @@ const InstructorDashboard = () => {
         </div>
 
         <nav className="flex-1 space-y-2">
+          {/* Tab item: Overview & Analytics */}
+          <button
+            onClick={() => { setActiveTab("dashboard"); setSidebarOpen(false); }}
+            className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl transition font-semibold cursor-pointer ${
+              activeTab === "dashboard"
+                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/50"
+                : "text-slate-400 hover:bg-slate-800 hover:text-white"
+            }`}
+          >
+            <LayoutDashboard size={20} /> <span>Overview & Analytics</span>
+          </button>
+
           {/* Tab item: My Arsenal */}
           <button
             onClick={() => { setActiveTab("courses"); setSidebarOpen(false); }}
@@ -264,7 +450,7 @@ const InstructorDashboard = () => {
               <Menu size={24} />
             </button>
             <h1 className="text-2xl font-black text-slate-800 tracking-tight capitalize">
-              {activeTab === 'courses' ? 'My Course Arsenal' : activeTab === 'chats' ? 'Student Q&A Guidance' : 'Student Feedbacks'}
+              {activeTab === 'dashboard' ? 'Overview & Analytics' : activeTab === 'courses' ? 'My Course Arsenal' : activeTab === 'chats' ? 'Student Q&A Guidance' : 'Student Feedbacks'}
             </h1>
           </div>
 
@@ -296,6 +482,211 @@ const InstructorDashboard = () => {
         <main className="p-8 overflow-y-auto bg-slate-50 flex-1 relative">
           <div className="max-w-7xl mx-auto animate-fade-in">
             
+            {/* VIEW: OVERVIEW & ANALYTICS */}
+            {activeTab === "dashboard" && (
+              <div className="space-y-10">
+                {/* Header Title */}
+                <div>
+                  <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 tracking-tight mb-2">Performance Analytics</h2>
+                  <p className="text-slate-500 font-semibold">Real-time statistics of your student catalog, course ratings, and platform earnings.</p>
+                </div>
+
+                {/* KPI Metrics Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {/* Card 1: Total Revenue */}
+                  <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex items-center justify-between group hover:shadow-md transition">
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Revenue</p>
+                      <h3 className="text-3xl font-black text-slate-800">₹{totalRevenueRupees.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</h3>
+                      <p className="text-[10px] text-green-500 font-semibold flex items-center gap-1">
+                        <TrendingUp size={10} /> Platform Earnings
+                      </p>
+                    </div>
+                    <div className="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center text-green-500"><IndianRupee size={26} /></div>
+                  </div>
+
+                  {/* Card 2: Total Students */}
+                  <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex items-center justify-between group hover:shadow-md transition">
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Students</p>
+                      <h3 className="text-3xl font-black text-slate-800">{totalEnrollments}</h3>
+                      <p className="text-[10px] text-slate-500 font-medium">Cumulative enrollments</p>
+                    </div>
+                    <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-500"><Users size={26} /></div>
+                  </div>
+
+                  {/* Card 3: Positive Feedback Ratio */}
+                  <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex items-center justify-between group hover:shadow-md transition">
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Approval Rate</p>
+                      <h3 className="text-3xl font-black text-slate-800">{likeRatio}%</h3>
+                      <p className="text-[10px] text-emerald-555 font-semibold text-emerald-600 flex items-center gap-1">
+                        <ThumbsUp size={10} /> Positive Feedbacks
+                      </p>
+                    </div>
+                    <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-500"><Star size={26} /></div>
+                  </div>
+
+                  {/* Card 4: Course Graduates */}
+                  <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex items-center justify-between group hover:shadow-md transition">
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Graduated Students</p>
+                      <h3 className="text-3xl font-black text-slate-800">{totalGraduates}</h3>
+                      <p className="text-[10px] text-indigo-500 font-semibold">Passed Exam bluepritns</p>
+                    </div>
+                    <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-500"><Award size={26} /></div>
+                  </div>
+                </div>
+
+                {/* Charts Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Chart 1: Course Enrollment comparison */}
+                  <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 lg:col-span-2">
+                    <h3 className="text-base font-bold text-slate-800 mb-6 flex items-center gap-2">
+                      <Users className="text-blue-500" size={18} /> Student Enrollments by Course
+                    </h3>
+                    {coursePerformanceData.length === 0 ? (
+                      <div className="h-[250px] flex items-center justify-center text-slate-400 font-medium italic">No course blueprint statistics registered yet.</div>
+                    ) : (
+                      <div className="h-[250px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={coursePerformanceData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                            <XAxis 
+                              dataKey="title" 
+                              tick={{ fontSize: 9, fill: '#64748B' }} 
+                              axisLine={false} 
+                              tickLine={false} 
+                              tickFormatter={(val) => val.length > 15 ? `${val.substring(0, 12)}...` : val}
+                            />
+                            <YAxis tick={{ fontSize: 10, fill: '#64748B' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                            <RechartsTooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }} cursor={{ fill: '#F8FAFC' }} />
+                            <Bar dataKey="Students" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={32} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Chart 2: Feedback Sentiment distribution */}
+                  <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 lg:col-span-1 flex flex-col justify-between">
+                    <h3 className="text-base font-bold text-slate-800 mb-6 flex items-center gap-2">
+                      <Star className="text-emerald-500" size={18} /> Student Sentiment Breakdown
+                    </h3>
+                    {totalReviews === 0 ? (
+                      <div className="h-[200px] flex items-center justify-center text-slate-400 font-medium italic">No feedbacks logged yet.</div>
+                    ) : (
+                      <>
+                        <div className="h-[180px] w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={feedbackSentimentData}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={50}
+                                outerRadius={70}
+                                paddingAngle={5}
+                                dataKey="value"
+                              >
+                                {feedbackSentimentData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={SENTIMENT_COLORS[index % SENTIMENT_COLORS.length]} />
+                                ))}
+                              </Pie>
+                              <RechartsTooltip />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="flex justify-center gap-6 text-xs font-semibold pt-4">
+                          <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-emerald-500 rounded-full inline-block"></span> Endorsed ({likedReviews})</span>
+                          <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-red-500 rounded-full inline-block"></span> Disliked ({dislikedReviews})</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Chart 3: Revenue comparison */}
+                  <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 lg:col-span-3">
+                    <h3 className="text-base font-bold text-slate-800 mb-6 flex items-center gap-2">
+                      <IndianRupee className="text-green-500" size={18} /> Revenue Share by Course (₹)
+                    </h3>
+                    {courseRevenueData.length === 0 ? (
+                      <div className="h-[250px] flex items-center justify-center text-slate-400 font-medium italic">No course earnings data recorded yet.</div>
+                    ) : (
+                      <div className="h-[250px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={courseRevenueData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                            <XAxis 
+                              dataKey="title" 
+                              tick={{ fontSize: 9, fill: '#64748B' }} 
+                              axisLine={false} 
+                              tickLine={false}
+                              tickFormatter={(val) => val.length > 20 ? `${val.substring(0, 18)}...` : val}
+                            />
+                            <YAxis tick={{ fontSize: 10, fill: '#64748B' }} axisLine={false} tickLine={false} />
+                            <RechartsTooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }} cursor={{ fill: '#F8FAFC' }} />
+                            <Bar dataKey="Revenue" fill="#10B981" radius={[4, 4, 0, 0]} barSize={40} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Student Progression roster list */}
+                <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
+                  <h3 className="text-base font-bold text-slate-800 mb-6 flex items-center gap-2">
+                    <Award className="text-indigo-650" size={18} /> Student Progress Roster
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="border-b border-slate-100 text-[10px] uppercase font-bold text-slate-400">
+                          <th className="pb-3">Student Name</th>
+                          <th className="pb-3">Course Blueprint</th>
+                          <th className="pb-3">Enrolled Date</th>
+                          <th className="pb-3 text-right">Progression completion</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50 text-xs text-slate-700">
+                        {studentProgressionList.map((roster, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/50 transition">
+                            <td className="py-4">
+                              <div>
+                                <p className="font-bold text-slate-850">{roster.studentName}</p>
+                                <p className="text-[10px] text-slate-400">{roster.studentEmail}</p>
+                              </div>
+                            </td>
+                            <td className="py-4 font-semibold text-slate-800">{roster.courseTitle}</td>
+                            <td className="py-4 text-slate-400 font-semibold">{roster.enrolledAt}</td>
+                            <td className="py-4 text-right">
+                              <div className="flex items-center justify-end gap-3">
+                                <div className="w-24 bg-slate-100 rounded-full h-1.5 inline-block">
+                                  <div 
+                                    className={`h-1.5 rounded-full ${roster.progressPercent === 100 ? "bg-green-500" : "bg-indigo-600"}`} 
+                                    style={{ width: `${roster.progressPercent}%` }} 
+                                  />
+                                </div>
+                                <span className={`font-black w-8 inline-block text-right ${roster.progressPercent === 100 ? "text-green-600" : "text-slate-800"}`}>
+                                  {roster.progressPercent}%
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                        {studentProgressionList.length === 0 && (
+                          <tr>
+                            <td colSpan={4} className="text-center py-8 text-slate-400 font-medium italic">No students are actively learning your courses yet.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* VIEW A: COURSES BLUEPRINTS */}
             {activeTab === "courses" && (
               <div>
