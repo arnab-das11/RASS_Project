@@ -10,7 +10,11 @@ import {
   updateCourseStatus,
   requestDeleteCourse, // <--- NEW IMPORT
   addLecture,
-  updateCourse
+  updateCourse,
+  requestEditCourse,
+  approveEditCourse,
+  rejectEditCourse,
+  deleteLecture
 } from "../controllers/courseController.js";
 
 const router = express.Router();
@@ -20,8 +24,12 @@ router.get("/pending", getPendingCourses); // Admin
 router.post("/", upload.single('thumbnail'), createCourse);
 router.get("/instructor/:instructorId", getInstructorCourses);
 
-// --- NEW ROUTE ---
+// --- NEW ROUTES ---
 router.put("/:id/request-delete", requestDeleteCourse);
+router.put("/:id/request-edit", requestEditCourse);
+router.put("/:id/approve-edit", approveEditCourse);
+router.put("/:id/reject-edit", rejectEditCourse);
+router.delete("/:id/lectures/:lectureId", deleteLecture);
 
 router.put("/:id/status", updateCourseStatus);
 router.post("/:id/lectures", upload.fields([
@@ -31,6 +39,6 @@ router.post("/:id/lectures", upload.fields([
 
 router.get("/:id", getCourseById);
 router.delete("/:id", deleteCourse); // Admin Force Delete
-router.put('/:id', updateCourse); // Allows Admin to edit course details
+router.put('/:id', upload.single('thumbnail'), updateCourse); // Allows Admin/Instructor to edit course details with optional thumbnail upload
 
 export default router;

@@ -53,6 +53,11 @@ const courseSchema = mongoose.Schema(
       enum: ["pending", "approved", "rejected", "deletion_pending"],
       default: "pending",
     },
+    editPermission: {
+      type: String,
+      enum: ["none", "requested", "allowed"],
+      default: "none",
+    },
   },
   { timestamps: true }
 );

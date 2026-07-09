@@ -144,7 +144,7 @@ const CoursePage = () => {
 
                 <div className="p-6 flex flex-col flex-grow">
                   <div className="flex items-center gap-1 text-yellow-500 font-bold text-sm mb-3">
-                    <Star size={16} fill="currentColor" /> 4.8 <span className="text-gray-400 font-medium ml-1">(Highly Rated)</span>
+                    <Star size={16} fill="currentColor" /> {course.rating ? course.rating.toFixed(1) : "4.8"} <span className="text-gray-400 font-medium ml-1">({course.totalRatings ? `${course.totalRatings} ratings` : "Highly Rated"})</span>
                   </div>
                   
                   <h3 className="text-xl font-black text-gray-900 mb-4 line-clamp-2 leading-tight group-hover:text-blue-600 transition-colors">

@@ -207,7 +207,7 @@ const CourseDetailsPage = () => {
                 {course.category || "General"}
               </span>
               <span className="text-yellow-400 font-bold flex items-center gap-1 text-sm bg-yellow-400/10 px-3 py-1 rounded-full">
-                 4.8 <Star size={14} fill="currentColor" /> (Highly Rated)
+                 {course.rating ? course.rating.toFixed(1) : "4.8"} <Star size={14} fill="currentColor" /> ({course.totalRatings ? `${course.totalRatings} ratings` : "Highly Rated"})
               </span>
             </div>
             

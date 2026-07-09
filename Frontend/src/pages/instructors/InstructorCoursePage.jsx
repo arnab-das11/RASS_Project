@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
     Upload, Plus, Link as LinkIcon, FileText, Video, Save, Loader, ArrowLeft,
-    X, Check, Trash2, Image as ImageIcon, Clock, DollarSign, Tag, BookOpen,
+    X, Check, Trash2, Image as ImageIcon, Clock, IndianRupee, Tag, BookOpen,
     ListChecks, GripVertical, FileArchive, CheckCircle2
 } from "lucide-react";
 import axios from "axios";
@@ -26,6 +26,54 @@ const InstructorCoursePage = () => {
     const [previewThumbnail, setPreviewThumbnail] = useState(null);
     const [createdCourseId, setCreatedCourseId] = useState(null);
     const [loadingCourse, setLoadingCourse] = useState(false);
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [resetProgress, setResetProgress] = useState(false);
+
+    useEffect(() => {
+        const queryParams = new URLSearchParams(window.location.search);
+        const editId = queryParams.get("edit");
+        if (editId) {
+            setIsEditMode(true);
+            setCreatedCourseId(editId);
+            fetchCourseForEditing(editId);
+        }
+    }, []);
+
+    const fetchCourseForEditing = async (id) => {
+        try {
+            setLoadingCourse(true);
+            const { data } = await axios.get(`http://localhost:5000/api/courses/${id}`);
+            if (data) {
+                setCourseData({
+                    title: data.title || "",
+                    description: data.description || "",
+                    category: data.category || "Web Development",
+                    level: data.level || "Beginner",
+                    duration: data.duration || "",
+                    price: data.price || "",
+                    learningObjectives: data.learningObjectives?.length ? data.learningObjectives : [""]
+                });
+                if (data.thumbnail) {
+                    setPreviewThumbnail(data.thumbnail);
+                }
+                if (data.lectures) {
+                    const mapped = data.lectures.map(l => ({
+                        _id: l._id,
+                        title: l.title,
+                        videos: l.videos?.length || 0,
+                        resources: l.resources?.length || 0,
+                        links: l.links?.length || 0
+                    }));
+                    setAddedSections(mapped);
+                }
+            }
+        } catch (e) {
+            console.error("Failed to load course details for editing:", e);
+            alert("Error loading course details.");
+        } finally {
+            setLoadingCourse(false);
+        }
+    };
 
     // --- Step 2: Section Content State ---
     const [sectionTitle, setSectionTitle] = useState("");
@@ -75,7 +123,7 @@ const InstructorCoursePage = () => {
 
     const handleCreateCourse = async (e) => {
         e.preventDefault();
-        if (!thumbnail) return alert("Please upload a course thumbnail.");
+        if (!isEditMode && !thumbnail) return alert("Please upload a course thumbnail.");
 
         // Filter out any empty learning objectives before sending
         const cleanedObjectives = courseData.learningObjectives.filter(obj => obj.trim() !== "");
@@ -93,21 +141,64 @@ const InstructorCoursePage = () => {
         formData.append("level", courseData.level);
         formData.append("duration", courseData.duration);
         formData.append("price", courseData.price);
-        formData.append("thumbnail", thumbnail);
+        if (thumbnail) {
+            formData.append("thumbnail", thumbnail);
+        }
         formData.append("instructorId", userInfo._id);
         formData.append("learningObjectives", JSON.stringify(cleanedObjectives));
 
         try {
-            const { data } = await axios.post("http://localhost:5000/api/courses", formData, {
-                headers: { "Content-Type": "multipart/form-data" },
-            });
-            setCreatedCourseId(data._id);
-            setTimeout(() => {
-                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-            }, 500);
+            if (isEditMode) {
+                await axios.put(`http://localhost:5000/api/courses/${createdCourseId}`, formData, {
+                    headers: { "Content-Type": "multipart/form-data" },
+                });
+                alert("Course details updated successfully. You can now add/remove sections below.");
+            } else {
+                const { data } = await axios.post("http://localhost:5000/api/courses", formData, {
+                    headers: { "Content-Type": "multipart/form-data" },
+                });
+                setCreatedCourseId(data._id);
+                setTimeout(() => {
+                    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                }, 500);
+            }
         } catch (error) {
             console.error(error);
-            alert("Error creating course. Check console.");
+            alert("Error saving course details. Check console.");
+        } finally {
+            setLoadingCourse(false);
+        }
+    };
+
+    const handleDeleteLecture = async (lectureId) => {
+        if (!window.confirm("Are you sure you want to delete this section/lecture from the syllabus?")) return;
+        try {
+            await axios.delete(`http://localhost:5000/api/courses/${createdCourseId}/lectures/${lectureId}`);
+            setAddedSections(prev => prev.filter(l => l._id !== lectureId));
+            alert("Lecture deleted successfully.");
+        } catch (e) {
+            console.error(e);
+            alert("Failed to delete lecture.");
+        }
+    };
+
+    const handleFinalizeEdits = async () => {
+        if (!window.confirm("Submit edits and lock editing? The course will be updated for students immediately.")) return;
+        try {
+            setLoadingCourse(true);
+            const formData = new FormData();
+            formData.append("submitEdit", "true");
+            if (resetProgress) {
+                formData.append("resetProgress", "true");
+            }
+            await axios.put(`http://localhost:5000/api/courses/${createdCourseId}`, formData, {
+                headers: { "Content-Type": "multipart/form-data" },
+            });
+            alert("Course edits finalized and saved!");
+            navigate("/instructor-dashboard");
+        } catch (e) {
+            console.error(e);
+            alert("Failed to finalize edits.");
         } finally {
             setLoadingCourse(false);
         }
@@ -227,7 +318,7 @@ const InstructorCoursePage = () => {
                 </div>
 
                 {/* ==================== STEP 1: COURSE DETAILS ==================== */}
-                <div className={`bg-white rounded-3xl shadow-xl p-8 mb-8 border border-slate-200/80 ${createdCourseId ? 'pointer-events-none' : ''}`}>
+                <div className={`bg-white rounded-3xl shadow-xl p-8 mb-8 border border-slate-200/80 ${(createdCourseId && !isEditMode) ? 'pointer-events-none opacity-80' : ''}`}>
                     <div className="flex items-center gap-4 mb-8 border-b border-slate-100 pb-4">
                         <div className="bg-gradient-to-br from-indigo-500 to-violet-600 w-10 h-10 flex items-center justify-center rounded-xl text-white font-black shadow-lg shadow-indigo-200">1</div>
                         <div>
@@ -323,7 +414,7 @@ const InstructorCoursePage = () => {
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
-                                    <DollarSign size={16} className="text-indigo-600" /> Price (USD)
+                                    <IndianRupee size={16} className="text-indigo-600" /> Price (INR)
                                 </label>
                                 <input type="number" placeholder="0 for Free" min="0"
                                     className="w-full p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 focus:bg-white focus:border-indigo-500 outline-none placeholder-slate-400 font-medium"
@@ -355,10 +446,10 @@ const InstructorCoursePage = () => {
                             </div>
                         </div>
 
-                        {!createdCourseId && (
+                        {(!createdCourseId || isEditMode) && (
                             <button type="submit" disabled={loadingCourse} className="w-full py-5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl font-black text-lg flex justify-center items-center gap-3 transition-all shadow-xl shadow-indigo-100 transform hover:-translate-y-1 cursor-pointer">
                                 {loadingCourse ? <Loader className="animate-spin" size={24} /> : <Save size={24} />}
-                                {loadingCourse ? "Forging Database Entry..." : "Initialize Course Builder"}
+                                {loadingCourse ? "Saving Changes..." : isEditMode ? "Save Blueprint Details" : "Forge Blueprint & Next step"}
                             </button>
                         )}
                     </form>
@@ -379,10 +470,22 @@ const InstructorCoursePage = () => {
                                                 <div className="bg-indigo-50 w-6 h-6 rounded flex items-center justify-center text-xs text-indigo-600 font-bold">{idx + 1}</div>
                                                 {sec.title}
                                             </span>
-                                            <div className="flex gap-4 text-xs font-bold text-slate-500">
-                                                <span className="flex items-center gap-1"><Video size={14} className="text-slate-400" /> {sec.videos}</span>
-                                                <span className="flex items-center gap-1"><FileText size={14} className="text-slate-400" /> {sec.resources}</span>
-                                                <span className="flex items-center gap-1"><LinkIcon size={14} className="text-slate-400" /> {sec.links}</span>
+                                            <div className="flex items-center gap-4">
+                                                <div className="flex gap-4 text-xs font-bold text-slate-500">
+                                                    <span className="flex items-center gap-1"><Video size={14} className="text-slate-400" /> {sec.videos}</span>
+                                                    <span className="flex items-center gap-1"><FileText size={14} className="text-slate-400" /> {sec.resources}</span>
+                                                    <span className="flex items-center gap-1"><LinkIcon size={14} className="text-slate-400" /> {sec.links}</span>
+                                                </div>
+                                                {isEditMode && sec._id && (
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => handleDeleteLecture(sec._id)} 
+                                                        className="p-1.5 bg-red-50 text-red-650 hover:bg-red-605 hover:bg-red-600 hover:text-white rounded transition cursor-pointer"
+                                                        title="Delete this lecture"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
@@ -565,6 +668,46 @@ const InstructorCoursePage = () => {
                                 </button>
                             </form>
                         </div>
+                        {isEditMode && (
+                            <div className="bg-white rounded-3xl shadow-xl p-8 border border-slate-200 space-y-6">
+                                <h3 className="text-xl font-bold text-indigo-650 flex items-center gap-2">
+                                    <ListChecks className="text-indigo-600" /> Save & Finalize Edits
+                                </h3>
+                                <p className="text-sm text-slate-500 font-semibold leading-relaxed">
+                                    Finalizing locks edits and applies updates immediately. Graduated students will keep their 100% completion certificates, while active learners will see progress adjust dynamically.
+                                </p>
+                                
+                                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                                    <input 
+                                        type="checkbox"
+                                        id="reset-progress-checkbox"
+                                        checked={resetProgress}
+                                        onChange={(e) => setResetProgress(e.target.checked)}
+                                        className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer"
+                                    />
+                                    <label htmlFor="reset-progress-checkbox" className="text-xs text-gray-750 font-bold select-none cursor-pointer">
+                                        Reset progression to 0% for active (non-graduated) students (Graduates will retain their certificates).
+                                    </label>
+                                </div>
+
+                                <div className="flex justify-end gap-3 pt-2">
+                                    <button 
+                                        type="button"
+                                        onClick={() => navigate("/instructor-dashboard")}
+                                        className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold transition text-sm cursor-pointer"
+                                    >
+                                        Cancel & Go Back
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        onClick={handleFinalizeEdits}
+                                        className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition text-sm shadow-md cursor-pointer"
+                                    >
+                                        Save & Submit Edits
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
