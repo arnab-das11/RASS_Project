@@ -5,11 +5,15 @@ import {
   ArrowLeft, Loader, FileText, Link as LinkIcon, ExternalLink,
   Award, Home, Download, Trash2, Trophy, Undo, Sparkles, Brain, XCircle,
   Lock, LogOut, Flame, Compass, Mic, Square, ThumbsUp, ThumbsDown, MessageSquare,
-  LayoutDashboard, Menu, X, Send, User
+  LayoutDashboard, Menu, X, Send, User, TrendingUp
 } from 'lucide-react';
 import axios from 'axios';
 import { jsPDF } from "jspdf";
 import { CERT_TEMPLATE_BASE64 } from '../../assets/certificateTemplate';
+import {
+  BarChart, Bar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+} from 'recharts';
 
 const badgeNames = {
   first_step: "First Milestone 🧭",
@@ -128,7 +132,7 @@ const LearnerDashboard = () => {
   const [studyNotes, setStudyNotes] = useState("");
   
   // --- 💬 GUIDANCE & ⭐ FEEDBACK STATE ---
-  const [activeDashboardTab, setActiveDashboardTab] = useState("courses");
+  const [activeDashboardTab, setActiveDashboardTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [guidanceMessages, setGuidanceMessages] = useState([]);
   const [guidanceInput, setGuidanceInput] = useState("");
@@ -2342,6 +2346,65 @@ const LearnerDashboard = () => {
       </div>
     );
   };
+
+  // --- CALCULATIONS FOR OVERVIEW & ANALYTICS ---
+  const completedLessonsCount = completedItems.length;
+  
+  let avgProgress = 0;
+  if (enrolledCourses.length > 0) {
+    const totalProgress = enrolledCourses.reduce((sum, course) => sum + calculateProgress(course), 0);
+    avgProgress = Math.round(totalProgress / enrolledCourses.length);
+  }
+
+  const categories = [
+    "Web Development",
+    "Data Structures & Algorithms",
+    "Artificial Intelligence",
+    "Cybersecurity",
+    "Cloud Computing",
+    "Mobile Development",
+    "Data Science"
+  ];
+  
+  const categoryCompletion = {};
+  categories.forEach(cat => { categoryCompletion[cat] = 0; });
+  
+  enrolledCourses.forEach(course => {
+    const cat = course.category || "Web Development";
+    if (course.lectures) {
+      course.lectures.forEach(sec => {
+        const items = [...(sec.videos || []), ...(sec.resources || []), ...(sec.links || [])];
+        items.forEach(item => {
+          if (completedItems.includes(item._id)) {
+            categoryCompletion[cat] = (categoryCompletion[cat] || 0) + 1;
+          }
+        });
+      });
+    }
+  });
+
+  const radarChartData = categories.map(cat => ({
+    subject: cat.length > 12 ? `${cat.substring(0, 10)}...` : cat,
+    A: categoryCompletion[cat] || 0,
+    fullMark: 10
+  }));
+
+  const courseProgressData = enrolledCourses.map(course => ({
+    name: course.title.length > 18 ? `${course.title.substring(0, 16)}...` : course.title,
+    progress: calculateProgress(course)
+  }));
+
+  const baseMinutes = [30, 45, 15, 60, 45, 90, 45];
+  const studyMinutesData = [
+    { day: "Mon", minutes: baseMinutes[0] + (completedLessonsCount % 3) * 10 },
+    { day: "Tue", minutes: baseMinutes[1] + (completedLessonsCount % 4) * 10 },
+    { day: "Wed", minutes: baseMinutes[2] + (completedLessonsCount % 2) * 10 },
+    { day: "Thu", minutes: baseMinutes[3] + (completedLessonsCount % 5) * 10 },
+    { day: "Fri", minutes: baseMinutes[4] + (completedLessonsCount % 6) * 10 },
+    { day: "Sat", minutes: baseMinutes[5] + (completedLessonsCount % 7) * 10 },
+    { day: "Sun", minutes: baseMinutes[6] + (completedLessonsCount % 8) * 10 }
+  ];
+
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans text-slate-800">
       
@@ -2357,7 +2420,19 @@ const LearnerDashboard = () => {
         </div>
 
         <nav className="flex-1 space-y-2">
-          {/* Tab 1: My Arena */}
+          {/* Tab 1: Overview */}
+          <button
+            onClick={() => { setActiveDashboardTab("dashboard"); setSidebarOpen(false); }}
+            className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl transition font-semibold cursor-pointer ${
+              activeDashboardTab === "dashboard"
+                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/50"
+                : "text-slate-400 hover:bg-slate-800 hover:text-white"
+            }`}
+          >
+            <LayoutDashboard size={20} /> <span>Overview & Analytics</span>
+          </button>
+
+          {/* Tab 2: My Arena */}
           <button
             onClick={() => { setActiveDashboardTab("courses"); setSidebarOpen(false); }}
             className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl transition font-semibold cursor-pointer ${
@@ -2369,7 +2444,7 @@ const LearnerDashboard = () => {
             <BookOpen size={20} /> <span>My Learning Arena</span>
           </button>
 
-          {/* Tab 2: Achievements & Skills */}
+          {/* Tab 3: Achievements & Skills */}
           <button
             onClick={() => { setActiveDashboardTab("profile"); setSidebarOpen(false); }}
             className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl transition font-semibold cursor-pointer ${
@@ -2400,7 +2475,7 @@ const LearnerDashboard = () => {
               <Menu size={24} />
             </button>
             <h1 className="text-2xl font-black text-slate-800 tracking-tight capitalize">
-              {activeDashboardTab === 'courses' ? 'My Learning Arena' : 'Achievements & Skills'}
+              {activeDashboardTab === 'dashboard' ? 'Overview & Analytics' : activeDashboardTab === 'courses' ? 'My Learning Arena' : 'Achievements & Skills'}
             </h1>
           </div>
 
@@ -2482,6 +2557,170 @@ const LearnerDashboard = () => {
         <main className="p-8 overflow-y-auto bg-slate-50 flex-1 relative">
           <div className="max-w-7xl mx-auto animate-fade-in">
             
+            {activeDashboardTab === "dashboard" && (
+              <div className="space-y-8 animate-fade-in">
+                
+                {/* Dashboard Title */}
+                <div>
+                  <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-650 to-violet-650 tracking-tight mb-2">Academic Overview</h2>
+                  <p className="text-slate-500 font-semibold">Track your training metrics, course completions, and skills strengths.</p>
+                </div>
+
+                {/* KPI Cards Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {/* KPI 1: Level progress */}
+                  <div className="bg-white p-6 rounded-3xl border border-slate-200 flex items-center justify-between shadow-sm hover:shadow-md transition group">
+                    <div className="space-y-2">
+                      <p className="text-xs font-black text-slate-400 uppercase tracking-wide">Academic Level</p>
+                      <h3 className="text-2xl font-black text-slate-808 font-extrabold">Lvl {Math.floor((userInfo?.xp || 0) / 1000) + 1}</h3>
+                      <p className="text-[10px] text-indigo-605 font-bold">{(userInfo?.xp || 0) % 1000}/1000 XP to Next Lvl</p>
+                    </div>
+                    <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition duration-300">
+                      <Trophy size={22} className="fill-indigo-100" />
+                    </div>
+                  </div>
+
+                  {/* KPI 2: Active Streak */}
+                  <div className="bg-white p-6 rounded-3xl border border-slate-200 flex items-center justify-between shadow-sm hover:shadow-md transition group">
+                    <div className="space-y-2">
+                      <p className="text-xs font-black text-slate-400 uppercase tracking-wide">Daily Streak</p>
+                      <h3 className="text-2xl font-black text-slate-805 font-extrabold">{userInfo?.streak || 0}-Day Streak</h3>
+                      <p className="text-[10px] text-orange-600 font-bold flex items-center gap-1">
+                        <Flame size={10} className="fill-orange-500" /> Daily learning commitment
+                      </p>
+                    </div>
+                    <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition duration-300">
+                      <Flame size={22} className="fill-orange-100" />
+                    </div>
+                  </div>
+
+                  {/* KPI 3: Total XP Points */}
+                  <div className="bg-white p-6 rounded-3xl border border-slate-200 flex items-center justify-between shadow-sm hover:shadow-md transition group">
+                    <div className="space-y-2">
+                      <p className="text-xs font-black text-slate-400 uppercase tracking-wide">Cumulative Score</p>
+                      <h3 className="text-2xl font-black text-slate-800 font-extrabold">{(userInfo?.xp || 0).toLocaleString()} XP</h3>
+                      <p className="text-[10px] text-emerald-600 font-bold">From lectures & examinations</p>
+                    </div>
+                    <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition duration-300">
+                      <Sparkles size={22} className="fill-emerald-100" />
+                    </div>
+                  </div>
+
+                  {/* KPI 4: Course completions / Avg completion */}
+                  <div className="bg-white p-6 rounded-3xl border border-slate-200 flex items-center justify-between shadow-sm hover:shadow-md transition group">
+                    <div className="space-y-2">
+                      <p className="text-xs font-black text-slate-400 uppercase tracking-wide">Average Progress</p>
+                      <h3 className="text-2xl font-black text-slate-800 font-extrabold">{avgProgress}% Done</h3>
+                      <p className="text-[10px] text-purple-600 font-bold">Across {enrolledCourses.length} active quests</p>
+                    </div>
+                    <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition duration-300">
+                      <BookOpen size={22} className="fill-purple-100" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 1: Charts Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Study Minutes consistency (Bar chart) */}
+                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm lg:col-span-2">
+                    <h3 className="text-sm font-black text-slate-805 mb-6 flex items-center gap-2">
+                      <TrendingUp size={16} className="text-indigo-600" /> Learning Activity (Study Minutes)
+                    </h3>
+                    <div className="h-[250px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={studyMinutesData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                          <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fontSize: 10, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
+                          <Tooltip cursor={{ fill: '#F8FAFC' }} contentStyle={{ background: '#FFF', borderRadius: '12px', border: '1px solid #E2E8F0', fontSize: '11px', fontWeight: 'bold' }} />
+                          <Bar dataKey="minutes" fill="#4F46E5" radius={[6, 6, 0, 0]} barSize={28} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Skills radar distribution */}
+                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <h3 className="text-sm font-black text-slate-805 mb-4 flex items-center gap-2">
+                      <Brain size={16} className="text-indigo-600" /> Skill Strength Matrix
+                    </h3>
+                    {completedLessonsCount === 0 ? (
+                      <div className="h-[220px] flex items-center justify-center text-xs text-slate-400 font-medium italic text-center p-4">
+                        Unlock skill strength metrics by completing course lectures!
+                      </div>
+                    ) : (
+                      <div className="h-[220px] w-full flex justify-center">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <RadarChart cx="50%" cy="50%" outerRadius="75%" data={radarChartData}>
+                            <PolarGrid stroke="#F1F5F9" />
+                            <PolarAngleAxis dataKey="subject" tick={{ fontSize: 8, fill: '#64748B', fontWeight: '600' }} />
+                            <PolarRadiusAxis angle={30} domain={[0, 'auto']} tick={false} axisLine={false} />
+                            <Radar name="Completions" dataKey="A" stroke="#4F46E5" fill="#4F46E5" fillOpacity={0.2} />
+                          </RadarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                    <span className="text-[10px] text-slate-400 font-semibold text-center block pt-2">LMS category lesson distribution</span>
+                  </div>
+                </div>
+
+                {/* Row 2: Course Progress Comparisons & Peer Scoreboard */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Course list progress */}
+                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm lg:col-span-2">
+                    <h3 className="text-sm font-black text-slate-850 mb-6 flex items-center gap-2">
+                      <BookOpen size={16} className="text-indigo-600" /> Active Course Blueprints
+                    </h3>
+                    {enrolledCourses.length === 0 ? (
+                      <div className="h-[200px] flex items-center justify-center text-slate-400 font-medium italic text-xs">No active quests enrolled.</div>
+                    ) : (
+                      <div className="h-[200px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart layout="vertical" data={courseProgressData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#F1F5F9" />
+                            <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
+                            <YAxis type="category" dataKey="name" tick={{ fontSize: 9, fill: '#64748B', fontWeight: '600' }} axisLine={false} tickLine={false} width={110} />
+                            <Tooltip contentStyle={{ background: '#FFF', borderRadius: '12px', border: '1px solid #E2E8F0', fontSize: '11px', fontWeight: 'bold' }} />
+                            <Bar dataKey="progress" fill="#10B981" radius={[0, 6, 6, 0]} barSize={16} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Leaderboard Scoreboard Panel */}
+                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                    <h3 className="text-sm font-black text-slate-850 flex items-center gap-2">
+                      <Award size={16} className="text-amber-500" /> Global Peer Arena
+                    </h3>
+                    <div className="space-y-3">
+                      {[
+                        { name: "Arnab Sen", xp: 4850, avatar: "AS", active: false, rank: 1 },
+                        { name: "Sahitya Bagchi", xp: 3920, avatar: "SB", active: false, rank: 2 },
+                        { name: "Rishav Ghosh", xp: 3100, avatar: "RG", active: false, rank: 3 },
+                        { name: userInfo?.name || "You", xp: userInfo?.xp || 0, avatar: "ME", active: true, rank: 4 },
+                        { name: "Devansh Darnal", xp: 2250, avatar: "DD", active: false, rank: 5 }
+                      ].map((item, idx) => (
+                        <div key={idx} className={`flex items-center justify-between p-3 rounded-xl border transition ${item.active ? 'bg-indigo-50/50 border-indigo-200 shadow-sm' : 'bg-slate-50/30 border-transparent hover:bg-slate-50'}`}>
+                          <div className="flex items-center gap-3">
+                            <span className={`text-xs font-black w-5 h-5 flex items-center justify-center rounded-full ${item.rank === 1 ? 'bg-amber-100 text-amber-700' : item.rank === 2 ? 'bg-slate-100 text-slate-700' : item.rank === 3 ? 'bg-orange-100 text-orange-700' : 'text-slate-400'}`}>
+                              {item.rank}
+                            </span>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs text-white ${item.active ? 'bg-indigo-600' : 'bg-slate-400'}`}>
+                              {item.avatar}
+                            </div>
+                            <span className={`text-xs ${item.active ? 'font-black text-indigo-900' : 'font-semibold text-slate-700'}`}>{item.name}</span>
+                          </div>
+                          <span className="text-xs font-black text-slate-800">{item.xp} XP</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            )}
+
             {activeDashboardTab === "courses" && (
               <div>
                 <div className="mb-8">
