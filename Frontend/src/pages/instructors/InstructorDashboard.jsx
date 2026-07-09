@@ -457,7 +457,7 @@ const InstructorDashboard = () => {
         {/* HEADER */}
         <header className="bg-white shadow-sm px-8 py-5 flex justify-between items-center z-10 border-b border-slate-200 shrink-0">
           <div className="flex items-center gap-4">
-            <button className="md:hidden text-slate-600 hover:text-indigo-650 transition" onClick={() => setSidebarOpen(true)}>
+            <button className="md:hidden text-slate-600 hover:text-indigo-600 transition" onClick={() => setSidebarOpen(true)}>
               <Menu size={24} />
             </button>
             <h1 className="text-2xl font-black text-slate-800 tracking-tight capitalize">
@@ -648,7 +648,7 @@ const InstructorDashboard = () => {
                 {/* Student Progression roster list */}
                 <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
                   <h3 className="text-base font-bold text-slate-800 mb-6 flex items-center gap-2">
-                    <Award className="text-indigo-650" size={18} /> Student Progress Roster
+                    <Award className="text-indigo-600" size={18} /> Student Progress Roster
                   </h3>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left">
@@ -727,9 +727,9 @@ const InstructorDashboard = () => {
                         <div className="h-48 bg-slate-100 relative overflow-hidden">
                           <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-500 opacity-90 group-hover:opacity-100" />
                           <div className="absolute top-4 right-4 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wide shadow-lg border bg-white/80">
-                            {course.status === 'approved' && <span className="text-green-605 text-green-600 border-green-600/30 flex items-center gap-1"><Clock size={14} /> Active</span>}
-                            {course.status === 'pending' && <span className="text-amber-605 text-amber-600 border-amber-600/30 flex items-center gap-1"><Clock size={14} /> Pending Review</span>}
-                            {course.status === 'deletion_pending' && <span className="text-red-650 border-red-650/30 flex items-center gap-1"><Clock size={14} /> Deleting</span>}
+                            {course.status === 'approved' && <span className="text-green-600 border-green-600/30 flex items-center gap-1"><Clock size={14} /> Active</span>}
+                            {course.status === 'pending' && <span className="text-amber-600 border-amber-600/30 flex items-center gap-1"><Clock size={14} /> Pending Review</span>}
+                            {course.status === 'deletion_pending' && <span className="text-red-600 border-red-600/30 flex items-center gap-1"><Clock size={14} /> Deleting</span>}
                             {course.status === 'rejected' && <span className="text-red-700 border-red-700/30 flex items-center gap-1"><Clock size={14} /> Rejected</span>}
                           </div>
                         </div>
@@ -748,7 +748,7 @@ const InstructorDashboard = () => {
                               {course.editPermission === 'none' && (
                                 <button 
                                   onClick={() => handleRequestEdit(course._id)}
-                                  className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-650 hover:bg-indigo-600 text-indigo-700 hover:text-white border border-slate-200 hover:border-transparent rounded-lg text-xs font-bold transition cursor-pointer"
+                                  className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white border border-slate-200 hover:border-transparent rounded-lg text-xs font-bold transition cursor-pointer"
                                 >
                                   Request Edit
                                 </button>
@@ -761,14 +761,14 @@ const InstructorDashboard = () => {
                               {course.editPermission === 'allowed' && (
                                 <button 
                                   onClick={() => navigate(`/instructor-course?edit=${course._id}`)}
-                                  className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-650 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-slate-200 hover:border-transparent rounded-lg text-xs font-bold transition cursor-pointer"
+                                  className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-slate-200 hover:border-transparent rounded-lg text-xs font-bold transition cursor-pointer"
                                 >
                                   Edit Blueprint
                                 </button>
                               )}
 
                               {course.status === 'approved' && (
-                                <button onClick={() => handleRequestDelete(course._id)} className="p-2 bg-red-50 text-red-655 hover:bg-red-600 hover:text-white rounded-lg transition border border-red-200/40 cursor-pointer" title="Request Deletion">
+                                <button onClick={() => handleRequestDelete(course._id)} className="p-2 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-lg transition border border-red-200/40 cursor-pointer" title="Request Deletion">
                                   <Trash2 size={18} />
                                 </button>
                               )}
@@ -829,7 +829,7 @@ const InstructorDashboard = () => {
 
                           <button
                             onClick={() => handleChatStudent(contact.user)}
-                            className="px-6 py-2.5 bg-indigo-50 hover:bg-indigo-650 hover:bg-indigo-600 text-indigo-700 hover:text-white rounded-xl text-xs font-bold transition shadow-sm border border-indigo-100 hover:border-transparent cursor-pointer flex items-center gap-1.5"
+                            className="px-6 py-2.5 bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white rounded-xl text-xs font-bold transition shadow-sm border border-indigo-100 hover:border-transparent cursor-pointer flex items-center gap-1.5"
                           >
                             <MessageSquare size={14} /> Guide Student
                           </button>
@@ -868,7 +868,7 @@ const InstructorDashboard = () => {
                         <span className="text-xl font-bold text-green-600 flex items-center gap-1">
                           <ThumbsUp size={16} className="fill-green-600" /> {likedReviews}
                         </span>
-                        <span className="text-xl font-bold text-red-550 text-red-650 flex items-center gap-1">
+                        <span className="text-xl font-bold text-red-600 flex items-center gap-1">
                           <ThumbsDown size={16} className="fill-red-600" /> {dislikedReviews}
                         </span>
                       </div>
@@ -901,7 +901,7 @@ const InstructorDashboard = () => {
                               {review.studentId?.profilePicture ? (
                                 <img src={review.studentId.profilePicture} alt={review.studentId.name} className="w-8 h-8 rounded-full object-cover" />
                               ) : (
-                                <div className="w-8 h-8 bg-indigo-50 text-indigo-650 rounded-full flex items-center justify-center font-bold text-xs uppercase">
+                                <div className="w-8 h-8 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center font-bold text-xs uppercase">
                                   {review.studentId?.name?.charAt(0) || "S"}
                                 </div>
                               )}

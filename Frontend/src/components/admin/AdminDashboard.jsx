@@ -793,7 +793,7 @@ const AdminDashboard = () => {
               {/* --- SYSTEM MAINTENANCE & RESET TAB --- */}
               {activeTab === "maintenance" && (
                 <div className="max-w-3xl mx-auto bg-white p-8 rounded-2xl shadow-sm border border-red-200 animate-fade-in space-y-6">
-                  <div className="flex items-center gap-3 pb-4 border-b border-gray-100 text-red-650">
+                  <div className="flex items-center gap-3 pb-4 border-b border-gray-100 text-red-600">
                     <ShieldAlert size={28} className="text-red-600" />
                     <div>
                       <h2 className="text-xl font-black text-gray-800">Administrative System Maintenance</h2>
@@ -803,12 +803,12 @@ const AdminDashboard = () => {
 
                   <div className="bg-red-50/50 border border-red-100 p-5 rounded-xl space-y-3">
                     <h3 className="font-bold text-red-800 text-sm flex items-center gap-1.5"><AlertTriangle size={16} /> Irreversible Wipe Operation</h3>
-                    <p className="text-xs text-gray-650 leading-relaxed font-medium">
+                    <p className="text-xs text-gray-600 leading-relaxed font-medium">
                       Executing this utility will completely delete all records for <strong>learners</strong>, <strong>instructors</strong>, <strong>course blueprints</strong>, <strong>quizzes/exams</strong>, <strong>gamification history</strong>, and <strong>completion certificates</strong>. 
                     </p>
                     <div className="grid grid-cols-2 gap-4 text-[11px] font-semibold text-gray-600 pt-2">
                       <div className="bg-white p-3 rounded-lg border border-red-100/30">
-                        <p className="text-red-750 font-bold uppercase tracking-wider mb-1">Items Purged:</p>
+                        <p className="text-red-600 font-bold uppercase tracking-wider mb-1">Items Purged:</p>
                         <ul className="list-disc pl-4 space-y-0.5">
                           <li>Student roster & enrollments</li>
                           <li>Instructor bios & course catalogs</li>
@@ -1362,7 +1362,7 @@ const AdminDashboard = () => {
                                         <div className="space-y-1">
                                           <p className="font-extrabold text-gray-400 text-[9px] uppercase tracking-wider mb-0.5">Videos</p>
                                           {section.videos.map((vid, vIdx) => (
-                                            <div key={vIdx} className="flex items-start gap-1.5 text-gray-650">
+                                            <div key={vIdx} className="flex items-start gap-1.5 text-gray-600">
                                               <MonitorPlay size={10} className="text-blue-500 shrink-0 mt-0.5" />
                                               <span className="font-semibold line-clamp-1">{vid.title || `Video ${vIdx + 1}`}</span>
                                             </div>
@@ -1374,7 +1374,7 @@ const AdminDashboard = () => {
                                         <div className="space-y-1">
                                           <p className="font-extrabold text-gray-400 text-[9px] uppercase tracking-wider mb-0.5">Resources</p>
                                           {section.resources.map((res, rIdx) => (
-                                            <div key={rIdx} className="flex items-start gap-1.5 text-gray-650">
+                                            <div key={rIdx} className="flex items-start gap-1.5 text-gray-600">
                                               <FileText size={10} className="text-green-500 shrink-0 mt-0.5" />
                                               <span className="font-semibold line-clamp-1">{res.title || `Resource ${rIdx + 1}`}</span>
                                             </div>
@@ -1386,7 +1386,7 @@ const AdminDashboard = () => {
                                         <div className="space-y-1">
                                           <p className="font-extrabold text-gray-400 text-[9px] uppercase tracking-wider mb-0.5">Links</p>
                                           {section.links.map((link, lIdx) => (
-                                            <div key={lIdx} className="flex items-start gap-1.5 text-gray-650">
+                                            <div key={lIdx} className="flex items-start gap-1.5 text-gray-600">
                                               <LinkIcon size={10} className="text-purple-500 shrink-0 mt-0.5" />
                                               <span className="font-semibold line-clamp-1">{link.title || `Link ${lIdx + 1}`}</span>
                                             </div>

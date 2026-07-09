@@ -1400,7 +1400,7 @@ const LearnerDashboard = () => {
             href={activeContent.data.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-8 py-3.5 bg-purple-650 hover:bg-purple-600 text-white font-bold rounded-xl flex items-center gap-2 transition shadow-md shadow-purple-900/40 transform hover:-translate-y-0.5"
+            className="px-8 py-3.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl flex items-center gap-2 transition shadow-md shadow-purple-900/40 transform hover:-translate-y-0.5"
           >
             <ExternalLink size={16} /> Open Web Resource
           </a>
@@ -1466,7 +1466,7 @@ const LearnerDashboard = () => {
                             : 'bg-indigo-55 bg-indigo-50 hover:bg-indigo-600 border border-indigo-100 text-indigo-600 hover:text-white'
                           }`}
                       >
-                        <span className={`w-2 h-2 rounded-full ${isListening ? 'bg-white animate-ping' : 'bg-indigo-650'}`}></span>
+                        <span className={`w-2 h-2 rounded-full ${isListening ? 'bg-white animate-ping' : 'bg-indigo-600'}`}></span>
                         {isListening ? "Listening... (Click to stop)" : "Speak Answer (Mic)"}
                       </button>
                     </div>
@@ -1520,10 +1520,10 @@ const LearnerDashboard = () => {
                       onClick={voicePassed ? () => setShowVoiceModal(false) : handleVerifyVoiceAnswer}
                       disabled={!voiceAnswer.trim()}
                       className={`px-6 py-3.5 rounded-xl font-black transition shadow-sm flex-1 ${voicePassed
-                          ? 'bg-emerald-650 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
+                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
                           : !voiceAnswer.trim()
                             ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                            : 'bg-indigo-650 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm'
+                            : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm'
                         }`}
                     >
                       {voicePassed ? 'Close & Continue' : 'Evaluate Answer'}
@@ -1602,7 +1602,7 @@ const LearnerDashboard = () => {
                         <Trophy className="text-amber-500 w-12 h-12" />
                       </div>
                       <h3 className="text-3xl font-black text-slate-800 mb-2">Victory Achieved! 🏆</h3>
-                      <p className="text-slate-650 font-medium mb-6 max-w-md mx-auto">Sensational job! You passed the exam with a score of <span className="text-amber-600 font-black">{finalExamResult.score}/10</span>. You are certified!</p>
+                      <p className="text-slate-600 font-medium mb-6 max-w-md mx-auto">Sensational job! You passed the exam with a score of <span className="text-amber-600 font-black">{finalExamResult.score}/10</span>. You are certified!</p>
                       
                       <div className="flex flex-col sm:flex-row gap-4 justify-center items-center max-w-md mx-auto mb-4">
                         <button
@@ -1629,7 +1629,7 @@ const LearnerDashboard = () => {
                         <XCircle className="text-rose-500 w-12 h-12 animate-pulse" />
                       </div>
                       <h3 className="text-3xl font-black text-slate-800 mb-2">Exam Unsuccessful</h3>
-                      <p className="text-slate-650 font-medium mb-4 max-w-md mx-auto">You scored <span className="text-rose-600 font-black">{finalExamResult.score}/10</span>. A minimum score of 7/10 is required to pass.</p>
+                      <p className="text-slate-600 font-medium mb-4 max-w-md mx-auto">You scored <span className="text-rose-600 font-black">{finalExamResult.score}/10</span>. A minimum score of 7/10 is required to pass.</p>
 
                       {finalExamResult.suggestions && (
                         <div className="bg-slate-55 bg-slate-50 p-5 rounded-2xl border border-slate-200 text-left max-w-md mx-auto mb-8">
@@ -1667,7 +1667,7 @@ const LearnerDashboard = () => {
                           <span>{Math.round(((finalExamCurrentIndex) / 10) * 100)}% Complete</span>
                         </div>
                         <div className="w-full bg-slate-100 rounded-full h-2">
-                          <div className="bg-indigo-650 bg-indigo-600 h-2 rounded-full transition-all duration-300" style={{ width: `${((finalExamCurrentIndex + 1) / 10) * 100}%` }}></div>
+                          <div className="bg-indigo-600 h-2 rounded-full transition-all duration-300" style={{ width: `${((finalExamCurrentIndex + 1) / 10) * 100}%` }}></div>
                         </div>
                       </div>
 
@@ -1759,7 +1759,7 @@ const LearnerDashboard = () => {
                 <Trophy className="text-amber-500 w-12 h-12" />
               </div>
               <h2 className="text-3xl font-black text-slate-800 mb-2">Congratulations, {userInfo?.name}!</h2>
-              <p className="text-slate-650 font-medium mb-6">You have successfully mastered <span className="text-amber-600 font-bold">"{completedCourseName}"</span>.</p>
+              <p className="text-slate-600 font-medium mb-6">You have successfully mastered <span className="text-amber-600 font-bold">"{completedCourseName}"</span>.</p>
 
               <button
                 onClick={() => generateCertificatePDF(completedCourseName)}
@@ -1864,7 +1864,7 @@ const LearnerDashboard = () => {
             <button
               onClick={() => setSidebarTab("curriculum")}
               className={`flex-1 min-w-[70px] py-3.5 text-[10px] font-bold uppercase tracking-wider text-center border-b-2 transition flex items-center justify-center gap-1 ${sidebarTab === "curriculum"
-                  ? 'border-indigo-650 text-indigo-600 bg-white font-black'
+                  ? 'border-indigo-600 text-indigo-600 bg-white font-black'
                   : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
             >
@@ -1873,7 +1873,7 @@ const LearnerDashboard = () => {
             <button
               onClick={() => { setSidebarTab("summary"); fetchAiSummary(); }}
               className={`flex-1 min-w-[70px] py-3.5 text-[10px] font-bold uppercase tracking-wider text-center border-b-2 transition flex items-center justify-center gap-1 ${sidebarTab === "summary"
-                  ? 'border-indigo-655 text-indigo-600 bg-white font-black'
+                  ? 'border-indigo-600 text-indigo-600 bg-white font-black'
                   : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
             >
@@ -1882,7 +1882,7 @@ const LearnerDashboard = () => {
             <button
               onClick={() => setSidebarTab("notes")}
               className={`flex-1 min-w-[70px] py-3.5 text-[10px] font-bold uppercase tracking-wider text-center border-b-2 transition flex items-center justify-center gap-1 ${sidebarTab === "notes"
-                  ? 'border-indigo-650 text-indigo-600 bg-white font-black'
+                  ? 'border-indigo-600 text-indigo-600 bg-white font-black'
                   : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
             >
@@ -1891,7 +1891,7 @@ const LearnerDashboard = () => {
             <button
               onClick={() => { setSidebarTab("guidance"); fetchGuidanceChat(); }}
               className={`flex-1 min-w-[70px] py-3.5 text-[10px] font-bold uppercase tracking-wider text-center border-b-2 transition flex items-center justify-center gap-1 ${sidebarTab === "guidance"
-                  ? 'border-indigo-600 text-indigo-650 bg-white font-black'
+                  ? 'border-indigo-600 text-indigo-600 bg-white font-black'
                   : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
             >
@@ -1900,7 +1900,7 @@ const LearnerDashboard = () => {
             <button
               onClick={() => { setSidebarTab("feedback"); fetchCourseFeedback(); }}
               className={`flex-1 min-w-[70px] py-3.5 text-[10px] font-bold uppercase tracking-wider text-center border-b-2 transition flex items-center justify-center gap-1 ${sidebarTab === "feedback"
-                  ? 'border-indigo-600 text-indigo-650 bg-white font-black'
+                  ? 'border-indigo-600 text-indigo-600 bg-white font-black'
                   : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
             >
@@ -1943,7 +1943,7 @@ const LearnerDashboard = () => {
                                     ? "text-slate-400 font-medium"
                                     : activeContent?.data._id === vid._id
                                       ? "text-indigo-900 font-bold"
-                                      : "text-slate-650 font-medium"
+                                      : "text-slate-600 font-medium"
                                   }`}>{vid.title}</span>
                               </div>
                               {!locked && completedItems.includes(vid._id) && <CheckCircle size={14} className="text-green-500 drop-shadow-sm" />}
@@ -1966,13 +1966,13 @@ const LearnerDashboard = () => {
                                 {locked ? (
                                   <Lock size={16} className="text-slate-400" />
                                 ) : (
-                                  <FileText size={16} className={activeContent?.data._id === res._id ? "text-emerald-650" : "text-slate-500"} />
+                                  <FileText size={16} className={activeContent?.data._id === res._id ? "text-emerald-600" : "text-slate-500"} />
                                 )}
                                 <span className={`text-sm ${locked
                                     ? "text-slate-400 font-medium"
                                     : activeContent?.data._id === res._id
                                       ? "text-emerald-900 font-bold"
-                                      : "text-slate-650 font-medium"
+                                      : "text-slate-600 font-medium"
                                   }`}>{res.title}</span>
                               </div>
                               {!locked && completedItems.includes(res._id) && <CheckCircle size={14} className="text-green-500 drop-shadow-sm" />}
@@ -1995,13 +1995,13 @@ const LearnerDashboard = () => {
                                 {locked ? (
                                   <Lock size={16} className="text-slate-400" />
                                 ) : (
-                                  <LinkIcon size={16} className={activeContent?.data._id === link._id ? "text-purple-650" : "text-slate-500"} />
+                                  <LinkIcon size={16} className={activeContent?.data._id === link._id ? "text-purple-600" : "text-slate-500"} />
                                 )}
                                 <span className={`text-sm ${locked
                                     ? "text-slate-400 font-medium"
                                     : activeContent?.data._id === link._id
                                       ? "text-purple-900 font-bold"
-                                      : "text-slate-650 font-medium"
+                                      : "text-slate-600 font-medium"
                                   }`}>{link.title}</span>
                               </div>
                               {!locked && completedItems.includes(link._id) && <CheckCircle size={14} className="text-green-500 drop-shadow-sm" />}
@@ -2030,7 +2030,7 @@ const LearnerDashboard = () => {
                 {activeContent ? (
                   summaryLoading ? (
                     <div className="flex flex-col items-center justify-center py-20 text-center">
-                      <Loader className="animate-spin text-indigo-650 w-8 h-8 mb-3" />
+                      <Loader className="animate-spin text-indigo-600 w-8 h-8 mb-3" />
                       <p className="text-xs text-slate-500">Gemini is drafting study notes...</p>
                     </div>
                   ) : aiSummary ? (
@@ -2153,7 +2153,7 @@ const LearnerDashboard = () => {
                   )}
 
                   {!isGuidanceRecording && (
-                    <button type="button" onClick={handleStartGuidanceRecord} className="p-2 bg-slate-100 hover:bg-indigo-50 text-slate-500 hover:text-indigo-650 rounded-xl cursor-pointer" title="Record Voice">
+                    <button type="button" onClick={handleStartGuidanceRecord} className="p-2 bg-slate-100 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 rounded-xl cursor-pointer" title="Record Voice">
                       <Mic size={14} />
                     </button>
                   )}
@@ -2201,7 +2201,7 @@ const LearnerDashboard = () => {
 
                     <button
                       onClick={() => setIsEditingFeedback(true)}
-                      className="w-full py-2.5 bg-white border border-slate-200 text-indigo-650 hover:bg-slate-100 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+                      className="w-full py-2.5 bg-white border border-slate-200 text-indigo-600 hover:bg-slate-100 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
                     >
                       Update Review
                     </button>
@@ -2304,7 +2304,7 @@ const LearnerDashboard = () => {
                       <button
                         type="submit"
                         disabled={feedbackLiked === null || (!feedbackText.trim() && !feedbackVoiceUrl)}
-                        className="flex-grow py-3 bg-indigo-650 hover:bg-indigo-700 text-white text-xs font-black rounded-xl transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        className="flex-grow py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                       >
                         Submit Review
                       </button>
@@ -2562,7 +2562,7 @@ const LearnerDashboard = () => {
                 
                 {/* Dashboard Title */}
                 <div>
-                  <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-650 to-violet-650 tracking-tight mb-2">Academic Overview</h2>
+                  <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600 tracking-tight mb-2">Academic Overview</h2>
                   <p className="text-slate-500 font-semibold">Track your training metrics, course completions, and skills strengths.</p>
                 </div>
 
@@ -2724,7 +2724,7 @@ const LearnerDashboard = () => {
             {activeDashboardTab === "courses" && (
               <div>
                 <div className="mb-8">
-                  <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-650 to-violet-650 tracking-tight mb-2">My Learning Arena</h2>
+                  <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600 tracking-tight mb-2">My Learning Arena</h2>
                   <p className="text-slate-500 font-semibold">Your active quests and ongoing training blueprints.</p>
                 </div>
 
@@ -2922,7 +2922,7 @@ const LearnerDashboard = () => {
                           </p>
                           <button
                             onClick={() => navigate(`/courses`)}
-                            className="w-full py-2 bg-indigo-50 text-indigo-650 hover:bg-indigo-600 hover:text-white font-bold rounded-lg text-[10px] border border-indigo-100 hover:border-transparent transition duration-300 cursor-pointer"
+                            className="w-full py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white font-bold rounded-lg text-[10px] border border-indigo-100 hover:border-transparent transition duration-300 cursor-pointer"
                           >
                             View Course Card
                           </button>

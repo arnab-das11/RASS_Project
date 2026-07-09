@@ -381,7 +381,7 @@ const InstructorCoursePage = () => {
                                             className="flex-1 p-3 rounded-lg bg-white border border-slate-200 text-slate-800 focus:border-indigo-500 outline-none transition text-sm font-medium"
                                         />
                                         {courseData.learningObjectives.length > 1 && (
-                                            <button type="button" onClick={() => removeObjective(idx)} className="text-red-650 hover:text-red-500 p-2 bg-red-50 hover:bg-red-100 rounded-lg transition border border-red-200/40">
+                                            <button type="button" onClick={() => removeObjective(idx)} className="text-red-600 hover:text-red-500 p-2 bg-red-50 hover:bg-red-100 rounded-lg transition border border-red-200/40">
                                                 <Trash2 size={16} />
                                             </button>
                                         )}
@@ -480,7 +480,7 @@ const InstructorCoursePage = () => {
                                                     <button 
                                                         type="button" 
                                                         onClick={() => handleDeleteLecture(sec._id)} 
-                                                        className="p-1.5 bg-red-50 text-red-650 hover:bg-red-605 hover:bg-red-600 hover:text-white rounded transition cursor-pointer"
+                                                        className="p-1.5 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded transition cursor-pointer"
                                                         title="Delete this lecture"
                                                     >
                                                         <Trash2 size={14} />
@@ -521,7 +521,7 @@ const InstructorCoursePage = () => {
                                         <h3 className="text-sm font-black text-indigo-600 mb-4 flex items-center gap-2 uppercase tracking-wide"><Video size={16} /> Video Lectures</h3>
                                         <div className="relative border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:bg-white hover:border-indigo-500 transition cursor-pointer group bg-white/50">
                                             <Plus className="mx-auto text-slate-400 mb-2 group-hover:text-indigo-600 transition group-hover:scale-125" size={24} />
-                                            <p className="text-sm text-slate-650 font-bold">Select Video Files</p>
+                                            <p className="text-sm text-slate-600 font-bold">Select Video Files</p>
                                             <input type="file" accept="video/*" multiple onChange={handleVideoSelect} className="absolute inset-0 opacity-0 cursor-pointer" />
                                         </div>
                                         <div className="mt-4 space-y-3 max-h-56 overflow-y-auto custom-scrollbar pr-2">
@@ -529,7 +529,7 @@ const InstructorCoursePage = () => {
                                                 <div key={i} className="flex flex-col bg-white p-3 rounded-lg border border-slate-200 shadow-sm gap-2">
                                                     <div className="flex justify-between items-center">
                                                         <span className="text-xs font-bold text-indigo-750 truncate max-w-[80%] flex items-center gap-2"><Check size={12} className="text-emerald-500" /> {file.name}</span>
-                                                        <button type="button" onClick={() => removeVideo(i)} className="text-red-650 hover:text-red-500 bg-red-50 p-1.5 rounded"><Trash2 size={14} /></button>
+                                                        <button type="button" onClick={() => removeVideo(i)} className="text-red-600 hover:text-red-500 bg-red-50 p-1.5 rounded"><Trash2 size={14} /></button>
                                                     </div>
                                                     <input
                                                         type="text"
@@ -549,7 +549,7 @@ const InstructorCoursePage = () => {
                                                         <button
                                                             type="button"
                                                             onClick={() => removeYoutubeVideo(i)}
-                                                            className="text-red-650 hover:text-red-500 bg-red-55 bg-red-50 p-1.5 rounded"
+                                                            className="text-red-600 hover:text-red-500 bg-red-50 p-1.5 rounded"
                                                         >
                                                             <Trash2 size={14} />
                                                         </button>
@@ -594,11 +594,11 @@ const InstructorCoursePage = () => {
                                     </div>
 
                                     {/* --- RESOURCES (EXPANDED EXTENSIONS) --- */}
-                                    <div className="border border-slate-200 rounded-2xl p-5 bg-slate-50 hover:border-emerald-450 transition duration-300">
+                                    <div className="border border-slate-200 rounded-2xl p-5 bg-slate-50 hover:border-emerald-500 transition duration-300">
                                         <h3 className="text-sm font-black text-emerald-600 mb-4 flex items-center gap-2 uppercase tracking-wide"><FileArchive size={16} /> Documents & Data</h3>
                                         <div className="relative border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:bg-white hover:border-emerald-500 transition cursor-pointer group bg-white/50">
                                             <Plus className="mx-auto text-slate-400 mb-2 group-hover:text-emerald-600 transition group-hover:scale-125" size={24} />
-                                            <p className="text-sm text-slate-650 font-bold">PDF, Excel, Docs, BibTeX, Zip</p>
+                                            <p className="text-sm text-slate-600 font-bold">PDF, Excel, Docs, BibTeX, Zip</p>
                                             <input type="file" accept=".pdf,.doc,.docx,.bib,.txt,.xls,.xlsx,.csv,.ppt,.pptx,.zip" multiple onChange={handleResourceSelect} className="absolute inset-0 opacity-0 cursor-pointer" />
                                         </div>
                                         <div className="mt-4 space-y-3 max-h-56 overflow-y-auto custom-scrollbar pr-2">
@@ -606,7 +606,7 @@ const InstructorCoursePage = () => {
                                                 <div key={i} className="flex flex-col bg-white p-3 rounded-lg border border-slate-200 shadow-sm gap-2">
                                                     <div className="flex justify-between items-center">
                                                         <span className="text-xs font-bold text-emerald-750 truncate max-w-[80%] flex items-center gap-2"><Check size={12} className="text-emerald-500" /> {file.name}</span>
-                                                        <button type="button" onClick={() => removeResource(i)} className="text-red-650 hover:text-red-500 bg-red-50 p-1.5 rounded"><Trash2 size={14} /></button>
+                                                        <button type="button" onClick={() => removeResource(i)} className="text-red-600 hover:text-red-500 bg-red-50 p-1.5 rounded"><Trash2 size={14} /></button>
                                                     </div>
                                                     <input
                                                         type="text"
@@ -627,13 +627,13 @@ const InstructorCoursePage = () => {
                                     <div className="flex flex-col gap-3 mb-4">
                                         <div className="flex flex-col sm:flex-row gap-3">
                                             <input type="text" placeholder="Title (e.g. Official React Docs)" value={tempLinkTitle} onChange={(e) => setTempLinkTitle(e.target.value)}
-                                                className="w-full sm:w-1/3 p-3 rounded-xl bg-white border border-slate-250 text-sm text-slate-800 focus:border-purple-500 outline-none font-medium" />
+                                                className="w-full sm:w-1/3 p-3 rounded-xl bg-white border border-slate-200 text-sm text-slate-800 focus:border-purple-500 outline-none font-medium" />
                                             <input type="url" placeholder="https://..." value={tempLinkUrl} onChange={(e) => setTempLinkUrl(e.target.value)}
-                                                className="flex-1 p-3 rounded-xl bg-white border border-slate-250 text-sm text-slate-800 focus:border-purple-500 outline-none font-medium" />
+                                                className="flex-1 p-3 rounded-xl bg-white border border-slate-200 text-sm text-slate-800 focus:border-purple-500 outline-none font-medium" />
                                         </div>
                                         <div className="flex gap-3">
                                             <input type="text" placeholder="Link description / article summary snippet..." value={tempLinkDesc} onChange={(e) => setTempLinkDesc(e.target.value)}
-                                                className="flex-1 p-3 rounded-xl bg-white border border-slate-250 text-sm text-slate-800 focus:border-purple-500 outline-none font-medium" />
+                                                className="flex-1 p-3 rounded-xl bg-white border border-slate-200 text-sm text-slate-800 focus:border-purple-500 outline-none font-medium" />
                                             <button type="button" onClick={addLink} className="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-xl text-white text-sm font-bold shadow-md shadow-purple-100 transition whitespace-nowrap cursor-pointer">Add Link</button>
                                         </div>
                                     </div>
@@ -641,10 +641,10 @@ const InstructorCoursePage = () => {
                                         {links.map((link, i) => (
                                             <div key={i} className="text-sm text-slate-800 flex justify-between items-center bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
                                                 <div className="truncate max-w-[85%]">
-                                                    <span className="font-bold text-purple-650">{link.title}</span>
-                                                    <span className="text-slate-450 text-xs block truncate mt-0.5">{link.url}</span>
+                                                    <span className="font-bold text-purple-600">{link.title}</span>
+                                                    <span className="text-slate-400 text-xs block truncate mt-0.5">{link.url}</span>
                                                 </div>
-                                                <button type="button" onClick={() => removeLink(i)} className="text-red-650 hover:text-red-500 bg-red-50 p-1.5 rounded"><X size={14} /></button>
+                                                <button type="button" onClick={() => removeLink(i)} className="text-red-600 hover:text-red-500 bg-red-50 p-1.5 rounded"><X size={14} /></button>
                                             </div>
                                         ))}
                                     </div>
@@ -670,7 +670,7 @@ const InstructorCoursePage = () => {
                         </div>
                         {isEditMode && (
                             <div className="bg-white rounded-3xl shadow-xl p-8 border border-slate-200 space-y-6">
-                                <h3 className="text-xl font-bold text-indigo-650 flex items-center gap-2">
+                                <h3 className="text-xl font-bold text-indigo-600 flex items-center gap-2">
                                     <ListChecks className="text-indigo-600" /> Save & Finalize Edits
                                 </h3>
                                 <p className="text-sm text-slate-500 font-semibold leading-relaxed">

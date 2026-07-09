@@ -290,7 +290,7 @@ const ChatModal = ({ isOpen, onClose, currentUser, otherUser, onMessagesRead }) 
             <button
               type="button"
               onClick={startRecording}
-              className="p-2.5 bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-650 rounded-xl transition cursor-pointer flex items-center justify-center border border-transparent hover:border-indigo-100"
+              className="p-2.5 bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 rounded-xl transition cursor-pointer flex items-center justify-center border border-transparent hover:border-indigo-100"
               title="Record Voice Message"
             >
               <Mic size={16} />
@@ -301,7 +301,7 @@ const ChatModal = ({ isOpen, onClose, currentUser, otherUser, onMessagesRead }) 
             <button
               type="submit"
               disabled={!inputText.trim()}
-              className="p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-705 hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center shadow-md shadow-indigo-100"
+              className="p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center shadow-md shadow-indigo-100"
             >
               <Send size={16} />
             </button>
